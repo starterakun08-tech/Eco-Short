@@ -1,0 +1,18 @@
+{
+  "name": "ecosort-iot-dashboard",
+  "version": "1.0.0",
+  "description": "EcoSort IoT Dashboard + NEXA HOME CCTV Relay",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4",
+    "uuid": "^11.0.0"
+  }
+}

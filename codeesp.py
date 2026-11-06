@@ -1,0 +1,361 @@
+from hx711 import HX711
+from machine import Pin, time_pulse_us, reset
+import network
+import time
+import urequests
+
+# --- KONFIGURASI PIN ---
+trig = Pin(19, Pin.OUT)
+echo = Pin(18, Pin.IN)
+hx = HX711(d_out=4, pd_sck=5)
+
+# --- PENGATURAN ---
+FAKTOR_KALIBRASI = 423.5
+AMBANG_PENUH_CM = 10
+JARAK_KOSONG_CM = 35
+
+WIFI_SSID = "Galaxy S26 Ultra"
+WIFI_PASSWORD = "Bangkoks"
+
+# ===== [DIUBAH] SERVER_URL mengarah ke hosting publik =====
+SERVER_URL = "http://144.79.202.196:40122/api/iot/data"
+# ===== [DITAMBAH] URL endpoint perintah dari dashboard =====
+COMMAND_URL = "http://144.79.202.196:40122/api/iot/commands"
+# ===== [DITAMBAH] Token autentikasi perangkat =====
+DEVICE_TOKEN = "ecosort-secret-2024"
+
+DEVICE_ID = "esp32-ecosort-1"
+SEND_INTERVAL_SECONDS = 1
+HTTP_TIMEOUT_SECONDS = 3
+LOOP_DELAY_MS = 120
+
+HX_SAMPLE_COUNT = 1
+HX_SAMPLE_DELAY_MS = 0
+
+ULTRASONIC_SAMPLE_COUNT = 1
+ULTRASONIC_SAMPLE_DELAY_MS = 0
+
+WEIGHT_SMOOTHING_ALPHA_RISE = 0.45
+WEIGHT_SMOOTHING_ALPHA_FALL = 0.85
+DISTANCE_SMOOTHING_ALPHA = 0.50
+ZERO_NOISE_GRAM = 3
+WEIGH_START_GRAM = 25
+WEIGH_END_GRAM = 10
+WEIGH_CLEAR_SAMPLES = 1
+
+MIN_VALID_DISTANCE_CM = 2
+MAX_VALID_DISTANCE_CM = 300
+
+wifi = network.WLAN(network.STA_IF)
+
+smoothed_weight_gram = None
+smoothed_distance_cm = None
+total_weight_gram = 0
+pending_weight_gram = 0
+weight_event_active = False
+weight_clear_count = 0
+
+# ===== [DITAMBAH] Counter untuk polling perintah setiap 5 siklus kirim =====
+command_poll_counter = 0
+COMMAND_POLL_EVERY = 5  # Cek perintah setiap 5x kirim data
+
+
+def connect_wifi():
+    if wifi.isconnected():
+        print("WiFi:", wifi.ifconfig()[0])
+        return True
+
+    wifi.active(True)
+    wifi.disconnect()
+    time.sleep(1)
+
+    print("Connect WiFi...")
+    wifi.connect(WIFI_SSID, WIFI_PASSWORD)
+
+    for _ in range(20):
+        if wifi.isconnected():
+            print("Connected:", wifi.ifconfig()[0])
+            return True
+        time.sleep(1)
+
+    print("WiFi gagal")
+    return False
+
+
+def get_distance():
+    trig.value(0)
+    time.sleep_us(2)
+    trig.value(1)
+    time.sleep_us(10)
+    trig.value(0)
+
+    try:
+        duration = time_pulse_us(echo, 1, 30000)
+        if duration <= 0:
+            return None
+        return (duration / 2) / 29.1
+    except Exception as e:
+        print("Ultrasonic error:", e)
+        return None
+
+
+def read_distance_cm():
+    samples = []
+    for _ in range(ULTRASONIC_SAMPLE_COUNT):
+        jarak = get_distance()
+        if jarak is not None and MIN_VALID_DISTANCE_CM <= jarak <= MAX_VALID_DISTANCE_CM:
+            samples.append(jarak)
+        time.sleep_ms(ULTRASONIC_SAMPLE_DELAY_MS)
+
+    if not samples:
+        return None
+
+    samples.sort()
+    mid = len(samples) // 2
+    if len(samples) % 2:
+        return samples[mid]
+    return (samples[mid - 1] + samples[mid]) / 2
+
+
+def read_hx711_value():
+    if hasattr(hx, "get_value"):
+        return hx.get_value()
+    if hasattr(hx, "read_average"):
+        return hx.read_average()
+    return hx.read()
+
+
+def read_weight_gram():
+    samples = []
+    for _ in range(HX_SAMPLE_COUNT):
+        try:
+            raw = read_hx711_value()
+            gram = raw / FAKTOR_KALIBRASI
+            if abs(gram) < ZERO_NOISE_GRAM:
+                gram = 0
+            samples.append(max(0, gram))
+        except Exception as e:
+            print("HX711 error:", e)
+        time.sleep_ms(HX_SAMPLE_DELAY_MS)
+
+    if not samples:
+        return None
+    return sum(samples) / len(samples)
+
+
+def apply_ema(prev, curr, alpha):
+    if curr is None:
+        return prev
+    if prev is None:
+        return curr
+    return alpha * curr + (1 - alpha) * prev
+
+
+def smooth_weight(prev, curr):
+    if curr is None:
+        return prev
+    if prev is None:
+        return curr
+    alpha = WEIGHT_SMOOTHING_ALPHA_RISE if curr >= prev else WEIGHT_SMOOTHING_ALPHA_FALL
+    return apply_ema(prev, curr, alpha)
+
+
+def update_weight_total(total, pending, active, clear_count, curr):
+    current = max(0, curr or 0)
+
+    if not active and current >= WEIGH_START_GRAM:
+        active = True
+        pending = current
+        clear_count = 0
+
+    if active:
+        if current > pending:
+            pending = current
+
+        if current <= WEIGH_END_GRAM:
+            clear_count += 1
+            if clear_count >= WEIGH_CLEAR_SAMPLES:
+                total += pending
+                pending = 0
+                active = False
+                clear_count = 0
+        else:
+            clear_count = 0
+
+    # Tampilkan realtime agar cepat turun saat beban dilepas.
+    # Akumulasi final tetap pakai pending (peak hold).
+    displayed = total + (current if active else 0)
+    return total, pending, active, clear_count, displayed
+
+
+def format_weight_label(g):
+    if g is None or g <= 0:
+        return "0 g"
+    if g < 1000:
+        return "{:.1f} g".format(g)
+    return "{:.2f} kg".format(g / 1000)
+
+
+def send_to_dashboard(berat, jarak, berat_sensor, pending, total):
+    if not wifi.isconnected():
+        print("Reconnect WiFi...")
+        if not connect_wifi():
+            print("Skip kirim")
+            return
+
+    payload = {
+        "deviceId": DEVICE_ID,
+        # weightGram dipakai dashboard sebagai angka live utama.
+        # Isi dengan nilai sensor realtime, bukan akumulasi event.
+        "weightGram": round(berat_sensor or 0, 1),
+        "totalWeightGram": round(total or 0, 1),
+        "pendingWeightGram": round(pending or 0, 1),
+        "currentWeightGram": round(berat_sensor or 0, 1),
+        "resetWeight": True,
+        "fullThresholdCm": AMBANG_PENUH_CM,
+        "emptyDistanceCm": JARAK_KOSONG_CM
+    }
+
+    if jarak is not None:
+        payload["distanceCm"] = round(jarak, 1)
+
+    # ===== [DIUBAH] Tambah header autentikasi perangkat =====
+    headers = {"X-Device-Token": DEVICE_TOKEN}
+
+    for attempt in range(2):
+        try:
+            res = urequests.post(SERVER_URL, json=payload,
+                                 headers=headers,
+                                 timeout=HTTP_TIMEOUT_SECONDS)
+            print("HTTP:", res.status_code)
+            res.close()
+            return
+        except Exception as e:
+            print("HTTP error:", e, "| retry", attempt + 1)
+            time.sleep_ms(300)
+
+
+# ===== [DITAMBAH] Fungsi untuk mengambil & menjalankan perintah dari dashboard =====
+def poll_and_execute_commands():
+    """Ambil perintah dari server dan jalankan."""
+    global FAKTOR_KALIBRASI, SEND_INTERVAL_SECONDS, total_weight_gram
+    global pending_weight_gram, weight_event_active, weight_clear_count
+    global smoothed_weight_gram
+
+    if not wifi.isconnected():
+        return
+
+    url = COMMAND_URL + "?deviceId=" + DEVICE_ID
+    headers = {"X-Device-Token": DEVICE_TOKEN}
+
+    try:
+        res = urequests.get(url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
+        if res.status_code == 200:
+            data = res.json()
+            commands = data.get("commands", [])
+            for cmd in commands:
+                cmd_type = cmd.get("type", "")
+                params = cmd.get("params", {})
+                print("[CMD] Terima:", cmd_type, params)
+
+                if cmd_type == "tare":
+                    # Tare / nol-kan timbangan
+                    print("[CMD] Tare HX711...")
+                    hx.tare()
+                    smoothed_weight_gram = None
+                    total_weight_gram = 0
+                    pending_weight_gram = 0
+                    weight_event_active = False
+                    weight_clear_count = 0
+                    print("[CMD] Tare selesai")
+
+                elif cmd_type == "set_calibration":
+                    # Ubah faktor kalibrasi
+                    new_val = params.get("value")
+                    if new_val is not None:
+                        FAKTOR_KALIBRASI = float(new_val)
+                        print("[CMD] FAKTOR_KALIBRASI =", FAKTOR_KALIBRASI)
+
+                elif cmd_type == "set_interval":
+                    # Ubah interval kirim data (detik)
+                    new_val = params.get("value")
+                    if new_val is not None:
+                        SEND_INTERVAL_SECONDS = int(new_val)
+                        print("[CMD] SEND_INTERVAL_SECONDS =", SEND_INTERVAL_SECONDS)
+
+                elif cmd_type == "restart":
+                    # Restart ESP32
+                    print("[CMD] Restart ESP32...")
+                    time.sleep(1)
+                    reset()
+
+                else:
+                    print("[CMD] Perintah tidak dikenal:", cmd_type)
+
+        res.close()
+    except Exception as e:
+        print("CMD poll error:", e)
+# ===== [AKHIR TAMBAHAN] =====
+
+
+print("Start system...")
+connect_wifi()
+
+print("Tare HX711...")
+hx.tare()
+print("Ready\n")
+
+while True:
+    try:
+        berat_raw = read_weight_gram()
+        jarak_raw = read_distance_cm(), 
+
+        smoothed_weight_gram = smooth_weight(smoothed_weight_gram, berat_raw)
+        smoothed_distance_cm = apply_ema(smoothed_distance_cm, jarak_raw, DISTANCE_SMOOTHING_ALPHA)
+
+        berat_sensor = smoothed_weight_gram or 0
+        jarak = smoothed_distance_cm
+        (
+            total_weight_gram,
+            pending_weight_gram,
+            weight_event_active,
+            weight_clear_count,
+            berat
+        ) = update_weight_total(
+            total_weight_gram,
+            pending_weight_gram,
+            weight_event_active,
+            weight_clear_count,
+            berat_sensor
+        )
+
+        print("----------------------")
+        print("Berat total:", format_weight_label(berat))
+        print("Berat sensor:", format_weight_label(berat_sensor))
+        print("Jarak:", "ERROR" if jarak is None else "{:.1f} cm".format(jarak))
+
+        if jarak is not None and jarak <= AMBANG_PENUH_CM:
+            print("STATUS: PENUH")
+        elif jarak is None:
+            print("STATUS: SENSOR ERROR")
+        else:
+            print("STATUS: AMAN")
+
+        now_sec = time.time()
+        if "last_send_sec" not in globals():
+            last_send_sec = 0
+        if (now_sec - last_send_sec) >= SEND_INTERVAL_SECONDS:
+            send_to_dashboard(berat, jarak, berat_sensor, pending_weight_gram, total_weight_gram)
+            last_send_sec = now_sec
+
+            # ===== [DITAMBAH] Poll perintah dari dashboard setiap beberapa siklus =====
+            command_poll_counter += 1
+            if command_poll_counter >= COMMAND_POLL_EVERY:
+                poll_and_execute_commands()
+                command_poll_counter = 0
+            # ===== [AKHIR TAMBAHAN] =====
+
+        time.sleep_ms(LOOP_DELAY_MS)
+    except Exception as e:
+        print("Loop error:", e)
+        time.sleep(2)

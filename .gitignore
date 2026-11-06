@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Local runtime data
+server/data/*.json
+server/data/*.tmp
+!server/data/.gitkeep
+
+# Archives and build artifacts
+*.zip
+*.tar.gz
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
