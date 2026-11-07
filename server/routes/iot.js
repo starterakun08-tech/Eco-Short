@@ -282,5 +282,99 @@ router.get('/transactions', requireAuth, (req, res) => {
   }
 });
 
+// =================================================================
+//  GET /api/iot/notifications — Notifikasi nyata perangkat & sistem
+// =================================================================
+router.get('/notifications', requireAuth, (req, res) => {
+  try {
+    const devices = readJSON(DEVICES_FILE, {});
+    const dev = devices['esp32-ecosort-1'] || Object.values(devices)[0];
+    const log = readJSON(COMMAND_LOG_FILE, []);
+    const notifs = [];
+
+    const now = Date.now();
+    let isOnline = false;
+    let isFull = false;
+    let isSensorError = false;
+
+    if (dev) {
+      const lastSeenMs = new Date(dev.lastSeen || 0).getTime();
+      isOnline = (now - lastSeenMs) < ONLINE_TIMEOUT_MS;
+      if (dev.distanceCm === null || dev.distanceCm === undefined) {
+        isSensorError = true;
+      } else if (dev.distanceCm <= (dev.fullThresholdCm || 10)) {
+        isFull = true;
+      }
+    }
+
+    if (!isOnline) {
+      notifs.push({
+        id: 'notif-offline',
+        type: 'warning',
+        icon: 'wifi_off',
+        title: 'Perangkat Offline',
+        message: 'esp32-ecosort-1 tidak mengirim data lebih dari 10 detik. Periksa daya atau koneksi WiFi.',
+        time: 'Baru saja',
+        unread: true
+      });
+    }
+
+    if (isFull) {
+      notifs.push({
+        id: 'notif-full',
+        type: 'danger',
+        icon: 'delete',
+        title: 'Tong Sampah Penuh!',
+        message: `Kapasitas telah mencapai batas maksimal (${dev.distanceCm} cm). Segera kosongkan bak sampah.`,
+        time: 'Penting',
+        unread: true
+      });
+    }
+
+    if (isSensorError && isOnline) {
+      notifs.push({
+        id: 'notif-sensor',
+        type: 'danger',
+        icon: 'error',
+        title: 'Sensor Jarak Error',
+        message: 'Sensor HC-SR04 mengalami timeout pembacaan jarak.',
+        time: 'Baru saja',
+        unread: true
+      });
+    }
+
+    // Notifikasi perintah terakhir
+    if (log && log.length > 0) {
+      const lastCmd = log[log.length - 1];
+      const cmdName = lastCmd.type === 'tare' ? 'Tare Timbangan' : lastCmd.type === 'restart' ? 'Restart ESP32' : lastCmd.type;
+      notifs.push({
+        id: 'notif-cmd-' + lastCmd.id,
+        type: 'info',
+        icon: 'build',
+        title: `Perintah: ${cmdName}`,
+        message: `Status perintah: ${lastCmd.status === 'delivered' ? 'Selesai dieksekusi ESP32' : 'Menunggu antrean'}.`,
+        time: 'Hari ini',
+        unread: false
+      });
+    }
+
+    // Notifikasi sistem standby
+    notifs.push({
+      id: 'notif-sys',
+      type: 'success',
+      icon: 'check_circle',
+      title: 'EcoSort IoT Siap',
+      message: 'Sistem monitoring mikrokontroler aktif dan tersinkronisasi.',
+      time: 'Hari ini',
+      unread: false
+    });
+
+    const unreadCount = notifs.filter(n => n.unread).length;
+    res.json({ notifications: notifs, unreadCount });
+  } catch (err) {
+    res.json({ notifications: [], unreadCount: 0 });
+  }
+});
+
 module.exports = router;
 

@@ -42,13 +42,18 @@ IOT AKBAR/
 3. Upload file `ecosort-upload.zip` (atau seluruh file proyek: `index.js`, `package.json`, `server/`, `public/`).
 4. Jika mengupload file ZIP: klik titik tiga di sebelah file `ecosort-upload.zip` lalu pilih **Unarchive**.
 
-### 2. Konfigurasi Menu Startup
+### 2. Konfigurasi Menu Startup & Variabel Lingkungan (AI)
 1. Buka tab **Startup** di panel Hostingin.
 2. Pada kolom **Main File** (atau `MAIN_FILE`), pastikan terisi:
    ```text
    index.js
    ```
 3. Pastikan **Node.js Version** adalah `24`.
+4. **Konfigurasi AI Assistant (Opsional):**
+   - Tambahkan Environment Variable baru atau isi di kolom variables:
+     - **Nama Variabel**: `GEMINI_API_KEY`
+     - **Nilai**: API key Google Gemini Anda (dari [Google AI Studio](https://aistudio.google.com/)).
+   - *Catatan:* Jika `GEMINI_API_KEY` belum diisi, asisten AI di halaman dashboard tetap dapat digunakan dalam **Mode Data Cerdas** (menjawab otomatis berdasarkan telemetri sensor live). Ketika API key diisi, AI akan menggunakan Google Gemini LLM secara langsung.
 
 ### 3. Jalankan Server
 1. Masuk ke tab **Console** di panel.

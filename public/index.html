@@ -6,19 +6,19 @@
   <title>Creativilo — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-  <!-- Mockup Window Frame -->
+  <!-- Mockup Window Frame (Tepat 100dvh pada Desktop) -->
   <div class="dashboard-window">
 
     <!-- ============================================================
-         COLUMN 1: SIDEBAR (Kiri)
+         COLUMN 1: SIDEBAR (Kiri — Disederhanakan)
          ============================================================ -->
     <aside class="sidebar">
-      <div>
+      <div class="sidebar-top">
         <!-- Brand Logo -->
         <a href="#" class="brand-wrap" onclick="switchNav('dashboard'); return false;">
           <div class="brand-icon">
@@ -29,9 +29,9 @@
           <span class="brand-name">Creativilo</span>
         </a>
 
-        <!-- Section: Overview -->
-        <div class="nav-section-title">Overview</div>
+        <!-- Daftar Menu Rapi Tanpa Header Grup -->
         <ul class="nav-list">
+          <!-- 1. Dashboard -->
           <li>
             <button class="nav-item active" id="nav-dashboard" onclick="switchNav('dashboard')">
               <span class="nav-left">
@@ -41,66 +41,50 @@
               <span class="nav-active-bar"></span>
             </button>
           </li>
+          <!-- 2. AI (Ganti Projects) -->
           <li>
-            <button class="nav-item" id="nav-projects" onclick="openControlModal()">
+            <button class="nav-item" id="nav-ai" onclick="switchNav('ai')">
               <span class="nav-left">
-                <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-                <span>Projects</span>
+                <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+                <span>AI</span>
               </span>
             </button>
           </li>
+          <!-- 3. Analytics -->
           <li>
-            <button class="nav-item" id="nav-analytics" onclick="switchNav('dashboard')">
+            <button class="nav-item" id="nav-analytics" onclick="switchNav('analytics')">
               <span class="nav-left">
                 <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
                 <span>Analytics</span>
               </span>
             </button>
           </li>
+          <!-- 4. Reports -->
           <li>
-            <button class="nav-item" id="nav-reports" onclick="switchNav('dashboard')">
+            <button class="nav-item" id="nav-reports" onclick="switchNav('reports')">
               <span class="nav-left">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                 <span>Reports</span>
               </span>
             </button>
           </li>
-        </ul>
-
-        <!-- Section: Business -->
-        <div class="nav-section-title">Business</div>
-        <ul class="nav-list">
+          <!-- 5. Chat -->
           <li>
-            <button class="nav-item" id="nav-store" onclick="openControlModal()">
-              <span class="nav-left">
-                <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
-                <span>Store</span>
-              </span>
-            </button>
-          </li>
-          <li>
-            <button class="nav-item" id="nav-outlet" onclick="openControlModal()">
-              <span class="nav-left">
-                <svg viewBox="0 0 24 24"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>
-                <span>Outlet</span>
-              </span>
-            </button>
-          </li>
-          <li>
-            <button class="nav-item" id="nav-products" onclick="openControlModal()">
-              <span class="nav-left">
-                <svg viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5.78 7.64 12 11.13l6.22-3.49L12 4.15zm-7 5.09v6.52l6 3.38v-6.52l-6-3.38zm14 0l-6 3.38v6.52l6-3.38V9.24z"/></svg>
-                <span>Products</span>
-              </span>
-            </button>
-          </li>
-          <li>
-            <button class="nav-item" id="nav-chat" onclick="openControlModal()">
+            <button class="nav-item" id="nav-chat" onclick="switchNav('ai')">
               <span class="nav-left">
                 <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
                 <span>Chat</span>
               </span>
               <span class="chat-dot"></span>
+            </button>
+          </li>
+          <!-- 6. Kontrol -->
+          <li>
+            <button class="nav-item" id="nav-control" onclick="openControlModal()">
+              <span class="nav-left">
+                <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+                <span>Kontrol</span>
+              </span>
             </button>
           </li>
         </ul>
@@ -121,200 +105,416 @@
     <!-- ============================================================
          COLUMN 2: MAIN CONTENT (Tengah)
          ============================================================ -->
-    <main class="main-content">
+    <main class="main-content" id="mainContentScroll">
 
-      <!-- Header: Title + Search -->
-      <header class="content-header">
-        <div class="header-titles">
-          <h1>Dashboard</h1>
-          <p>All details about your selling products are here..</p>
-        </div>
-        <div class="search-pill">
-          <input type="text" placeholder="Search" />
-          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        </div>
-      </header>
+      <!-- ========================================================
+           VIEW 1: DASHBOARD UTAMA
+           ======================================================== -->
+      <div id="view-dashboard" class="dashboard-view active">
+        <!-- Header: Title + Search -->
+        <header class="content-header">
+          <div class="header-titles">
+            <h1>Dashboard</h1>
+            <p>All details about your selling products are here..</p>
+          </div>
+          <div class="search-pill">
+            <input type="text" placeholder="Search" />
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          </div>
+        </header>
 
-      <!-- Row 1: The 3 Bright Green Metric Cards (Hero Banner) -->
-      <section class="hero-metric-banner">
-        <!-- Card 1: Total Visits -> Berat Sensor (live currentWeightGram) -->
-        <div class="hero-card">
-          <div class="hero-card-title">Total Visits</div>
-          <div class="hero-card-value">
-            <span id="valWeight">49.259</span>
+        <!-- Row 1: The 3 Bright Green Metric Cards (Hero Banner) -->
+        <section class="hero-metric-banner">
+          <!-- Card 1: Total Visits -> Berat Sensor (live currentWeightGram) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Total Visits</div>
+            <div class="hero-card-value">
+              <span id="valWeight">49.259</span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="weightTrend">+12.05%</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 14 Q 14 4, 24 16 T 46 8 T 66 12" />
+              </svg>
+            </div>
           </div>
-          <div class="hero-card-bottom">
-            <span class="hero-pill-badge">
-              <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
-              <span id="weightTrend">+12.05%</span>
-            </span>
-            <svg class="hero-sparkline" viewBox="0 0 68 22">
-              <path d="M2 14 Q 14 4, 24 16 T 46 8 T 66 12" />
-            </svg>
-          </div>
-        </div>
 
-        <!-- Card 2: Bounce Rate -> Jarak (distanceCm) -->
-        <div class="hero-card">
-          <div class="hero-card-title">Bounce Rate</div>
-          <div class="hero-card-value">
-            <span id="valDistance">21.4</span>
+          <!-- Card 2: Bounce Rate -> Jarak (distanceCm) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Bounce Rate</div>
+            <div class="hero-card-value">
+              <span id="valDistance">21.4</span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="distanceTrend">+5.19%</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 16 Q 16 6, 28 14 T 48 6 T 66 10" />
+              </svg>
+            </div>
           </div>
-          <div class="hero-card-bottom">
-            <span class="hero-pill-badge">
-              <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
-              <span id="distanceTrend">+5.19%</span>
-            </span>
-            <svg class="hero-sparkline" viewBox="0 0 68 22">
-              <path d="M2 16 Q 16 6, 28 14 T 48 6 T 66 10" />
-            </svg>
-          </div>
-        </div>
 
-        <!-- Card 3: Realtime Users -> Status (PENUH / AMAN / ERROR) -->
-        <div class="hero-card">
-          <div class="hero-card-title">Realtime Users</div>
-          <div class="hero-card-value">
-            <span id="valStatus" style="font-size:1.45rem;">9.221</span>
+          <!-- Card 3: Realtime Users -> Status (PENUH / AMAN / ERROR) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Realtime Users</div>
+            <div class="hero-card-value">
+              <span id="valStatus">9.221</span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="statusTrend">+22.01%</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 18 Q 12 12, 24 16 T 44 4 T 66 8" />
+              </svg>
+            </div>
           </div>
-          <div class="hero-card-bottom">
-            <span class="hero-pill-badge">
-              <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
-              <span id="statusTrend">+22.01%</span>
-            </span>
-            <svg class="hero-sparkline" viewBox="0 0 68 22">
-              <path d="M2 18 Q 12 12, 24 16 T 44 4 T 66 8" />
-            </svg>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Row 2: Analytics Row (Revenue Spline + Customers Donut) -->
-      <section class="analytics-row">
-        <!-- Revenue Card (Riwayat Berat Sensor) -->
-        <div class="analytics-card">
-          <div class="card-header-row">
-            <h3 class="card-title">Revenue</h3>
-            <div class="chart-legend-top">
+        <!-- Row 2: Analytics Row (Revenue Spline + Customers Donut) -->
+        <section class="analytics-row">
+          <!-- Revenue Card (Riwayat Berat Sensor) -->
+          <div class="analytics-card">
+            <div class="card-header-row">
+              <h3 class="card-title">Revenue</h3>
+              <div class="chart-legend-top">
+                <span class="legend-item">
+                  <span class="legend-dot dot-green"></span>
+                  <span>This week</span>
+                </span>
+                <span class="legend-item">
+                  <span class="legend-dot dot-orange"></span>
+                  <span>Last week</span>
+                </span>
+              </div>
+            </div>
+            <div class="revenue-chart-wrap">
+              <div class="revenue-tooltip-badge" id="chartFloatingBadge">$28.2k</div>
+              <div class="revenue-tooltip-bar"></div>
+              <canvas id="revenueChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Customers Donut Card (Persentase Isi Tong) -->
+          <div class="analytics-card">
+            <div class="card-header-row">
+              <h3 class="card-title">Customers</h3>
+            </div>
+            <div class="donut-center-wrap">
+              <canvas id="donutChart"></canvas>
+              <div class="donut-center-text">
+                <div class="donut-center-val" id="valFill">37%</div>
+                <div class="donut-center-sub">Total</div>
+              </div>
+            </div>
+            <div class="donut-legend-bottom">
               <span class="legend-item">
                 <span class="legend-dot dot-green"></span>
-                <span>This week</span>
+                <span>Current Customers</span>
               </span>
               <span class="legend-item">
                 <span class="legend-dot dot-orange"></span>
-                <span>Last week</span>
+                <span>New Customers</span>
               </span>
             </div>
           </div>
-          <div class="revenue-chart-wrap">
-            <div class="revenue-tooltip-badge" id="chartFloatingBadge">$28.2k</div>
-            <div class="revenue-tooltip-bar"></div>
-            <canvas id="revenueChart"></canvas>
-          </div>
-        </div>
+        </section>
 
-        <!-- Customers Donut Card (Persentase Isi Tong) -->
-        <div class="analytics-card">
+        <!-- Row 3: Recent Transaction Table Card -->
+        <section class="transaction-card">
           <div class="card-header-row">
-            <h3 class="card-title">Customers</h3>
+            <h3 class="card-title">Recent Transaction</h3>
+            <a href="#" class="view-all-link" onclick="openControlModal(); return false;">View All</a>
           </div>
-          <div class="donut-center-wrap">
-            <canvas id="donutChart"></canvas>
-            <div class="donut-center-text">
-              <div class="donut-center-val" id="valFill">37%</div>
-              <div class="donut-center-sub">Total</div>
+          <div class="table-responsive">
+            <table class="transaction-table">
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="transactionTableBody">
+                <!-- 4 Baris Awal Sesuai Desain Asli -->
+                <tr>
+                  <td>
+                    <div class="tx-id-col">
+                      <div class="tx-icon-circle">
+                        <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
+                      </div>
+                      <span>#2020912</span>
+                    </div>
+                  </td>
+                  <td class="tx-date-col">Apr 29, 2024, 11:37</td>
+                  <td class="tx-amount-col">-$299.89</td>
+                  <td class="tx-status-col"><span class="badge-status badge-pending">Pending</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="tx-id-col">
+                      <div class="tx-icon-circle">
+                        <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
+                      </div>
+                      <span>#2020911</span>
+                    </div>
+                  </td>
+                  <td class="tx-date-col">Apr 29, 2024, 11:37</td>
+                  <td class="tx-amount-col">-$130.15</td>
+                  <td class="tx-status-col"><span class="badge-status badge-completed">Completed</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="tx-id-col">
+                      <div class="tx-icon-circle">
+                        <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
+                      </div>
+                      <span>#2020910</span>
+                    </div>
+                  </td>
+                  <td class="tx-date-col">Apr 29, 2024, 11:36</td>
+                  <td class="tx-amount-col">-$458.13</td>
+                  <td class="tx-status-col"><span class="badge-status badge-scheduled">Scheduled</span></td>
+                </tr>
+                <tr>
+                  <td>
+                    <div class="tx-id-col">
+                      <div class="tx-icon-circle">
+                        <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
+                      </div>
+                      <span>#2020909</span>
+                    </div>
+                  </td>
+                  <td class="tx-date-col">Apr 29, 2024, 11:36</td>
+                  <td class="tx-amount-col">-$210.99</td>
+                  <td class="tx-status-col"><span class="badge-status badge-completed">Completed</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================================
+           VIEW 2: HALAMAN AI ASSISTANT
+           ======================================================== -->
+      <div id="view-ai" class="dashboard-view" style="display: none;">
+        <header class="content-header">
+          <div class="header-titles">
+            <h1>AI Assistant</h1>
+            <p>Konsultasi cerdas status, berat, dan riwayat tong sampah EcoSort..</p>
+          </div>
+          <div class="ai-header-badge" id="aiConfigBadge">
+            <span class="ai-status-dot"></span>
+            <span id="aiConfigText">AI Ready</span>
+          </div>
+        </header>
+
+        <!-- Main Card Chat AI -->
+        <div class="ai-chat-card">
+          <!-- Banner Status Singkat -->
+          <div class="ai-status-bar">
+            <div class="ai-status-chip">
+              <span class="chip-dot dot-green" id="aiDevDot"></span>
+              <span id="aiDevText">esp32-ecosort-1: Online</span>
+            </div>
+            <div class="ai-status-chip">
+              <span class="chip-label">Tingkat Isi:</span>
+              <strong id="aiFillText">37%</strong>
+            </div>
+            <div class="ai-status-chip">
+              <span class="chip-label">Berat Sensor:</span>
+              <strong id="aiWeightText">0.0 g</strong>
             </div>
           </div>
-          <div class="donut-legend-bottom">
-            <span class="legend-item">
-              <span class="legend-dot dot-green"></span>
-              <span>Current Customers</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot dot-orange"></span>
-              <span>New Customers</span>
-            </span>
+
+          <!-- Tombol Pertanyaan Cepat -->
+          <div class="ai-quick-prompts">
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Apakah tong sampah sudah penuh?')">
+              🗑️ Apakah tong sudah penuh?
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Ringkas data sensor hari ini')">
+              📊 Ringkas data hari ini
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Berapa berat sampah saat ini?')">
+              ⚖️ Berapa berat saat ini?
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Bagaimana status perangkat ESP32?')">
+              📡 Cek status perangkat
+            </button>
+          </div>
+
+          <!-- Area Pesan Chat -->
+          <div class="ai-messages-wrap" id="aiMessagesWrap">
+            <!-- Pesan Sambutan Awal -->
+            <div class="chat-msg msg-ai">
+              <div class="msg-avatar">
+                <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+              </div>
+              <div class="msg-bubble">
+                <div class="msg-sender">EcoSort AI</div>
+                <div class="msg-text">
+                  Halo! Saya asisten AI EcoSort. Anda dapat menanyakan kondisi kapasitas tong sampah, berat sampah terkumpul, tren pemakaian, atau status mikrokontroler ESP32 secara langsung.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Chat Bawah -->
+          <form class="ai-input-form" id="aiChatForm" onsubmit="handleSendAIMessage(event)">
+            <input type="text" id="aiInputText" placeholder="Tanyakan sesuatu tentang tong sampah atau data sensor..." autocomplete="off" />
+            <button type="submit" class="btn-ai-send" id="btnSendAI" title="Kirim">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           VIEW 3: ANALYTICS VIEW
+           ======================================================== -->
+      <div id="view-analytics" class="dashboard-view" style="display: none;">
+        <header class="content-header">
+          <div class="header-titles">
+            <h1>Analytics</h1>
+            <p>Statistik performa dan visualisasi sensor mikrokontroler..</p>
+          </div>
+        </header>
+
+        <div class="analytics-detail-grid">
+          <div class="analytics-card">
+            <h3 class="card-title">Distribusi Kapasitas Harian</h3>
+            <div class="detail-stat-box">
+              <div class="stat-highlight" id="statCapacityAvg">37%</div>
+              <p>Rata-rata tingkat volume terisi dalam 24 jam terakhir</p>
+            </div>
+          </div>
+          <div class="analytics-card">
+            <h3 class="card-title">Frekuensi Pembuangan Sampah</h3>
+            <div class="detail-stat-box">
+              <div class="stat-highlight" id="statEventCount">18 kali</div>
+              <p>Total transaksi penimbangan terdeteksi oleh load cell</p>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- Row 3: Recent Transaction Table Card -->
-      <section class="transaction-card">
-        <div class="card-header-row">
-          <h3 class="card-title">Recent Transaction</h3>
-          <a href="#" class="view-all-link" onclick="openControlModal(); return false;">View All</a>
+      <!-- ========================================================
+           VIEW 4: REPORTS VIEW
+           ======================================================== -->
+      <div id="view-reports" class="dashboard-view" style="display: none;">
+        <header class="content-header">
+          <div class="header-titles">
+            <h1>Reports</h1>
+            <p>Unduh rekapitulasi data IoT dan log sistem..</p>
+          </div>
+          <button class="btn-export-data" onclick="exportDataJSON()">
+            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            <span>Ekspor JSON</span>
+          </button>
+        </header>
+
+        <div class="reports-container-card">
+          <div class="reports-header-info">
+            <h3 class="card-title">Riwayat Log Penimbangan &amp; Perintah</h3>
+            <p>Data tersimpan di server lokal dan siap dianalisis.</p>
+          </div>
+          <div class="reports-summary-row">
+            <div class="summary-chip">
+              <span>Total Terkumpul:</span>
+              <strong id="repTotalWeight">0.0 kg</strong>
+            </div>
+            <div class="summary-chip">
+              <span>Kejadian Terakhir:</span>
+              <strong id="repLastEvent">Aktif</strong>
+            </div>
+          </div>
         </div>
-        <div class="table-responsive">
-          <table class="transaction-table">
-            <thead>
-              <tr>
-                <th>Transaction ID</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="transactionTableBody">
-              <!-- Row 1 -->
-              <tr>
-                <td>
-                  <div class="tx-id-col">
-                    <div class="tx-icon-circle">
-                      <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
-                    </div>
-                    <span>#2020912</span>
-                  </div>
-                </td>
-                <td class="tx-date-col">Apr 29, 2022, 11:37</td>
-                <td class="tx-amount-col">-$299.89</td>
-                <td class="tx-status-col"><span class="badge-status badge-pending">Pending</span></td>
-              </tr>
-              <!-- Row 2 -->
-              <tr>
-                <td>
-                  <div class="tx-id-col">
-                    <div class="tx-icon-circle">
-                      <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
-                    </div>
-                    <span>#2020911</span>
-                  </div>
-                </td>
-                <td class="tx-date-col">Apr 29, 2022, 11:37</td>
-                <td class="tx-amount-col">-$130.15</td>
-                <td class="tx-status-col"><span class="badge-status badge-completed">Completed</span></td>
-              </tr>
-              <!-- Row 3 -->
-              <tr>
-                <td>
-                  <div class="tx-id-col">
-                    <div class="tx-icon-circle">
-                      <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
-                    </div>
-                    <span>#2020910</span>
-                  </div>
-                </td>
-                <td class="tx-date-col">Apr 29, 2022, 11:36</td>
-                <td class="tx-amount-col">-$458.13</td>
-                <td class="tx-status-col"><span class="badge-status badge-scheduled">Scheduled</span></td>
-              </tr>
-              <!-- Row 4 -->
-              <tr>
-                <td>
-                  <div class="tx-id-col">
-                    <div class="tx-icon-circle">
-                      <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
-                    </div>
-                    <span>#2020909</span>
-                  </div>
-                </td>
-                <td class="tx-date-col">Apr 29, 2022, 11:36</td>
-                <td class="tx-amount-col">-$210.99</td>
-                <td class="tx-status-col"><span class="badge-status badge-completed">Completed</span></td>
-              </tr>
-            </tbody>
-          </table>
+      </div>
+
+      <!-- ========================================================
+           VIEW 5: HALAMAN AKUN & PENGATURAN
+           ======================================================== -->
+      <div id="view-account" class="dashboard-view" style="display: none;">
+        <header class="content-header">
+          <div class="header-titles">
+            <h1>Akun &amp; Pengaturan</h1>
+            <p>Kelola profil akun, keamanan password, dan info perangkat terhubung..</p>
+          </div>
+        </header>
+
+        <div class="account-grid">
+          <!-- Card 1: Profil Pengguna -->
+          <div class="account-card">
+            <h3 class="card-title">Profil Pengguna</h3>
+            <form onsubmit="handleSaveProfile(event)" class="account-form">
+              <div class="form-group">
+                <label>Nama Tampilan</label>
+                <input type="text" id="accDisplayName" placeholder="Nama Anda" required />
+              </div>
+              <div class="form-group">
+                <label>Username (Login)</label>
+                <input type="text" id="accUsername" disabled readonly />
+              </div>
+              <div class="form-group">
+                <label>Peran / Hak Akses</label>
+                <input type="text" id="accRole" disabled readonly />
+              </div>
+              <button type="submit" class="btn-account-submit" id="btnSaveProfile">Simpan Profil</button>
+            </form>
+          </div>
+
+          <!-- Card 2: Keamanan / Ubah Password -->
+          <div class="account-card">
+            <h3 class="card-title">Ubah Password</h3>
+            <form onsubmit="handleChangePassword(event)" class="account-form">
+              <div class="form-group">
+                <label>Password Lama</label>
+                <input type="password" id="accOldPass" placeholder="••••••••" required />
+              </div>
+              <div class="form-group">
+                <label>Password Baru</label>
+                <input type="password" id="accNewPass" placeholder="Minimal 6 karakter" required minlength="6" />
+              </div>
+              <div class="form-group">
+                <label>Konfirmasi Password Baru</label>
+                <input type="password" id="accConfirmPass" placeholder="Ulangi password baru" required minlength="6" />
+              </div>
+              <button type="submit" class="btn-account-submit" id="btnChangePass">Perbarui Password</button>
+            </form>
+          </div>
+
+          <!-- Card 3: Informasi Perangkat Terhubung -->
+          <div class="account-card">
+            <h3 class="card-title">Perangkat Terhubung</h3>
+            <div class="device-info-list">
+              <div class="info-row">
+                <span>Device ID:</span>
+                <strong>esp32-ecosort-1</strong>
+              </div>
+              <div class="info-row">
+                <span>Firmware:</span>
+                <strong>MicroPython v1.23 (ESP32)</strong>
+              </div>
+              <div class="info-row">
+                <span>Status Jaringan:</span>
+                <span class="badge-status badge-completed" id="accDeviceOnlineBadge">Online</span>
+              </div>
+              <div class="info-row">
+                <span>Port Server:</span>
+                <strong>40122 (Express + Node 24)</strong>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
     </main>
 
@@ -322,21 +522,43 @@
          COLUMN 3: PROFILE & EARNING PANEL (Kanan)
          ============================================================ -->
     <aside class="profile-panel">
-      <div>
+      <div class="profile-panel-top">
         <!-- Panel Header -->
         <div class="panel-header">
           <h2 class="panel-title">Profile</h2>
           <div class="panel-tools">
-            <button class="btn-panel-tool" title="Notifications" onclick="openControlModal()">
+            <!-- Tombol Lonceng Notifikasi Nyata -->
+            <button class="btn-panel-tool" id="btnNotifToggle" title="Notifikasi" onclick="toggleNotifDropdown(event)">
               <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>
-              <span class="notif-badge-dot"></span>
+              <span class="notif-badge-dot" id="notifRedDot" style="display: none;"></span>
             </button>
-            <button class="btn-panel-tool" title="Settings" onclick="openControlModal()">
+            <!-- Tombol Gerigi: Buka Akun -->
+            <button class="btn-panel-tool" title="Pengaturan Akun" onclick="switchNav('account')">
               <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
             </button>
+            <!-- Tombol Keluar: Logout -->
             <button class="btn-panel-tool" title="Log Out" onclick="logout()">
               <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
             </button>
+          </div>
+
+          <!-- Dropdown Notifikasi Sistem Nyata -->
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-dropdown-header">
+              <span>Notifikasi Sistem</span>
+              <button class="btn-notif-clear" onclick="clearNotifBadge()">Tandai dibaca</button>
+            </div>
+            <div class="notif-dropdown-list" id="notifListContainer">
+              <!-- Item notifikasi akan dimasukkan oleh JS -->
+              <div class="notif-item">
+                <span class="notif-dot-status dot-green"></span>
+                <div class="notif-item-body">
+                  <strong>EcoSort IoT Siap</strong>
+                  <p>Monitoring mikrokontroler aktif.</p>
+                  <small>Hari ini</small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -349,21 +571,24 @@
               <span class="shape-sq shape-2"></span>
               <span class="shape-sq shape-3"></span>
             </div>
-            <div class="banner-camera-icon">
+            <div class="banner-camera-icon" onclick="switchNav('account')" title="Ubah Foto Profil">
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
             </div>
           </div>
 
-          <!-- Avatar Image -->
+          <!-- Avatar Image / Inisial Akun Nyata -->
           <div class="profile-avatar-wrap">
-            <img src="/images/avatar.svg" alt="Avatar" class="profile-avatar-img" />
+            <div class="profile-avatar-circle" id="profileAvatarCircle">
+              <img src="/images/avatar.svg" alt="Avatar" id="profileAvatarImg" class="profile-avatar-img" />
+              <span id="profileAvatarInitial" class="profile-avatar-initial" style="display: none;">AD</span>
+            </div>
           </div>
 
-          <!-- Name & Tasks Subtitle -->
-          <div class="profile-name" id="profileDeviceId">John Doe</div>
+          <!-- Nama & Username/Peran Akun Nyata -->
+          <div class="profile-name" id="profileDisplayName">Admin EcoSort</div>
           <div class="profile-task-sub">
             <span class="status-online-dot" id="statusOnlineDot"></span>
-            <span id="profileStatus">5 from 8 tasks completed</span>
+            <span id="profileDeviceStatusText">esp32-ecosort-1 • Online</span>
           </div>
 
           <!-- Dashed Indicator Bar (5 active, 3 inactive) -->
@@ -378,31 +603,31 @@
             <span class="dash-seg"></span>
           </div>
 
-          <!-- 3 Metrics Row -->
+          <!-- 3 Metrics Row Data Nyata -->
           <div class="profile-metrics-row">
             <div class="profile-metric-col">
-              <div class="metric-num" id="profileMetric1">1.8K</div>
-              <div class="metric-lbl">Products</div>
+              <div class="metric-num" id="profileMetric1">0.0g</div>
+              <div class="metric-lbl">Total Berat</div>
             </div>
             <div class="profile-metric-col">
-              <div class="metric-num" id="profileMetric2">3.2M</div>
-              <div class="metric-lbl">Followers</div>
+              <div class="metric-num" id="profileMetric2">0</div>
+              <div class="metric-lbl">Kejadian</div>
             </div>
             <div class="profile-metric-col">
-              <div class="metric-num" id="profileMetric3">75.2K</div>
-              <div class="metric-lbl">Sales</div>
+              <div class="metric-num" id="profileMetric3">Live</div>
+              <div class="metric-lbl">Terakhir</div>
             </div>
           </div>
 
-          <!-- Edit Profile / Pengaturan Button -->
-          <button class="btn-edit-profile" onclick="openControlModal()">
-            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-            <span>Edit Profile</span>
+          <!-- Tombol Akun (Ganti Edit Profile) -->
+          <button class="btn-edit-profile" onclick="switchNav('account')">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <span>Akun</span>
           </button>
         </div>
       </div>
 
-      <!-- Earning Section (Kanan Bawah) -->
+      <!-- Earning Section (Kanan Bawah — Total Berat Terkumpul + Tare) -->
       <div class="earning-section">
         <div class="earning-header">
           <span class="earning-title">Earning</span>

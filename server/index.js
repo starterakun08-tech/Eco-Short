@@ -16,6 +16,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const iotRoutes = require('./routes/iot');
 const authRoutes = require('./routes/auth');
+const aiRoutes = require('./routes/ai');
 
 // ---- Middleware ----
 app.use(express.json({ limit: '1mb' }));
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // ---- API routes ----
 app.use('/api/iot', iotRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ---- Fallback: serve dashboard ----
 app.get('/', (req, res) => {

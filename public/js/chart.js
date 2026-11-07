@@ -6,6 +6,8 @@
 
 let revenueChartInstance = null;
 let donutChartInstance = null;
+window.revenueChartInstance = null;
+window.donutChartInstance = null;
 
 const COLOR_GREEN = '#74c718';
 const COLOR_ORANGE = '#fbbf24';
@@ -27,7 +29,7 @@ function initRevenueChart() {
   const defaultLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const defaultData = [18, 14, 25, 42, 28, 38, 26];
 
-  revenueChartInstance = new Chart(ctx, {
+  window.revenueChartInstance = revenueChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
       labels: defaultLabels,
@@ -113,7 +115,7 @@ function initDonutChart() {
   const ctx = canvas.getContext('2d');
 
   // Default matching screenshot: 3 segments (Orange ~55%, Green ~30%, Dark ~15%)
-  donutChartInstance = new Chart(ctx, {
+  window.donutChartInstance = donutChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['New Customers', 'Current Customers', 'Inactive'],

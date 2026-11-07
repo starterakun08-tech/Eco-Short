@@ -1,5 +1,5 @@
 // ============================================================
-//  Auth routes — login & verify
+//  Auth routes — login, verify, profile & password management
 // ============================================================
 
 const express = require('express');
@@ -33,9 +33,23 @@ function ensureDefaultUser() {
   let users = readJSON(USERS_FILE, []);
   if (users.length === 0) {
     const hash = bcrypt.hashSync('ecosort2024', 10);
-    users.push({ username: 'admin', passwordHash: hash });
+    users.push({
+      username: 'admin',
+      passwordHash: hash,
+      displayName: 'Admin EcoSort',
+      role: 'Administrator',
+      avatar: ''
+    });
     writeJSON(USERS_FILE, users);
     console.log('[AUTH] Default user admin/ecosort2024 dibuat');
+  } else {
+    let changed = false;
+    users.forEach(u => {
+      if (!u.displayName) { u.displayName = 'Admin EcoSort'; changed = true; }
+      if (!u.role) { u.role = 'Administrator'; changed = true; }
+      if (u.avatar === undefined) { u.avatar = ''; changed = true; }
+    });
+    if (changed) writeJSON(USERS_FILE, users);
   }
   return users;
 }
@@ -55,7 +69,13 @@ router.post('/login', (req, res) => {
   }
 
   const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-  res.json({ token, username: user.username });
+  res.json({
+    token,
+    username: user.username,
+    displayName: user.displayName || user.username,
+    role: user.role || 'Administrator',
+    avatar: user.avatar || ''
+  });
 });
 
 // ---- GET /api/auth/verify ----
@@ -63,5 +83,68 @@ router.get('/verify', requireAuth, (req, res) => {
   res.json({ valid: true, username: req.user.username });
 });
 
-module.exports = router;
+// ---- GET /api/auth/me ----
+router.get('/me', requireAuth, (req, res) => {
+  const users = readJSON(USERS_FILE, []);
+  const user = users.find(u => u.username === req.user.username);
+  if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
 
+  res.json({
+    username: user.username,
+    displayName: user.displayName || 'Admin EcoSort',
+    role: user.role || 'Administrator',
+    avatar: user.avatar || ''
+  });
+});
+
+// ---- PUT /api/auth/profile ----
+router.put('/profile', requireAuth, (req, res) => {
+  const { displayName, avatar } = req.body || {};
+  if (!displayName || !displayName.trim()) {
+    return res.status(400).json({ error: 'Nama tampilan tidak boleh kosong' });
+  }
+
+  const users = readJSON(USERS_FILE, []);
+  const user = users.find(u => u.username === req.user.username);
+  if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
+
+  user.displayName = displayName.trim();
+  if (avatar !== undefined) user.avatar = avatar;
+
+  writeJSON(USERS_FILE, users);
+  res.json({
+    ok: true,
+    user: {
+      username: user.username,
+      displayName: user.displayName,
+      role: user.role || 'Administrator',
+      avatar: user.avatar || ''
+    }
+  });
+});
+
+// ---- PUT /api/auth/password ----
+router.put('/password', requireAuth, (req, res) => {
+  const { oldPassword, newPassword } = req.body || {};
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ error: 'Password lama dan password baru harus diisi' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password baru minimal 6 karakter' });
+  }
+
+  const users = readJSON(USERS_FILE, []);
+  const user = users.find(u => u.username === req.user.username);
+  if (!user) return res.status(404).json({ error: 'User tidak ditemukan' });
+
+  if (!bcrypt.compareSync(oldPassword, user.passwordHash)) {
+    return res.status(400).json({ error: 'Password lama tidak sesuai' });
+  }
+
+  user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  writeJSON(USERS_FILE, users);
+
+  res.json({ ok: true, message: 'Password berhasil diperbarui' });
+});
+
+module.exports = router;
