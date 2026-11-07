@@ -50,35 +50,25 @@
               </span>
             </button>
           </li>
-          <!-- 3. Analytics -->
+          <!-- 3. Analitik -->
           <li>
             <button class="nav-item" id="nav-analytics" onclick="switchNav('analytics')">
               <span class="nav-left">
                 <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-                <span>Analytics</span>
+                <span>Analitik</span>
               </span>
             </button>
           </li>
-          <!-- 4. Reports -->
+          <!-- 4. Laporan -->
           <li>
             <button class="nav-item" id="nav-reports" onclick="switchNav('reports')">
               <span class="nav-left">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                <span>Reports</span>
+                <span>Laporan</span>
               </span>
             </button>
           </li>
-          <!-- 5. Chat -->
-          <li>
-            <button class="nav-item" id="nav-chat" onclick="switchNav('ai')">
-              <span class="nav-left">
-                <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-                <span>Chat</span>
-              </span>
-              <span class="chat-dot" id="chatRedDot" style="display: none;"></span>
-            </button>
-          </li>
-          <!-- 6. Kontrol -->
+          <!-- 5. Kontrol -->
           <li>
             <button class="nav-item" id="nav-control" onclick="openControlModal()">
               <span class="nav-left">
@@ -98,7 +88,7 @@
             <span>Log Out</span>
           </span>
         </button>
-        <div class="sidebar-copyright">@ARSoft.com 2022</div>
+        <div class="sidebar-copyright">EcoSort &copy; 2024</div>
       </div>
     </aside>
 
@@ -263,35 +253,35 @@
       </div>
 
       <!-- ========================================================
-           VIEW 2: HALAMAN AI ASSISTANT
+           VIEW 2: HALAMAN ASISTEN AI (Tinggi Penuh Area Tengah)
            ======================================================== -->
       <div id="view-ai" class="dashboard-view" style="display: none;">
         <header class="content-header">
           <div class="header-titles">
-            <h1>AI Assistant</h1>
-            <p>Konsultasi cerdas status, berat, dan riwayat tong sampah EcoSort..</p>
+            <h1>Asisten AI</h1>
+            <p>Konsultasi cerdas status, berat, dan riwayat tong sampah EcoSort</p>
           </div>
           <div class="ai-header-badge" id="aiConfigBadge">
             <span class="ai-status-dot"></span>
-            <span id="aiConfigText">AI Ready</span>
+            <span id="aiConfigText">Mode Data</span>
           </div>
         </header>
 
-        <!-- Main Card Chat AI -->
+        <!-- Main Card Chat AI (Mengisi Sisa Tinggi Area Tengah Secara Vertikal) -->
         <div class="ai-chat-card">
-          <!-- Banner Status Singkat -->
+          <!-- Bar Status Ringkas -->
           <div class="ai-status-bar">
             <div class="ai-status-chip">
               <span class="chip-dot dot-green" id="aiDevDot"></span>
-              <span id="aiDevText">esp32-ecosort-1: Online</span>
+              <span id="aiDevText">esp32-ecosort-1: Offline</span>
             </div>
             <div class="ai-status-chip">
               <span class="chip-label">Tingkat Isi:</span>
-              <strong id="aiFillText">0%</strong>
+              <strong id="aiFillText">--%</strong>
             </div>
             <div class="ai-status-chip">
               <span class="chip-label">Berat Sensor:</span>
-              <strong id="aiWeightText">0.0 g</strong>
+              <strong id="aiWeightText">-- g</strong>
             </div>
           </div>
 
@@ -311,25 +301,25 @@
             </button>
           </div>
 
-          <!-- Area Pesan Chat -->
+          <!-- Area Pesan Chat (Scroll di Dalam Kartu) -->
           <div class="ai-messages-wrap" id="aiMessagesWrap">
             <div class="chat-msg msg-ai">
               <div class="msg-avatar">
                 <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
               </div>
               <div class="msg-bubble">
-                <div class="msg-sender">EcoSort AI</div>
+                <div class="msg-sender">Asisten EcoSort</div>
                 <div class="msg-text">
-                  Halo! Saya asisten AI EcoSort. Anda dapat menanyakan kondisi kapasitas tong sampah, berat sampah terkumpul, tren pemakaian, atau status mikrokontroler ESP32 secara langsung.
+                  Halo! Saya asisten pintar EcoSort. Tanyakan apa pun tentang kapasitas tong sampah, berat sensor terkumpul, riwayat penimbangan, atau status mikrokontroler ESP32 Anda.
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Input Chat Bawah -->
+          <!-- Input Chat Menempel di Bawah Kartu -->
           <form class="ai-input-form" id="aiChatForm" onsubmit="handleSendAIMessage(event)">
-            <input type="text" id="aiInputText" placeholder="Tanyakan sesuatu tentang tong sampah atau data sensor..." autocomplete="off" />
-            <button type="submit" class="btn-ai-send" id="btnSendAI" title="Kirim">
+            <input type="text" id="aiInputText" placeholder="Ketik pertanyaan untuk asisten EcoSort..." autocomplete="off" />
+            <button type="submit" class="btn-ai-send" id="btnSendAI" title="Kirim Pesan">
               <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
           </form>
@@ -337,63 +327,134 @@
       </div>
 
       <!-- ========================================================
-           VIEW 3: ANALYTICS VIEW
+           VIEW 3: HALAMAN ANALITIK (Grafik & Statistik Lengkap)
            ======================================================== -->
       <div id="view-analytics" class="dashboard-view" style="display: none;">
         <header class="content-header">
           <div class="header-titles">
-            <h1>Analytics</h1>
-            <p>Statistik performa dan visualisasi sensor mikrokontroler..</p>
+            <h1>Analitik</h1>
+            <p>Statistik performa dan visualisasi sensor mikrokontroler</p>
+          </div>
+          <div class="analytics-range-selector">
+            <button class="btn-range active" id="btnRangeToday" onclick="setAnalyticsRange('today')">Hari ini</button>
+            <button class="btn-range" id="btnRange7d" onclick="setAnalyticsRange('7days')">7 Hari</button>
           </div>
         </header>
 
-        <div class="analytics-detail-grid">
+        <!-- 4 Kartu Metrik Ringkasan -->
+        <div class="analytics-metrics-grid">
+          <div class="metric-mini-card">
+            <div class="mini-label">Rata-rata Berat</div>
+            <div class="mini-val" id="metricAvgWeight">-- g</div>
+            <div class="mini-sub">Beban per transaksi</div>
+          </div>
+          <div class="metric-mini-card">
+            <div class="mini-label">Beban Puncak (Peak)</div>
+            <div class="mini-val" id="metricPeakWeight">-- g</div>
+            <div class="mini-sub">Beban tertinggi tercatat</div>
+          </div>
+          <div class="metric-mini-card">
+            <div class="mini-label">Frekuensi Buang</div>
+            <div class="mini-val" id="metricTotalEvents">0 kali</div>
+            <div class="mini-sub">Total kejadian terdeteksi</div>
+          </div>
+          <div class="metric-mini-card">
+            <div class="mini-label">Jam Tersibuk</div>
+            <div class="mini-val" id="metricBusiestHour">--</div>
+            <div class="mini-sub">Aktivitas penimbangan</div>
+          </div>
+        </div>
+
+        <!-- 2 Grafik Analitik Nyata (Mengisi Sisa Ruang Vertikal) -->
+        <div class="analytics-charts-row">
           <div class="analytics-card">
-            <h3 class="card-title">Tingkat Kapasitas Saat Ini</h3>
-            <div class="detail-stat-box">
-              <div class="stat-highlight" id="statCapacityAvg">0%</div>
-              <p>Persentase volume bak penampungan terisi</p>
+            <div class="card-header-row">
+              <h3 class="card-title">Riwayat Berat per Jam</h3>
+              <div class="chart-legend-top">
+                <span class="legend-item"><span class="legend-dot dot-green"></span><span>Hari ini (g)</span></span>
+                <span class="legend-item" id="legendAnalyticsYesterday" style="display: none;"><span class="legend-dot dot-orange"></span><span>Kemarin (g)</span></span>
+              </div>
+            </div>
+            <div class="chart-fill-wrap">
+              <canvas id="chartAnalyticsWeight"></canvas>
             </div>
           </div>
+
           <div class="analytics-card">
-            <h3 class="card-title">Frekuensi Pembuangan Sampah</h3>
-            <div class="detail-stat-box">
-              <div class="stat-highlight" id="statEventCount">0 kali</div>
-              <p>Total transaksi penimbangan terdeteksi oleh load cell</p>
+            <div class="card-header-row">
+              <h3 class="card-title">Tingkat Isi Tong dari Waktu ke Waktu</h3>
+              <div class="chart-legend-top">
+                <span class="legend-item"><span class="legend-dot dot-orange"></span><span>Kapasitas (%)</span></span>
+              </div>
+            </div>
+            <div class="chart-fill-wrap">
+              <canvas id="chartAnalyticsCapacity"></canvas>
             </div>
           </div>
         </div>
       </div>
 
       <!-- ========================================================
-           VIEW 4: REPORTS VIEW
+           VIEW 4: HALAMAN LAPORAN (Ringkasan & Log Lengkap Ekspor)
            ======================================================== -->
       <div id="view-reports" class="dashboard-view" style="display: none;">
         <header class="content-header">
           <div class="header-titles">
-            <h1>Reports</h1>
-            <p>Unduh rekapitulasi data IoT dan log sistem..</p>
+            <h1>Laporan</h1>
+            <p>Unduh rekapitulasi data IoT dan riwayat aktivitas sistem</p>
           </div>
-          <button class="btn-export-data" onclick="exportDataJSON()">
-            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-            <span>Ekspor JSON</span>
-          </button>
+          <div class="reports-action-btns">
+            <button class="btn-export-outline" onclick="exportDataCSV()" title="Unduh CSV">
+              <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Ekspor CSV</span>
+            </button>
+            <button class="btn-export-solid" onclick="exportDataJSON()" title="Unduh JSON">
+              <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+              <span>Ekspor JSON</span>
+            </button>
+          </div>
         </header>
 
-        <div class="reports-container-card">
-          <div class="reports-header-info">
-            <h3 class="card-title">Riwayat Log Penimbangan &amp; Perintah</h3>
-            <p>Data tersimpan di server lokal dan siap dianalisis.</p>
+        <!-- 3 Ringkasan Metrik Laporan -->
+        <div class="reports-summary-row">
+          <div class="reports-summary-card">
+            <span class="rep-label">Total Berat Terkumpul</span>
+            <strong class="rep-value" id="repTotalWeight">-- g</strong>
           </div>
-          <div class="reports-summary-row">
-            <div class="summary-chip">
-              <span>Total Terkumpul:</span>
-              <strong id="repTotalWeight">0.0 kg</strong>
-            </div>
-            <div class="summary-chip">
-              <span>Status Perangkat:</span>
-              <strong id="repLastEvent">Aktif</strong>
-            </div>
+          <div class="reports-summary-card">
+            <span class="rep-label">Jumlah Kejadian Log</span>
+            <strong class="rep-value" id="repTotalEvents">0 kejadian</strong>
+          </div>
+          <div class="reports-summary-card">
+            <span class="rep-label">Status Perangkat</span>
+            <strong class="rep-value" id="repDeviceStatus">Offline</strong>
+          </div>
+        </div>
+
+        <!-- Tabel Log Lengkap dengan Scroll di Dalam Kartu -->
+        <div class="reports-table-card">
+          <div class="card-header-row">
+            <h3 class="card-title">Log Aktivitas &amp; Kejadian Lengkap</h3>
+            <span class="badge-status badge-completed" id="repLogCountBadge">0 Data</span>
+          </div>
+          <div class="reports-table-scroll">
+            <table class="transaction-table" id="reportsFullTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Waktu Lengkap</th>
+                  <th>Jenis / Aksi</th>
+                  <th>Nilai Berat</th>
+                  <th>Jarak Sensor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="reportsTableBody">
+                <tr>
+                  <td colspan="6" class="table-empty-row">Belum ada riwayat aktivitas yang tercatat.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -405,7 +466,7 @@
         <header class="content-header">
           <div class="header-titles">
             <h1>Akun &amp; Pengaturan</h1>
-            <p>Kelola profil akun, keamanan password, dan info perangkat terhubung..</p>
+            <p>Kelola profil akun, keamanan password, dan info perangkat terhubung</p>
           </div>
         </header>
 
@@ -450,7 +511,7 @@
             </form>
           </div>
 
-          <!-- Card 3: Informasi Perangkat Terhubung -->
+          <!-- Card 3: Informasi Perangkat & Token Otentikasi ESP32 -->
           <div class="account-card">
             <h3 class="card-title">Perangkat Terhubung</h3>
             <div class="device-info-list">
@@ -459,16 +520,24 @@
                 <strong>esp32-ecosort-1</strong>
               </div>
               <div class="info-row">
-                <span>Firmware:</span>
-                <strong>MicroPython v1.23 (ESP32)</strong>
-              </div>
-              <div class="info-row">
                 <span>Status Jaringan:</span>
-                <span class="badge-status badge-completed" id="accDeviceOnlineBadge">Online</span>
+                <span class="badge-status badge-completed" id="accDeviceOnlineBadge">Offline</span>
               </div>
               <div class="info-row">
                 <span>Port Server:</span>
-                <strong>40122 (Express + Node 24)</strong>
+                <strong>40122 (Aktif)</strong>
+              </div>
+              <div class="info-row-stacked">
+                <div class="token-header-label">
+                  <span>Device Token (ESP32):</span>
+                  <button type="button" class="btn-copy-token" onclick="copyDeviceToken()" id="btnCopyToken">Salin</button>
+                </div>
+                <code class="device-token-code" id="accDeviceTokenDisplay">Memuat...</code>
+                <small class="token-hint">Masukkan token ini pada variabel DEVICE_TOKEN di file codeesp.py</small>
+              </div>
+              <div class="demo-seed-box">
+                <button type="button" class="btn-seed-demo" onclick="handleLoadDemo()">Muat Data Demo</button>
+                <button type="button" class="btn-clear-demo" onclick="handleClearData()">Reset Data Kosong</button>
               </div>
             </div>
           </div>
@@ -549,16 +618,15 @@
             <span id="profileDeviceStatusText">esp32-ecosort-1 • Online</span>
           </div>
 
-          <!-- Dashed Indicator Bar (5 active, 3 inactive) -->
-          <div class="profile-dashed-bar">
-            <span class="dash-seg active"></span>
-            <span class="dash-seg active"></span>
-            <span class="dash-seg active"></span>
-            <span class="dash-seg active"></span>
-            <span class="dash-seg active"></span>
-            <span class="dash-seg"></span>
-            <span class="dash-seg"></span>
-            <span class="dash-seg"></span>
+          <!-- Kapasitas Tong Progress Bar -->
+          <div class="profile-capacity-bar-wrap">
+            <div class="profile-capacity-bar-header">
+              <span>Kapasitas Tong</span>
+              <strong id="profileCapacityText">0%</strong>
+            </div>
+            <div class="profile-capacity-track">
+              <div class="profile-capacity-fill" id="profileCapacityFill" style="width: 0%;"></div>
+            </div>
           </div>
 
           <!-- 3 Metrics Row Data Nyata -->

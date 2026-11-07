@@ -1,6 +1,6 @@
 // ============================================================
 //  EcoSort IoT Dashboard — App Logic
-//  Data Riil Sensor ESP32, AI Chat, Akun, Notifikasi, Kontrol
+//  Data Riil Sensor ESP32, AI Chat, Analitik, Laporan, Akun
 // ============================================================
 
 const API_BASE = '/api/iot';
@@ -19,6 +19,7 @@ let emptyDist = 35;
 let fullThresh = 10;
 let currentView = 'dashboard';
 let currentTxCount = 0;
+let currentAnalyticsRange = 'today';
 
 // ---- Autentikasi ----
 function getToken() {
@@ -69,15 +70,28 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================================
-//  NAVIGASI & VIEW SWITCHING
+//  NAVIGASI & VIEW SWITCHING (SEMUA HALAMAN TERINTEGRASI)
 // ============================================================
 function switchNav(viewName) {
+  if (!viewName) viewName = 'dashboard';
   currentView = viewName;
 
+  // Update URL Hash tanpa reload
+  if (window.location.hash !== '#' + viewName) {
+    window.history.replaceState(null, '', '#' + viewName);
+  }
+
+  // Set body class untuk kontrol responsif HP (panel profil hanya di dashboard)
+  const isDashboard = (viewName === 'dashboard');
+  document.body.classList.toggle('view-dashboard-active', isDashboard);
+  document.body.classList.toggle('view-non-dashboard', !isDashboard);
+
+  // Active status pada item sidebar / bottom bar
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeBtn = document.getElementById('nav-' + viewName);
   if (activeBtn) activeBtn.classList.add('active');
 
+  // Toggle tampilan view dengan flex column penuh
   const views = ['dashboard', 'ai', 'analytics', 'reports', 'account'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
@@ -92,16 +106,25 @@ function switchNav(viewName) {
     }
   });
 
+  // Handler spesifik tiap view
   if (viewName === 'dashboard') {
     setTimeout(() => {
-      if (window.revenueChartInstance) window.revenueChartInstance.resize();
-      if (window.donutChartInstance) window.donutChartInstance.resize();
+      if (typeof resizeAllCharts === 'function') resizeAllCharts();
     }, 60);
-  } else if (viewName === 'account') {
-    fetchUserProfile();
   } else if (viewName === 'ai') {
+    checkAIStatus();
     updateAIContextPills();
     scrollAIMessagesToBottom();
+  } else if (viewName === 'analytics') {
+    loadAnalyticsData(currentAnalyticsRange);
+    setTimeout(() => {
+      if (typeof resizeAllCharts === 'function') resizeAllCharts();
+    }, 60);
+  } else if (viewName === 'reports') {
+    loadReportsData();
+  } else if (viewName === 'account') {
+    fetchUserProfile();
+    loadDeviceToken();
   }
 
   closeNotifDropdown();
@@ -221,6 +244,81 @@ async function handleChangePassword(e) {
   }
 }
 
+// Token Perangkat ESP32
+async function loadDeviceToken() {
+  try {
+    const res = await fetch(`${API_BASE}/device-token`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const elCode = document.getElementById('accDeviceTokenDisplay');
+    if (elCode && data.deviceToken) {
+      elCode.textContent = data.deviceToken;
+    }
+  } catch (err) {
+    console.error('Gagal mengambil token perangkat:', err);
+  }
+}
+
+function copyDeviceToken() {
+  const elCode = document.getElementById('accDeviceTokenDisplay');
+  const btn = document.getElementById('btnCopyToken');
+  if (!elCode) return;
+  const token = elCode.textContent.trim();
+  if (!token || token === 'Memuat...') return;
+
+  navigator.clipboard.writeText(token).then(() => {
+    showToast('Token perangkat berhasil disalin ke clipboard!', 'success');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = 'Tersalin!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }
+  }).catch(() => {
+    showToast('Gagal menyalin token', 'error');
+  });
+}
+
+// Data Demo & Reset Kosong
+async function handleLoadDemo() {
+  try {
+    const res = await fetch(`${API_BASE}/demo-seed`, { method: 'POST', headers: authHeaders() });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(data.message || 'Data demo berhasil dimuat!', 'success');
+      fetchDeviceStatus();
+      fetchHistory();
+      fetchTransactions();
+      if (currentView === 'analytics') loadAnalyticsData(currentAnalyticsRange);
+      if (currentView === 'reports') loadReportsData();
+    } else {
+      showToast(data.error || 'Gagal memuat data demo', 'error');
+    }
+  } catch (err) {
+    showToast('Kesalahan koneksi jaringan', 'error');
+  }
+}
+
+async function handleClearData() {
+  if (!confirm('Kosongkan seluruh data riwayat? Keadaan akan kembali bersih (jujur kosong).')) return;
+  try {
+    const res = await fetch(`${API_BASE}/clear-data`, { method: 'POST', headers: authHeaders() });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(data.message || 'Seluruh data telah dikosongkan.', 'success');
+      lastDeviceData = null;
+      fetchDeviceStatus();
+      fetchHistory();
+      fetchTransactions();
+      if (currentView === 'analytics') loadAnalyticsData(currentAnalyticsRange);
+      if (currentView === 'reports') loadReportsData();
+    } else {
+      showToast(data.error || 'Gagal membersihkan data', 'error');
+    }
+  } catch (err) {
+    showToast('Kesalahan koneksi jaringan', 'error');
+  }
+}
+
 // ============================================================
 //  NOTIFIKASI SISTEM NYATA
 // ============================================================
@@ -236,11 +334,6 @@ async function fetchNotifications() {
     const redDot = document.getElementById('notifRedDot');
     if (redDot) {
       redDot.style.display = unreadCount > 0 ? 'block' : 'none';
-    }
-
-    const chatDot = document.getElementById('chatRedDot');
-    if (chatDot) {
-      chatDot.style.display = unreadCount > 0 ? 'block' : 'none';
     }
 
     const container = document.getElementById('notifListContainer');
@@ -278,8 +371,6 @@ function closeNotifDropdown() {
 function clearNotifBadge() {
   const redDot = document.getElementById('notifRedDot');
   if (redDot) redDot.style.display = 'none';
-  const chatDot = document.getElementById('chatRedDot');
-  if (chatDot) chatDot.style.display = 'none';
   document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
   showToast('Semua notifikasi telah ditandai dibaca', 'success');
 }
@@ -295,12 +386,38 @@ window.addEventListener('click', (e) => {
 // ============================================================
 //  AI CHAT ASSISTANT
 // ============================================================
+async function checkAIStatus() {
+  try {
+    const res = await fetch('/api/ai/status', { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const badgeText = document.getElementById('aiConfigText');
+    const badge = document.getElementById('aiConfigBadge');
+    if (badgeText) {
+      if (data.configured) {
+        badgeText.textContent = 'AI Ready';
+        if (badge) badge.style.backgroundColor = 'rgba(116, 199, 24, 0.15)';
+      } else {
+        badgeText.textContent = 'Mode Data';
+        if (badge) badge.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+      }
+    }
+  } catch (_) {}
+}
+
 function updateAIContextPills() {
-  if (!lastDeviceData) return;
   const elFill = document.getElementById('aiFillText');
   const elWeight = document.getElementById('aiWeightText');
   const elDev = document.getElementById('aiDevText');
   const elDot = document.getElementById('aiDevDot');
+
+  if (!lastDeviceData || !lastDeviceData.lastSeen) {
+    if (elFill) elFill.textContent = '--%';
+    if (elWeight) elWeight.textContent = '-- g';
+    if (elDev) elDev.textContent = 'esp32-ecosort-1: Offline';
+    if (elDot) elDot.style.backgroundColor = '#ef4444';
+    return;
+  }
 
   const w = lastDeviceData.currentWeightGram ?? lastDeviceData.weightGram ?? 0;
   if (elWeight) elWeight.textContent = `${Number(w).toFixed(1)} g`;
@@ -362,11 +479,6 @@ async function handleSendAIMessage(e) {
       appendChatMessage('ai', data.reply);
     } else {
       appendChatMessage('ai', 'Maaf, terjadi kesalahan saat memproses jawaban.');
-    }
-
-    const badge = document.getElementById('aiConfigText');
-    if (badge && data.configured === false) {
-      badge.textContent = 'Mode Data Cerdas';
     }
   } catch (err) {
     removeChatLoading(loadingId);
@@ -433,7 +545,172 @@ function removeChatLoading(id) {
 }
 
 // ============================================================
-//  POLLING DATA SENSOR IOT REAL-TIME
+//  HALAMAN ANALITIK (GRAFIK RISET & METRIK LENGKAP)
+// ============================================================
+function setAnalyticsRange(range) {
+  currentAnalyticsRange = range;
+  const btnToday = document.getElementById('btnRangeToday');
+  const btn7d = document.getElementById('btnRange7d');
+  if (btnToday) btnToday.classList.toggle('active', range === 'today');
+  if (btn7d) btn7d.classList.toggle('active', range !== 'today');
+  loadAnalyticsData(range);
+}
+
+async function loadAnalyticsData(range = 'today') {
+  try {
+    const res = await fetch(`${API_BASE}/analytics?deviceId=${DEVICE_ID}&range=${range}`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const mAvg = document.getElementById('metricAvgWeight');
+    const mPeak = document.getElementById('metricPeakWeight');
+    const mEv = document.getElementById('metricTotalEvents');
+    const mHr = document.getElementById('metricBusiestHour');
+
+    if (mAvg) mAvg.textContent = data.metrics?.avgWeight || '-- g';
+    if (mPeak) mPeak.textContent = data.metrics?.peakWeight || '-- g';
+    if (mEv) mEv.textContent = `${data.metrics?.totalEvents || 0} kali`;
+    if (mHr) mHr.textContent = data.metrics?.busiestHour || '--';
+
+    if (typeof updateAnalyticsCharts === 'function') {
+      updateAnalyticsCharts(data);
+    }
+  } catch (err) {
+    console.error('Error loading analytics:', err);
+  }
+}
+
+// ============================================================
+//  HALAMAN LAPORAN (RINGKASAN & TABEL LOG LENGKAP)
+// ============================================================
+async function loadReportsData() {
+  try {
+    const [resDev, resTx] = await Promise.all([
+      fetch(`${API_BASE}/devices`, { headers: authHeaders() }),
+      fetch(`${API_BASE}/transactions`, { headers: authHeaders() })
+    ]);
+
+    const devData = await resDev.json();
+    const txData = await resTx.json();
+
+    const dev = (devData.devices || []).find(d => d.deviceId === DEVICE_ID) || devData.devices?.[0];
+    const txList = txData.transactions || [];
+
+    // Ringkasan
+    const repTot = document.getElementById('repTotalWeight');
+    const totW = dev?.totalWeightGram || 0;
+    if (repTot) {
+      repTot.textContent = totW >= 1000 ? `${(totW / 1000).toFixed(2)} kg` : `${Number(totW).toFixed(1)} g`;
+    }
+
+    const repEv = document.getElementById('repTotalEvents');
+    if (repEv) repEv.textContent = `${txList.length} kejadian`;
+
+    const repStat = document.getElementById('repDeviceStatus');
+    const now = Date.now();
+    const lastSeenTime = new Date(dev?.lastSeen || 0).getTime();
+    const isOnline = dev && (now - lastSeenTime) < 10000;
+    if (repStat) {
+      repStat.textContent = isOnline ? 'Online' : 'Offline';
+      repStat.style.color = isOnline ? '#22c55e' : '#ef4444';
+    }
+
+    const badgeCount = document.getElementById('repLogCountBadge');
+    if (badgeCount) badgeCount.textContent = `${txList.length} Data`;
+
+    // Render tabel laporan
+    const tbody = document.getElementById('reportsTableBody');
+    if (!tbody) return;
+
+    if (txList.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+            Belum ada catatan log aktivitas tersimpan
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = txList.map(tx => {
+      let badgeClass = 'badge-completed';
+      let statusLabel = 'Selesai';
+      const st = (tx.status || '').toLowerCase();
+      if (st.includes('pending') || st.includes('menunggu')) {
+        badgeClass = 'badge-pending';
+        statusLabel = 'Menunggu';
+      } else if (st.includes('scheduled') || st.includes('terkirim')) {
+        badgeClass = 'badge-scheduled';
+        statusLabel = 'Terkirim';
+      }
+
+      return `
+        <tr>
+          <td class="tx-date-col">${escapeHTML(tx.date)}</td>
+          <td>
+            <div class="tx-id-col">
+              <div class="tx-icon-circle">
+                <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
+              </div>
+              <span>${escapeHTML(tx.id)}</span>
+            </div>
+          </td>
+          <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
+          <td>${escapeHTML(tx.distance || '--')}</td>
+          <td class="tx-status-col">
+            <span class="badge-status ${badgeClass}">${statusLabel}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error loading reports:', err);
+  }
+}
+
+// Ekspor File Laporan (CSV & JSON)
+async function exportDataCSV() {
+  try {
+    const res = await fetch(`${API_BASE}/export/csv`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Gagal mengunduh CSV');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ecosort-log-${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('File CSV berhasil diunduh!', 'success');
+  } catch (err) {
+    showToast('Gagal mengekspor data CSV', 'error');
+  }
+}
+
+async function exportDataJSON() {
+  try {
+    const res = await fetch(`${API_BASE}/export/json`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Gagal mengunduh JSON');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ecosort-data-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('File JSON berhasil diunduh!', 'success');
+  } catch (err) {
+    showToast('Gagal mengekspor data JSON', 'error');
+  }
+}
+
+// ============================================================
+//  POLLING DATA SENSOR IOT REAL-TIME ("DATA JUJUR")
 // ============================================================
 async function fetchDeviceStatus() {
   try {
@@ -442,16 +719,46 @@ async function fetchDeviceStatus() {
     const data = await res.json();
     const dev = (data.devices || []).find(d => d.deviceId === DEVICE_ID) || data.devices?.[0];
 
-    // Jika belum ada data dari ESP, jangan tampilkan data palsu
-    if (!dev) {
+    // Jika belum ada data dari ESP32 (keadaan jujur belum pernah kirim data)
+    if (!dev || !dev.lastSeen) {
       const elW = document.getElementById('valWeight');
       if (elW) elW.innerHTML = `--<span class="hero-unit">g</span>`;
+      const elTrendW = document.getElementById('weightTrend');
+      if (elTrendW) elTrendW.textContent = '--';
+
       const elD = document.getElementById('valDistance');
       if (elD) elD.innerHTML = `--<span class="hero-unit">cm</span>`;
+      const elTrendD = document.getElementById('distanceTrend');
+      if (elTrendD) elTrendD.textContent = 'HC-SR04';
+
       const elS = document.getElementById('valStatus');
       if (elS) elS.textContent = 'MENUNGGU';
+
       const elEarn = document.getElementById('earningAmount');
       if (elEarn) elEarn.textContent = '0.0 g';
+
+      const elDot = document.getElementById('statusOnlineDot');
+      if (elDot) elDot.className = 'status-online-dot offline';
+
+      const elProfileStatus = document.getElementById('profileDeviceStatusText');
+      if (elProfileStatus) elProfileStatus.textContent = 'esp32-ecosort-1 • Offline';
+
+      const badgeAcc = document.getElementById('accDeviceOnlineBadge');
+      if (badgeAcc) {
+        badgeAcc.className = 'badge-status badge-pending';
+        badgeAcc.textContent = 'Offline';
+      }
+
+      const elM3 = document.getElementById('profileMetric3');
+      if (elM3) elM3.textContent = 'Offline';
+
+      const capText = document.getElementById('profileCapacityText');
+      if (capText) capText.textContent = '0%';
+      const capFill = document.getElementById('profileCapacityFill');
+      if (capFill) capFill.style.width = '0%';
+
+      if (typeof updateDonutChartData === 'function') updateDonutChartData(0);
+      updateAIContextPills();
       return;
     }
 
@@ -459,11 +766,25 @@ async function fetchDeviceStatus() {
     emptyDist = dev.emptyDistanceCm || 35;
     fullThresh = dev.fullThresholdCm || 10;
 
-    // 1. Kartu 1: Berat Sensor (live currentWeightGram)
+    const now = Date.now();
+    const lastSeenTime = new Date(dev.lastSeen || 0).getTime();
+    const isOnline = (now - lastSeenTime) < 10000;
+
+    // Format jam terakhir untuk data jujur saat offline
+    const dSeen = new Date(lastSeenTime);
+    const hh = String(dSeen.getHours()).padStart(2, '0');
+    const mm = String(dSeen.getMinutes()).padStart(2, '0');
+    const lastSeenClockLabel = `Terakhir ${hh}.${mm}`;
+
+    // 1. Kartu 1: Berat Sensor
     const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
     const elWeight = document.getElementById('valWeight');
     if (elWeight) {
       elWeight.innerHTML = `${Number(weightVal).toFixed(1)}<span class="hero-unit">g</span>`;
+    }
+    const elTrendW = document.getElementById('weightTrend');
+    if (elTrendW) {
+      elTrendW.textContent = isOnline ? 'Live' : lastSeenClockLabel;
     }
 
     // 2. Kartu 2: Jarak Sensor (distanceCm)
@@ -475,6 +796,10 @@ async function fetchDeviceStatus() {
       } else {
         elDist.innerHTML = `Err<span class="hero-unit">cm</span>`;
       }
+    }
+    const elTrendD = document.getElementById('distanceTrend');
+    if (elTrendD) {
+      elTrendD.textContent = isOnline ? 'HC-SR04' : lastSeenClockLabel;
     }
 
     // 3. Kartu 3: Status Sampah (PENUH / AMAN / SENSOR ERROR)
@@ -499,14 +824,14 @@ async function fetchDeviceStatus() {
     if (typeof updateDonutChartData === 'function') {
       updateDonutChartData(fillPercent);
     }
-    const statAvg = document.getElementById('statCapacityAvg');
-    if (statAvg) statAvg.textContent = `${fillPercent}%`;
+
+    // Progress Bar Kapasitas di Panel Profil
+    const capText = document.getElementById('profileCapacityText');
+    if (capText) capText.textContent = `${fillPercent}%`;
+    const capFill = document.getElementById('profileCapacityFill');
+    if (capFill) capFill.style.width = `${fillPercent}%`;
 
     // 5. Panel Profile (Kanan)
-    const now = Date.now();
-    const lastSeenTime = new Date(dev.lastSeen || 0).getTime();
-    const isOnline = (now - lastSeenTime) < 10000;
-
     const elDot = document.getElementById('statusOnlineDot');
     if (elDot) {
       elDot.className = isOnline ? 'status-online-dot' : 'status-online-dot offline';
@@ -514,7 +839,7 @@ async function fetchDeviceStatus() {
 
     const elProfileStatus = document.getElementById('profileDeviceStatusText');
     if (elProfileStatus) {
-      elProfileStatus.textContent = `esp32-ecosort-1 • ${isOnline ? 'Online' : 'Offline'}`;
+      elProfileStatus.textContent = `esp32-ecosort-1 • ${isOnline ? 'Online' : lastSeenClockLabel}`;
     }
 
     const badgeAcc = document.getElementById('accDeviceOnlineBadge');
@@ -533,8 +858,6 @@ async function fetchDeviceStatus() {
         elM1.textContent = Number(totW).toFixed(0) + 'g';
       }
     }
-    const repTot = document.getElementById('repTotalWeight');
-    if (repTot) repTot.textContent = (totW / 1000).toFixed(2) + ' kg';
 
     const elM3 = document.getElementById('profileMetric3');
     if (elM3) {
@@ -588,9 +911,6 @@ async function fetchTransactions() {
 
     const elM2 = document.getElementById('profileMetric2');
     if (elM2) elM2.textContent = String(currentTxCount);
-
-    const elEvCount = document.getElementById('statEventCount');
-    if (elEvCount) elEvCount.textContent = `${currentTxCount} kali`;
 
     renderTransactions(list);
   } catch (err) {
@@ -756,23 +1076,6 @@ async function handleRestart() {
   if (ok) closeControlModal();
 }
 
-// Ekspor Riwayat Data JSON
-function exportDataJSON() {
-  fetch(`${API_BASE}/history?deviceId=${DEVICE_ID}&limit=500`, { headers: authHeaders() })
-    .then(r => r.json())
-    .then(data => {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ecosort-history-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Data sensor berhasil diekspor!', 'success');
-    })
-    .catch(() => showToast('Gagal mengekspor data', 'error'));
-}
-
 // ============================================================
 //  INISIALISASI SAAT HALAMAN DIMUAT
 // ============================================================
@@ -795,7 +1098,18 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchHistory();
   fetchTransactions();
   fetchNotifications();
+  checkAIStatus();
 
+  // Buka view sesuai hash jika ada (#ai, #analytics, #reports, #account, #kontrol), default dashboard
+  const initialHash = window.location.hash.replace('#', '').trim();
+  if (initialHash === 'control' || initialHash === 'kontrol') {
+    switchNav('dashboard');
+    setTimeout(openControlModal, 150);
+  } else {
+    switchNav(['dashboard', 'ai', 'analytics', 'reports', 'account'].includes(initialHash) ? initialHash : 'dashboard');
+  }
+
+  // Polling berkala
   setInterval(fetchDeviceStatus, POLL_INTERVAL_MS);
   setInterval(fetchHistory, HISTORY_INTERVAL_MS);
   setInterval(fetchTransactions, TX_INTERVAL_MS);

@@ -325,8 +325,13 @@ body {
 
 .dashboard-view {
   width: 100%;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.4vh, 16px);
 }
 
 .content-header {
@@ -1127,25 +1132,42 @@ body {
   box-shadow: 0 0 8px #ef4444;
 }
 
-.profile-dashed-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+.profile-capacity-bar-wrap {
   width: 100%;
-  max-width: 160px;
-  margin: 0 auto 10px auto;
+  max-width: 190px;
+  margin: 2px auto 10px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.dash-seg {
-  height: 3px;
-  flex: 1;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 2px;
+.profile-capacity-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 600;
 }
 
-.dash-seg.active {
-  background: var(--color-green-primary);
+.profile-capacity-bar-header strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.profile-capacity-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.profile-capacity-fill {
+  height: 100%;
+  background: var(--color-green-gradient);
+  border-radius: 9999px;
+  transition: width 0.3s ease, background 0.3s ease;
 }
 
 .profile-metrics-row {
@@ -1637,73 +1659,312 @@ body {
   color: var(--text-dark);
 }
 
-/* Analytics & Reports Views */
-.analytics-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
-  flex: 1 1 0;
+.info-row-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.detail-stat-box {
-  padding: 12px 0;
-  text-align: center;
-}
-
-.stat-highlight {
-  font-size: 2.1rem;
-  font-weight: 800;
-  color: var(--color-green-primary);
-  margin-bottom: 4px;
-}
-
-.detail-stat-box p {
+.token-header-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 0.78rem;
   color: var(--text-secondary);
 }
 
-.btn-export-data {
+.btn-copy-token {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--color-green-soft);
+  color: var(--color-green-primary);
+  border: 1px solid rgba(114, 192, 26, 0.3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-copy-token:hover {
+  background: var(--color-green-primary);
+  color: #ffffff;
+}
+
+.device-token-code {
+  display: block;
+  padding: 8px 10px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.76rem;
+  color: #0f172a;
+  word-break: break-all;
+  user-select: all;
+  border: 1px solid var(--border-light);
+}
+
+.token-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.demo-seed-box {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-seed-demo {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: var(--text-dark);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-seed-demo:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.btn-clear-demo {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-clear-demo:hover {
+  background: #ffe4e6;
+}
+
+/* ============================================================
+   HALAMAN ANALITIK (Range, 4 Mini Cards, 2 Sisa Ruang Charts)
+   ============================================================ */
+.analytics-range-selector {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.btn-range {
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.btn-range.active {
+  background: var(--color-green-primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(114, 192, 26, 0.3);
+}
+
+.analytics-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(8px, 1.2vw, 14px);
+  flex-shrink: 0;
+}
+
+.metric-mini-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: clamp(10px, 1.4vh, 14px) clamp(12px, 1.2vw, 16px);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-mini-card .mini-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.metric-mini-card .mini-val {
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem);
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 3px 0 2px 0;
+  letter-spacing: -0.4px;
+}
+
+.metric-mini-card .mini-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.analytics-charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(10px, 1.2vw, 16px);
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+.chart-fill-wrap {
+  position: relative;
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.chart-fill-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ============================================================
+   HALAMAN LAPORAN (Ringkasan & Tabel Log Scrollable)
+   ============================================================ */
+.reports-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-export-outline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: var(--text-dark);
+  border: 1px solid var(--border-light);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+}
+
+.btn-export-outline:hover {
+  border-color: var(--color-green-primary);
+  color: var(--color-green-primary);
+}
+
+.btn-export-solid {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9999px;
   background: var(--color-green-primary);
   color: #ffffff;
   border: none;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(114, 192, 26, 0.3);
+  transition: all 0.15s ease;
 }
 
-.btn-export-data svg {
+.btn-export-solid:hover {
+  background: var(--color-green-hover);
+}
+
+.btn-export-outline svg,
+.btn-export-solid svg {
   width: 14px;
   height: 14px;
   fill: currentColor;
 }
 
-.reports-container-card {
+.reports-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(8px, 1.2vw, 14px);
+  flex-shrink: 0;
+}
+
+.reports-summary-card {
   background: var(--bg-card);
   border-radius: var(--radius-card);
-  padding: 16px;
+  padding: clamp(10px, 1.4vh, 14px) clamp(12px, 1.2vw, 16px);
   box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
 }
 
-.reports-summary-row {
+.reports-summary-card .rep-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.reports-summary-card .rep-value {
+  font-size: clamp(1.2rem, 1.7vw, 1.55rem);
+  font-weight: 800;
+  color: var(--text-dark);
+  letter-spacing: -0.4px;
+}
+
+.reports-table-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: clamp(12px, 1.6vh, 18px);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(0, 0, 0, 0.02);
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  gap: 10px;
 }
 
-.summary-chip {
-  padding: 8px 14px;
-  background: #f8fafc;
+.reports-table-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
   border-radius: 10px;
   border: 1px solid var(--border-light);
-  font-size: 0.78rem;
+  scrollbar-width: thin;
+}
+
+.reports-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-empty-row {
+  text-align: center;
+  padding: 32px 16px !important;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.84rem;
 }
 
 /* ============================================================
@@ -2053,6 +2314,31 @@ body {
     position: relative;
   }
 
+  .analytics-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .analytics-charts-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .chart-fill-wrap {
+    min-height: 220px;
+    height: 220px;
+  }
+
+  .reports-summary-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .account-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .profile-panel {
     grid-area: profile;
     background: var(--bg-dark-panel);
@@ -2224,6 +2510,35 @@ body {
     gap: 14px;
   }
 
+  .analytics-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .analytics-charts-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .chart-fill-wrap {
+    min-height: 200px;
+    height: 200px;
+  }
+
+  .reports-summary-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .reports-table-scroll {
+    max-height: 320px;
+  }
+
+  .account-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .revenue-chart-wrap {
     min-height: 200px;
     height: 200px;
@@ -2244,7 +2559,7 @@ body {
     min-width: 420px;
   }
 
-  /* Panel Profil di bawah pada HP */
+  /* Panel Profil di bawah pada HP (HANYA muncul di halaman Dashboard) */
   .profile-panel {
     order: 2;
     background: var(--bg-dark-panel);
@@ -2255,6 +2570,52 @@ body {
     flex-direction: column;
     gap: 16px;
     color: var(--text-light);
+  }
+
+  body.view-non-dashboard .profile-panel {
+    display: none !important;
+  }
+
+  body.view-non-dashboard .main-content {
+    padding-bottom: calc(85px + env(safe-area-inset-bottom));
+  }
+
+  /* Khusus halaman AI di Mobile */
+  body.view-non-dashboard #view-ai {
+    height: calc(100dvh - 85px - env(safe-area-inset-bottom));
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.view-non-dashboard #view-ai .ai-chat-card {
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.view-non-dashboard #view-ai .ai-messages-wrap {
+    flex: 1 1 0;
+    min-height: 160px;
+    overflow-y: auto;
+  }
+
+  /* Khusus tabel Laporan di Mobile */
+  .reports-table-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .reports-table-scroll {
+    overflow-x: auto;
+    max-height: 360px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #reportsFullTable {
+    min-width: 520px;
   }
 
   .earning-section {

@@ -5,7 +5,11 @@ package-lock.json
 # Local runtime data
 server/data/*.json
 server/data/*.tmp
+server/data/*.txt
 !server/data/.gitkeep
+
+# Helper scripts
+take_all_screenshots.py
 
 # Archives and build artifacts
 *.zip
