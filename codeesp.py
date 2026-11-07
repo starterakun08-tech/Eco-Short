@@ -75,30 +75,55 @@ pending_weight_gram = 0
 weight_event_active = False
 weight_clear_count = 0
 
-# ===== [DITAMBAH] Counter untuk polling perintah setiap 5 siklus kirim =====
+# Counter untuk polling perintah dan jeda reconnect WiFi
 command_poll_counter = 0
-COMMAND_POLL_EVERY = 5  # Cek perintah setiap 5x kirim data
+COMMAND_POLL_EVERY = 5       # Cek perintah setiap 5x kirim data
+last_wifi_retry_sec = 0
+WIFI_RETRY_INTERVAL_SEC = 10 # Jeda antar percobaan sambung WiFi agar tidak memblokir servo
 
 
-def connect_wifi():
+def get_wifi_error_message(st):
+    """Menerjemahkan kode status WiFi ESP32 ke penjelasan yang mudah dipahami."""
+    if st == 201:
+        return "Hotspot TIDAK DITEMUKAN (Pastikan Hotspot di HP sudah AKTIF & band 2.4 GHz)"
+    elif st == 202:
+        return "PASSWORD SALAH (Cek huruf besar/kecil password WiFi)"
+    elif st == 203:
+        return "KONEKSI DITOLAK (Di HP: ubah Keamanan Hotspot dari WPA3 ke WPA2-Personal)"
+    elif st == 1001:
+        return "Timeout saat menyambung"
+    return f"Status kode {st}"
+
+
+def connect_wifi(timeout_sec=6):
+    """Mencoba menghubungkan WiFi secara cepat tanpa memblokir sistem."""
     if wifi.isconnected():
-        print("WiFi:", wifi.ifconfig()[0])
         return True
 
     wifi.active(True)
-    wifi.disconnect()
-    time.sleep(1)
+    time.sleep_ms(100)
 
-    print("Connect WiFi...")
-    wifi.connect(WIFI_SSID, WIFI_PASSWORD)
+    print(f"Menghubungkan ke WiFi '{WIFI_SSID}'...")
+    try:
+        wifi.connect(WIFI_SSID, WIFI_PASSWORD)
+    except Exception as e:
+        print("Error koneksi WiFi:", e)
+        return False
 
-    for _ in range(20):
+    start_time = time.time()
+    while (time.time() - start_time) < timeout_sec:
         if wifi.isconnected():
-            print("Connected:", wifi.ifconfig()[0])
+            print("WiFi Terhubung! IP:", wifi.ifconfig()[0])
             return True
-        time.sleep(1)
+        time.sleep_ms(300)
 
-    print("WiFi gagal")
+    # Jika gagal, periksa statusnya
+    try:
+        st = wifi.status()
+        print(f"WiFi belum terhubung: {get_wifi_error_message(st)}")
+    except Exception:
+        print("WiFi belum terhubung (timeout)")
+
     return False
 
 
@@ -245,11 +270,16 @@ def format_weight_label(g):
 
 
 def send_to_dashboard(berat, jarak, berat_sensor, pending, total):
+    global last_wifi_retry_sec
+
     if not wifi.isconnected():
-        print("Reconnect WiFi...")
-        if not connect_wifi():
-            print("Skip kirim")
-            return
+        now_sec = time.time()
+        # Jangan coba reconnect terus-menerus setiap detik agar servo tidak macet
+        if (now_sec - last_wifi_retry_sec) >= WIFI_RETRY_INTERVAL_SEC:
+            last_wifi_retry_sec = now_sec
+            print("[WiFi Offline] Mencoba menyambung kembali...")
+            connect_wifi(timeout_sec=3)
+        return
 
     payload = {
         "deviceId": DEVICE_ID,
