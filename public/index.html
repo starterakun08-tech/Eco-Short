@@ -101,15 +101,73 @@
            VIEW 1: DASHBOARD UTAMA
            ======================================================== -->
       <div id="view-dashboard" class="dashboard-view active">
-        <!-- Header: Title -->
+        <!-- Header: Title + Search -->
         <header class="content-header">
           <div class="header-titles">
             <h1>Dashboard</h1>
             <p>Monitoring tong sampah ESP32 EcoSort</p>
           </div>
+          <div class="search-pill">
+            <input type="text" placeholder="Cari data..." />
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          </div>
         </header>
 
-        <!-- Row 1: Analytics Row (Revenue Spline + Donut Kapasitas) — Mengisi Sisa Ruang (1fr) -->
+        <!-- Row 1: The 3 Bright Green Metric Cards (Hero Banner) -->
+        <section class="hero-metric-banner">
+          <!-- Card 1: Berat Sensor (live currentWeightGram) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Berat Sensor</div>
+            <div class="hero-card-value">
+              <span id="valWeight">0.0<span class="hero-unit">g</span></span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="weightTrend">Live</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 14 Q 14 4, 24 16 T 46 8 T 66 12" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Card 2: Jarak Sensor (distanceCm) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Jarak Sensor</div>
+            <div class="hero-card-value">
+              <span id="valDistance">--<span class="hero-unit">cm</span></span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="distanceTrend">HC-SR04</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 16 Q 16 6, 28 14 T 48 6 T 66 10" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Card 3: Status Sampah (PENUH / AMAN / SENSOR ERROR) -->
+          <div class="hero-card">
+            <div class="hero-card-title">Status Sampah</div>
+            <div class="hero-card-value">
+              <span id="valStatus">MENUNGGU</span>
+            </div>
+            <div class="hero-card-bottom">
+              <span class="hero-pill-badge">
+                <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z"/></svg>
+                <span id="statusTrend">Kapasitas</span>
+              </span>
+              <svg class="hero-sparkline" viewBox="0 0 68 22">
+                <path d="M2 18 Q 12 12, 24 16 T 44 4 T 66 8" />
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- Row 2: Analytics Row (Revenue Spline + Donut Kapasitas) — Mengisi Sisa Ruang (1fr) -->
         <section class="analytics-row">
           <!-- Revenue Card (Riwayat Berat Sensor) -->
           <div class="analytics-card">
@@ -209,8 +267,40 @@
           </div>
         </header>
 
-        <!-- Main Card Chat AI (Hanya Menyisakan Chat untuk AI) -->
+        <!-- Main Card Chat AI (Mengisi Sisa Tinggi Area Tengah Secara Vertikal) -->
         <div class="ai-chat-card">
+          <!-- Bar Status Ringkas -->
+          <div class="ai-status-bar">
+            <div class="ai-status-chip">
+              <span class="chip-dot dot-green" id="aiDevDot"></span>
+              <span id="aiDevText">esp32-ecosort-1: Offline</span>
+            </div>
+            <div class="ai-status-chip">
+              <span class="chip-label">Tingkat Isi:</span>
+              <strong id="aiFillText">--%</strong>
+            </div>
+            <div class="ai-status-chip">
+              <span class="chip-label">Berat Sensor:</span>
+              <strong id="aiWeightText">-- g</strong>
+            </div>
+          </div>
+
+          <!-- Tombol Pertanyaan Cepat -->
+          <div class="ai-quick-prompts">
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Apakah tong sampah sudah penuh?')">
+              🗑️ Apakah tong sudah penuh?
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Ringkas data sensor hari ini')">
+              📊 Ringkas data hari ini
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Berapa berat sampah saat ini?')">
+              ⚖️ Berapa berat saat ini?
+            </button>
+            <button class="btn-quick-prompt" onclick="askQuickPrompt('Bagaimana status perangkat ESP32?')">
+              📡 Cek status perangkat
+            </button>
+          </div>
+
           <!-- Area Pesan Chat (Scroll di Dalam Kartu) -->
           <div class="ai-messages-wrap" id="aiMessagesWrap">
             <div class="chat-msg msg-ai">

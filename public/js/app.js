@@ -406,7 +406,33 @@ async function checkAIStatus() {
 }
 
 function updateAIContextPills() {
-  // Status bar pada AI chat telah dihilangkan sesuai permintaan (hanya menyisakan chat murni)
+  const elFill = document.getElementById('aiFillText');
+  const elWeight = document.getElementById('aiWeightText');
+  const elDev = document.getElementById('aiDevText');
+  const elDot = document.getElementById('aiDevDot');
+
+  if (!lastDeviceData || !lastDeviceData.lastSeen) {
+    if (elFill) elFill.textContent = '--%';
+    if (elWeight) elWeight.textContent = '-- g';
+    if (elDev) elDev.textContent = 'esp32-ecosort-1: Offline';
+    if (elDot) elDot.style.backgroundColor = '#ef4444';
+    return;
+  }
+
+  const w = lastDeviceData.currentWeightGram ?? lastDeviceData.weightGram ?? 0;
+  if (elWeight) elWeight.textContent = `${Number(w).toFixed(1)} g`;
+
+  const distVal = lastDeviceData.distanceCm;
+  let pct = 0;
+  if (distVal !== null && distVal !== undefined) {
+    const denom = (emptyDist - fullThresh) || 1;
+    pct = Math.min(100, Math.max(0, Math.round(((emptyDist - distVal) / denom) * 100)));
+  }
+  if (elFill) elFill.textContent = `${pct}%`;
+
+  const isOnline = (Date.now() - new Date(lastDeviceData.lastSeen || 0).getTime()) < 10000;
+  if (elDev) elDev.textContent = `esp32-ecosort-1: ${isOnline ? 'Online' : 'Offline'}`;
+  if (elDot) elDot.style.backgroundColor = isOnline ? '#22c55e' : '#ef4444';
 }
 
 function askQuickPrompt(text) {
