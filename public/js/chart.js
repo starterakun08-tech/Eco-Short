@@ -1,7 +1,7 @@
 // ============================================================
 //  EcoSort IoT Dashboard — Charts Module
 //  1. Revenue Spline: Riwayat Berat Sensor (Dashboard)
-//  2. Customers Donut: Kapasitas Tong (Dashboard)
+//  2. Customers Donut: Kapasitas Tong (Dashboard) — 2 Bagian Murni
 //  3. Analytics Weight Chart: Riwayat Berat per Jam (Analitik)
 //  4. Analytics Capacity Chart: Tingkat Isi dari Waktu ke Waktu (Analitik)
 // ============================================================
@@ -18,7 +18,7 @@ window.analyticsCapacityChartInstance = null;
 
 const COLOR_GREEN = '#74c718';
 const COLOR_ORANGE = '#fbbf24';
-const COLOR_DARK = '#27372c';
+const COLOR_EMPTY_GRAY = '#e2e8f0';
 
 // ---- 1. Inisialisasi Revenue Spline Chart (Dashboard) ----
 function initRevenueChart() {
@@ -30,18 +30,14 @@ function initRevenueChart() {
   grad.addColorStop(0, 'rgba(116, 199, 24, 0.22)');
   grad.addColorStop(1, 'rgba(116, 199, 24, 0.00)');
 
-  // Default jam realistis untuk hari ini
-  const defaultLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
-  const defaultData = [0, 0, 0, 0, 0, 0, 0];
-
   window.revenueChartInstance = revenueChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: defaultLabels,
+      labels: [],
       datasets: [
         {
           label: 'Hari ini',
-          data: defaultData,
+          data: [],
           borderColor: COLOR_GREEN,
           backgroundColor: grad,
           borderWidth: 3.5,
@@ -114,9 +110,17 @@ function initRevenueChart() {
       }
     }
   });
+
+  // Awal tanpa data -> tampilkan watermark "Belum ada data", sembunyikan floating badge
+  const emptyEl = document.getElementById('revenueEmptyState');
+  if (emptyEl) emptyEl.style.display = 'flex';
+  const badge = document.getElementById('chartFloatingBadge');
+  if (badge) badge.style.display = 'none';
+  const bar = document.getElementById('chartFloatingBar');
+  if (bar) bar.style.display = 'none';
 }
 
-// ---- 2. Inisialisasi Donut Chart (Kapasitas Tong) ----
+// ---- 2. Inisialisasi Donut Chart (Kapasitas Tong — Tepat 2 Segmen) ----
 function initDonutChart() {
   const canvas = document.getElementById('donutChart');
   if (!canvas) return;
@@ -126,13 +130,13 @@ function initDonutChart() {
   window.donutChartInstance = donutChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Kosong', 'Terisi', 'Aksen'],
+      labels: ['Tidak ada data'],
       datasets: [
         {
-          data: [100, 0, 5],
-          backgroundColor: [COLOR_ORANGE, COLOR_GREEN, COLOR_DARK],
+          data: [100],
+          backgroundColor: [COLOR_EMPTY_GRAY],
           borderWidth: 0,
-          hoverOffset: 3
+          hoverOffset: 0
         }
       ]
     },
@@ -158,17 +162,14 @@ function initAnalyticsWeightChart() {
   grad.addColorStop(0, 'rgba(116, 199, 24, 0.25)');
   grad.addColorStop(1, 'rgba(116, 199, 24, 0.00)');
 
-  const hours = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'];
-  const zeroes = [0, 0, 0, 0, 0, 0, 0];
-
   window.analyticsWeightChartInstance = analyticsWeightChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: hours,
+      labels: [],
       datasets: [
         {
           label: 'Hari ini',
-          data: zeroes,
+          data: [],
           borderColor: COLOR_GREEN,
           backgroundColor: grad,
           borderWidth: 3,
@@ -203,13 +204,16 @@ function initAnalyticsWeightChart() {
             maxTicksLimit: 6,
             color: '#a0aec0',
             font: { family: 'Plus Jakarta Sans', size: 10 },
-            callback: (v) => v >= 1000 ? (v/1000).toFixed(1) + 'kg' : v + 'g'
+            callback: (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'kg' : v + 'g'
           },
           grid: { color: '#f1f5f9' }
         }
       }
     }
   });
+
+  const emptyEl = document.getElementById('analyticsWeightEmptyState');
+  if (emptyEl) emptyEl.style.display = 'flex';
 }
 
 // ---- 4. Inisialisasi Grafik Analitik: Kapasitas per Jam ----
@@ -222,17 +226,14 @@ function initAnalyticsCapacityChart() {
   grad.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
   grad.addColorStop(1, 'rgba(251, 191, 36, 0.00)');
 
-  const hours = ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '23:59'];
-  const zeroes = [0, 0, 0, 0, 0, 0, 0];
-
   window.analyticsCapacityChartInstance = analyticsCapacityChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: hours,
+      labels: [],
       datasets: [
         {
           label: 'Kapasitas',
-          data: zeroes,
+          data: [],
           borderColor: COLOR_ORANGE,
           backgroundColor: grad,
           borderWidth: 3,
@@ -275,28 +276,39 @@ function initAnalyticsCapacityChart() {
       }
     }
   });
+
+  const emptyEl = document.getElementById('analyticsCapacityEmptyState');
+  if (emptyEl) emptyEl.style.display = 'flex';
 }
 
-// ---- Update Data Riwayat Sensor (Sumbu X Jam & Data Jujur) ----
+// ---- Update Data Riwayat Sensor (Dashboard) ----
 function updateRevenueChartData(historyList, yesterdayList) {
   if (!revenueChartInstance) return;
 
-  if (!historyList || historyList.length === 0) {
-    // Keadaan kosong jujur
-    revenueChartInstance.data.labels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
-    revenueChartInstance.data.datasets[0].data = [0, 0, 0, 0, 0, 0, 0];
+  const emptyEl = document.getElementById('revenueEmptyState');
+  const badge = document.getElementById('chartFloatingBadge');
+  const bar = document.getElementById('chartFloatingBar');
+  const yesterdayLegend = document.getElementById('legendYesterday');
+
+  if (!historyList || !Array.isArray(historyList) || historyList.length === 0) {
+    // Keadaan kosong jujur: sembunyikan garis datar dan tooltip menempel
+    revenueChartInstance.data.labels = [];
+    revenueChartInstance.data.datasets[0].data = [];
     if (revenueChartInstance.data.datasets[1]) {
       revenueChartInstance.data.datasets.pop();
     }
-    revenueChartInstance.options.scales.y.suggestedMax = 100;
     revenueChartInstance.update();
 
-    const badge = document.getElementById('chartFloatingBadge');
-    if (badge) badge.textContent = '0.0 g';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    if (badge) badge.style.display = 'none';
+    if (bar) bar.style.display = 'none';
+    if (yesterdayLegend) yesterdayLegend.style.display = 'none';
     return;
   }
 
-  // Ambil titik data riwayat
+  // Ada data sensor
+  if (emptyEl) emptyEl.style.display = 'none';
+
   const recent = historyList.slice(-10);
   const labels = recent.map((item, idx) => {
     try {
@@ -305,7 +317,7 @@ function updateRevenueChartData(historyList, yesterdayList) {
       const m = String(d.getMinutes()).padStart(2, '0');
       return `${h}:${m}`;
     } catch (_) {
-      return `T${idx+1}`;
+      return `T${idx + 1}`;
     }
   });
 
@@ -315,7 +327,6 @@ function updateRevenueChartData(historyList, yesterdayList) {
 
   // Cek apakah ada data Kemarin
   const hasYesterday = yesterdayList && Array.isArray(yesterdayList) && yesterdayList.length > 0;
-  const yesterdayLegend = document.getElementById('legendYesterday');
   if (yesterdayLegend) {
     yesterdayLegend.style.display = hasYesterday ? 'inline-flex' : 'none';
   }
@@ -343,33 +354,56 @@ function updateRevenueChartData(historyList, yesterdayList) {
   revenueChartInstance.options.scales.y.suggestedMax = Math.ceil(maxW * 1.15);
   revenueChartInstance.update();
 
-  const badge = document.getElementById('chartFloatingBadge');
-  if (badge && weights.length > 0) {
-    const peakWeight = Math.max(...weights);
+  // Floating badge di titik puncak
+  const peakWeight = Math.max(...weights, 0);
+  if (badge && peakWeight > 0) {
+    badge.style.display = 'block';
+    if (bar) bar.style.display = 'block';
     if (peakWeight >= 1000) {
       badge.textContent = (peakWeight / 1000).toFixed(1) + ' kg';
     } else {
       badge.textContent = peakWeight.toFixed(1) + ' g';
     }
+  } else {
+    if (badge) badge.style.display = 'none';
+    if (bar) bar.style.display = 'none';
   }
 }
 
-// ---- Update Donut Chart Persentase Kapasitas ----
+// ---- Update Donut Chart Persentase Kapasitas (Hanya 2 Segmen Murni) ----
 function updateDonutChartData(fillPercent) {
   if (!donutChartInstance) return;
 
+  const centerText = document.getElementById('valFill');
+  const capText = document.getElementById('profileCapacityText');
+  const capFill = document.getElementById('profileCapacityFill');
+
+  // Keadaan offline atau tidak ada data: Cincin abu-abu netral, teks "--"
+  if (fillPercent === null || fillPercent === undefined || isNaN(fillPercent)) {
+    donutChartInstance.data.labels = ['Tidak ada data'];
+    donutChartInstance.data.datasets[0].data = [100];
+    donutChartInstance.data.datasets[0].backgroundColor = [COLOR_EMPTY_GRAY];
+    donutChartInstance.update();
+
+    if (centerText) centerText.textContent = '--';
+    if (capText) capText.textContent = '--';
+    if (capFill) capFill.style.width = '0%';
+    return;
+  }
+
+  // Keadaan online & data valid: TEPAT 2 SEGMEN (Terisi & Kosong) yang berjumlah 100%
   const validPercent = Math.min(100, Math.max(0, Math.round(fillPercent)));
   const segmentTerisi = validPercent;
   const segmentKosong = Math.max(0, 100 - validPercent);
-  const segmentAksen = 6;
 
-  donutChartInstance.data.datasets[0].data = [segmentKosong, segmentTerisi, segmentAksen];
+  donutChartInstance.data.labels = ['Terisi', 'Kosong'];
+  donutChartInstance.data.datasets[0].data = [segmentTerisi, segmentKosong];
+  donutChartInstance.data.datasets[0].backgroundColor = [COLOR_GREEN, COLOR_ORANGE];
   donutChartInstance.update();
 
-  const centerText = document.getElementById('valFill');
-  if (centerText) {
-    centerText.textContent = validPercent + '%';
-  }
+  if (centerText) centerText.textContent = validPercent + '%';
+  if (capText) capText.textContent = validPercent + '%';
+  if (capFill) capFill.style.width = validPercent + '%';
 }
 
 // ---- Update Grafik di Halaman Analitik ----
@@ -388,37 +422,61 @@ function updateAnalyticsCharts(labelsOrObj, todayWeights, todayCapacities, yeste
     hasY = labelsOrObj.hasYesterdayData;
   }
 
-  if (analyticsWeightChartInstance && labels) {
-    analyticsWeightChartInstance.data.labels = labels;
-    analyticsWeightChartInstance.data.datasets[0].data = tW || [];
-    const validWeights = (tW || []).filter(w => w !== null && !isNaN(w));
-    const maxVal = validWeights.length > 0 ? Math.max(...validWeights, 50) : 100;
-    analyticsWeightChartInstance.options.scales.y.suggestedMax = Math.ceil(maxVal * 1.15);
+  const emptyW = document.getElementById('analyticsWeightEmptyState');
+  const emptyC = document.getElementById('analyticsCapacityEmptyState');
 
-    if (hasY && yW && yW.length > 0) {
-      if (!analyticsWeightChartInstance.data.datasets[1]) {
-        analyticsWeightChartInstance.data.datasets.push({
-          label: 'Kemarin',
-          data: yW,
-          borderColor: COLOR_ORANGE,
-          borderWidth: 2,
-          borderDash: [4, 4],
-          fill: false,
-          pointRadius: 0
-        });
-      } else {
-        analyticsWeightChartInstance.data.datasets[1].data = yW;
+  const validWeights = (tW || []).filter(w => w !== null && !isNaN(w));
+  const validCapacities = (tC || []).filter(c => c !== null && !isNaN(c));
+
+  if (analyticsWeightChartInstance) {
+    if (validWeights.length === 0) {
+      analyticsWeightChartInstance.data.labels = [];
+      analyticsWeightChartInstance.data.datasets[0].data = [];
+      if (analyticsWeightChartInstance.data.datasets[1]) {
+        analyticsWeightChartInstance.data.datasets.pop();
       }
-    } else if (analyticsWeightChartInstance.data.datasets[1]) {
-      analyticsWeightChartInstance.data.datasets.pop();
+      analyticsWeightChartInstance.update();
+      if (emptyW) emptyW.style.display = 'flex';
+    } else {
+      if (emptyW) emptyW.style.display = 'none';
+      analyticsWeightChartInstance.data.labels = labels;
+      analyticsWeightChartInstance.data.datasets[0].data = tW || [];
+      const maxVal = Math.max(...validWeights, 50);
+      analyticsWeightChartInstance.options.scales.y.suggestedMax = Math.ceil(maxVal * 1.15);
+
+      if (hasY && yW && yW.length > 0) {
+        if (!analyticsWeightChartInstance.data.datasets[1]) {
+          analyticsWeightChartInstance.data.datasets.push({
+            label: 'Kemarin',
+            data: yW,
+            borderColor: COLOR_ORANGE,
+            borderWidth: 2,
+            borderDash: [4, 4],
+            fill: false,
+            pointRadius: 0
+          });
+        } else {
+          analyticsWeightChartInstance.data.datasets[1].data = yW;
+        }
+      } else if (analyticsWeightChartInstance.data.datasets[1]) {
+        analyticsWeightChartInstance.data.datasets.pop();
+      }
+      analyticsWeightChartInstance.update();
     }
-    analyticsWeightChartInstance.update();
   }
 
-  if (analyticsCapacityChartInstance && labels) {
-    analyticsCapacityChartInstance.data.labels = labels;
-    analyticsCapacityChartInstance.data.datasets[0].data = tC || [];
-    analyticsCapacityChartInstance.update();
+  if (analyticsCapacityChartInstance) {
+    if (validCapacities.length === 0) {
+      analyticsCapacityChartInstance.data.labels = [];
+      analyticsCapacityChartInstance.data.datasets[0].data = [];
+      analyticsCapacityChartInstance.update();
+      if (emptyC) emptyC.style.display = 'flex';
+    } else {
+      if (emptyC) emptyC.style.display = 'none';
+      analyticsCapacityChartInstance.data.labels = labels;
+      analyticsCapacityChartInstance.data.datasets[0].data = tC || [];
+      analyticsCapacityChartInstance.update();
+    }
   }
 
   const yLegend = document.getElementById('legendAnalyticsYesterday');

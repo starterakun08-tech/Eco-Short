@@ -8,8 +8,11 @@ server/data/*.tmp
 server/data/*.txt
 !server/data/.gitkeep
 
-# Helper scripts
+# Helper scripts & testing artifacts
 take_all_screenshots.py
+test_*.py
+test_*.js
+*.png
 
 # Archives and build artifacts
 *.zip
@@ -26,4 +29,3 @@ npm-debug.log*
 # Environment
 .env
 .env.local
-

@@ -244,15 +244,25 @@ async function handleChangePassword(e) {
   }
 }
 
-// Token Perangkat ESP32
+// Token Perangkat ESP32 & Mode Demo
+let actualDeviceToken = '';
+
 async function loadDeviceToken() {
   try {
     const res = await fetch(`${API_BASE}/device-token`, { headers: authHeaders() });
     if (!res.ok) return;
     const data = await res.json();
+    actualDeviceToken = data.deviceToken || '';
+
     const elCode = document.getElementById('accDeviceTokenDisplay');
-    if (elCode && data.deviceToken) {
-      elCode.textContent = data.deviceToken;
+    if (elCode) {
+      elCode.textContent = data.maskedToken || (actualDeviceToken ? 'eco_••••••••••••' : 'Belum dikonfigurasi');
+    }
+
+    // Tombol demo HANYA tampil jika DEMO_MODE=1
+    const seedBox = document.getElementById('demoSeedBox');
+    if (seedBox) {
+      seedBox.style.display = data.demoMode ? 'flex' : 'none';
     }
   } catch (err) {
     console.error('Gagal mengambil token perangkat:', err);
@@ -260,13 +270,14 @@ async function loadDeviceToken() {
 }
 
 function copyDeviceToken() {
-  const elCode = document.getElementById('accDeviceTokenDisplay');
   const btn = document.getElementById('btnCopyToken');
-  if (!elCode) return;
-  const token = elCode.textContent.trim();
-  if (!token || token === 'Memuat...') return;
+  const tokenToCopy = actualDeviceToken;
+  if (!tokenToCopy) {
+    showToast('Token perangkat belum dikonfigurasi di environment server', 'error');
+    return;
+  }
 
-  navigator.clipboard.writeText(token).then(() => {
+  navigator.clipboard.writeText(tokenToCopy).then(() => {
     showToast('Token perangkat berhasil disalin ke clipboard!', 'success');
     if (btn) {
       const orig = btn.textContent;
@@ -299,9 +310,18 @@ async function handleLoadDemo() {
 }
 
 async function handleClearData() {
-  if (!confirm('Kosongkan seluruh data riwayat? Keadaan akan kembali bersih (jujur kosong).')) return;
+  const confirmCode = prompt('Ketik "RESET" untuk mengonfirmasi pengosongan data riwayat (keadaan akan jujur kosong):');
+  if (confirmCode !== 'RESET') {
+    if (confirmCode !== null) showToast('Reset dibatalkan (kata konfirmasi salah)', 'error');
+    return;
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/clear-data`, { method: 'POST', headers: authHeaders() });
+    const res = await fetch(`${API_BASE}/clear-data`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ confirm: 'RESET' })
+    });
     const data = await res.json();
     if (res.ok) {
       showToast(data.message || 'Seluruh data telah dikosongkan.', 'success');
@@ -581,7 +601,7 @@ async function loadAnalyticsData(range = 'today') {
 }
 
 // ============================================================
-//  HALAMAN LAPORAN (RINGKASAN & TABEL LOG LENGKAP)
+//  HALAMAN LAPORAN (RINGKASAN & TABEL LOG LENGKAP 6 KOLOM)
 // ============================================================
 async function loadReportsData() {
   try {
@@ -596,15 +616,21 @@ async function loadReportsData() {
     const dev = (devData.devices || []).find(d => d.deviceId === DEVICE_ID) || devData.devices?.[0];
     const txList = txData.transactions || [];
 
-    // Ringkasan
+    const weighingCount = txList.filter(t => t.type === 'Penimbangan' || (!t.commandId && t.type !== 'Perintah')).length;
+    const commandCount = txList.filter(t => t.type === 'Perintah' || Boolean(t.commandId)).length;
+
+    // 4 Ringkasan Terpisah
     const repTot = document.getElementById('repTotalWeight');
     const totW = dev?.totalWeightGram || 0;
     if (repTot) {
       repTot.textContent = totW >= 1000 ? `${(totW / 1000).toFixed(2)} kg` : `${Number(totW).toFixed(1)} g`;
     }
 
-    const repEv = document.getElementById('repTotalEvents');
-    if (repEv) repEv.textContent = `${txList.length} kejadian`;
+    const repWeighing = document.getElementById('repWeighingEvents');
+    if (repWeighing) repWeighing.textContent = `${weighingCount} kali`;
+
+    const repCommand = document.getElementById('repCommandEvents');
+    if (repCommand) repCommand.textContent = `${commandCount} perintah`;
 
     const repStat = document.getElementById('repDeviceStatus');
     const now = Date.now();
@@ -618,14 +644,14 @@ async function loadReportsData() {
     const badgeCount = document.getElementById('repLogCountBadge');
     if (badgeCount) badgeCount.textContent = `${txList.length} Data`;
 
-    // Render tabel laporan
+    // Render tabel laporan dengan 6 kolom terurut persis sama dengan header
     const tbody = document.getElementById('reportsTableBody');
     if (!tbody) return;
 
     if (txList.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+          <td colspan="6" class="table-empty-row">
             Belum ada catatan log aktivitas tersimpan
           </td>
         </tr>
@@ -643,21 +669,28 @@ async function loadReportsData() {
       } else if (st.includes('scheduled') || st.includes('terkirim')) {
         badgeClass = 'badge-scheduled';
         statusLabel = 'Terkirim';
+      } else if (st.includes('expired') || st.includes('kedaluwarsa') || st.includes('dibatalkan')) {
+        badgeClass = 'badge-pending';
+        statusLabel = tx.status || 'Kedaluwarsa';
       }
+
+      const txType = tx.type || (tx.commandId ? 'Perintah' : 'Penimbangan');
+      const distDisplay = (tx.distance && tx.distance !== '--') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : '--');
 
       return `
         <tr>
-          <td class="tx-date-col">${escapeHTML(tx.date)}</td>
           <td>
             <div class="tx-id-col">
               <div class="tx-icon-circle">
                 <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
               </div>
-              <span>${escapeHTML(tx.id)}</span>
+              <span>${escapeHTML(tx.id || '#2024000')}</span>
             </div>
           </td>
+          <td class="tx-date-col">${escapeHTML(tx.date || '--')}</td>
+          <td><span class="badge-type-label">${escapeHTML(txType)}</span></td>
           <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
-          <td>${escapeHTML(tx.distance || '--')}</td>
+          <td>${escapeHTML(distDisplay)}</td>
           <td class="tx-status-col">
             <span class="badge-status ${badgeClass}">${statusLabel}</span>
           </td>
@@ -724,15 +757,15 @@ async function fetchDeviceStatus() {
       const elW = document.getElementById('valWeight');
       if (elW) elW.innerHTML = `--<span class="hero-unit">g</span>`;
       const elTrendW = document.getElementById('weightTrend');
-      if (elTrendW) elTrendW.textContent = '--';
+      if (elTrendW) elTrendW.textContent = 'Offline';
 
       const elD = document.getElementById('valDistance');
       if (elD) elD.innerHTML = `--<span class="hero-unit">cm</span>`;
       const elTrendD = document.getElementById('distanceTrend');
-      if (elTrendD) elTrendD.textContent = 'HC-SR04';
+      if (elTrendD) elTrendD.textContent = 'Offline';
 
       const elS = document.getElementById('valStatus');
-      if (elS) elS.textContent = 'MENUNGGU';
+      if (elS) elS.textContent = '--';
 
       const elEarn = document.getElementById('earningAmount');
       if (elEarn) elEarn.textContent = '0.0 g';
@@ -749,15 +782,17 @@ async function fetchDeviceStatus() {
         badgeAcc.textContent = 'Offline';
       }
 
+      const elM1 = document.getElementById('profileMetric1');
+      if (elM1) elM1.textContent = '0.0g';
       const elM3 = document.getElementById('profileMetric3');
       if (elM3) elM3.textContent = 'Offline';
 
       const capText = document.getElementById('profileCapacityText');
-      if (capText) capText.textContent = '0%';
+      if (capText) capText.textContent = '--';
       const capFill = document.getElementById('profileCapacityFill');
       if (capFill) capFill.style.width = '0%';
 
-      if (typeof updateDonutChartData === 'function') updateDonutChartData(0);
+      if (typeof updateDonutChartData === 'function') updateDonutChartData(null);
       updateAIContextPills();
       return;
     }
@@ -802,10 +837,12 @@ async function fetchDeviceStatus() {
       elTrendD.textContent = isOnline ? 'HC-SR04' : lastSeenClockLabel;
     }
 
-    // 3. Kartu 3: Status Sampah (PENUH / AMAN / SENSOR ERROR)
+    // 3. Kartu 3: Status Sampah (PENUH / AMAN / SENSOR ERROR / OFFLINE)
     const elStatus = document.getElementById('valStatus');
     let statusText = 'AMAN';
-    if (distVal === null || distVal === undefined) {
+    if (!isOnline) {
+      statusText = 'OFFLINE';
+    } else if (distVal === null || distVal === undefined) {
       statusText = 'SENSOR ERROR';
     } else if (distVal <= fullThresh) {
       statusText = 'PENUH';
@@ -815,21 +852,27 @@ async function fetchDeviceStatus() {
     if (elStatus) elStatus.textContent = statusText;
 
     // 4. Donut Kapasitas Tong (Persentase Isi)
-    let fillPercent = 0;
-    if (distVal !== null && distVal !== undefined) {
-      const denom = (emptyDist - fullThresh) || 1;
-      const num = emptyDist - distVal;
-      fillPercent = Math.min(100, Math.max(0, Math.round((num / denom) * 100)));
-    }
-    if (typeof updateDonutChartData === 'function') {
-      updateDonutChartData(fillPercent);
-    }
-
-    // Progress Bar Kapasitas di Panel Profil
+    // Saat offline: "Kapasitas Tong" di panel profil dan donut menampilkan "--" (cincin abu-abu netral), bukan 0%
     const capText = document.getElementById('profileCapacityText');
-    if (capText) capText.textContent = `${fillPercent}%`;
     const capFill = document.getElementById('profileCapacityFill');
-    if (capFill) capFill.style.width = `${fillPercent}%`;
+
+    if (!isOnline) {
+      if (typeof updateDonutChartData === 'function') updateDonutChartData(null);
+      if (capText) capText.textContent = '--';
+      if (capFill) capFill.style.width = '0%';
+    } else {
+      let fillPercent = 0;
+      if (distVal !== null && distVal !== undefined) {
+        const denom = (emptyDist - fullThresh) || 1;
+        const num = emptyDist - distVal;
+        fillPercent = Math.min(100, Math.max(0, Math.round((num / denom) * 100)));
+      }
+      if (typeof updateDonutChartData === 'function') {
+        updateDonutChartData(fillPercent);
+      }
+      if (capText) capText.textContent = `${fillPercent}%`;
+      if (capFill) capFill.style.width = `${fillPercent}%`;
+    }
 
     // 5. Panel Profile (Kanan)
     const elDot = document.getElementById('statusOnlineDot');
@@ -900,7 +943,27 @@ async function fetchHistory() {
   }
 }
 
-// ---- Polling Transaksi (Recent Transaction) ----
+// ---- Polling Transaksi (Recent Transaction) & Live Search ----
+let allTransactions = [];
+
+function handleDashboardSearch(query) {
+  const q = (query || '').toLowerCase().trim();
+  if (!q) {
+    renderTransactions(allTransactions, false);
+    return;
+  }
+  const filtered = allTransactions.filter(tx => {
+    const id = String(tx.id || '').toLowerCase();
+    const date = String(tx.date || '').toLowerCase();
+    const type = String(tx.type || '').toLowerCase();
+    const amt = String(tx.rawAmount || tx.amount || '').toLowerCase();
+    const dist = String(tx.distance || '').toLowerCase();
+    const st = String(tx.status || '').toLowerCase();
+    return id.includes(q) || date.includes(q) || type.includes(q) || amt.includes(q) || dist.includes(q) || st.includes(q);
+  });
+  renderTransactions(filtered, true);
+}
+
 async function fetchTransactions() {
   try {
     const res = await fetch(`${API_BASE}/transactions`, { headers: authHeaders() });
@@ -908,25 +971,31 @@ async function fetchTransactions() {
     const data = await res.json();
     const list = data.transactions || [];
     currentTxCount = list.length;
+    allTransactions = list;
 
     const elM2 = document.getElementById('profileMetric2');
     if (elM2) elM2.textContent = String(currentTxCount);
 
-    renderTransactions(list);
+    const searchInput = document.getElementById('dashboardSearchInput');
+    if (searchInput && searchInput.value.trim()) {
+      handleDashboardSearch(searchInput.value);
+    } else {
+      renderTransactions(list, false);
+    }
   } catch (err) {
     console.error('Error fetching transactions:', err);
   }
 }
 
-function renderTransactions(list) {
+function renderTransactions(list, isFiltered = false) {
   const tbody = document.getElementById('transactionTableBody');
   if (!tbody) return;
 
-  if (list.length === 0) {
+  if (!list || list.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">
-          Belum ada riwayat penimbangan tercatat
+          ${isFiltered ? 'Tidak ada data yang cocok dengan pencarian' : 'Belum ada riwayat penimbangan tercatat'}
         </td>
       </tr>
     `;
@@ -1107,6 +1176,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(openControlModal, 150);
   } else {
     switchNav(['dashboard', 'ai', 'analytics', 'reports', 'account'].includes(initialHash) ? initialHash : 'dashboard');
+  }
+
+  // Notifikasi jika diarahkan untuk wajib ganti password pada login pertama
+  if (sessionStorage.getItem('firstLoginMustChange')) {
+    sessionStorage.removeItem('firstLoginMustChange');
+    setTimeout(() => {
+      showToast('Wajib perbarui password Administrator Anda pada login pertama!', 'info');
+    }, 450);
   }
 
   // Polling berkala

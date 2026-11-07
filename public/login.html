@@ -188,11 +188,6 @@
 
       <button type="submit" class="btn-submit" id="btnLogin">Masuk</button>
     </form>
-
-    <div class="demo-credentials">
-      Default Login:<br>
-      Username: <strong>admin</strong> &bull; Password: <strong>ecosort2024</strong>
-    </div>
   </div>
 
   <script>
@@ -216,8 +211,13 @@
         const data = await res.json();
         if (res.ok && data.token) {
           localStorage.setItem('ecosort_token', data.token);
-          localStorage.setItem('ecosort_username', data.user?.username || u);
-          window.location.href = '/';
+          localStorage.setItem('ecosort_username', data.username || u);
+          if (data.mustChangePassword) {
+            sessionStorage.setItem('firstLoginMustChange', '1');
+            window.location.href = '/#account';
+          } else {
+            window.location.href = '/';
+          }
         } else {
           errEl.textContent = data.error || 'Username atau password salah';
           errEl.style.display = 'block';

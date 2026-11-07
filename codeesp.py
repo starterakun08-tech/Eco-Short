@@ -21,8 +21,8 @@ WIFI_PASSWORD = "PASSWORD_WIFI_ANDA"
 SERVER_URL = "http://144.79.202.196:40122/api/iot/data"
 # ===== [DITAMBAH] URL endpoint perintah dari dashboard =====
 COMMAND_URL = "http://144.79.202.196:40122/api/iot/commands"
-# ===== [DITAMBAH] Token autentikasi perangkat (Sinkron dengan Server & Dashboard) =====
-DEVICE_TOKEN = "eco_dc6a6db1e6d53577c8693a426173906a"
+# ===== [DITAMBAH] Token autentikasi perangkat (Diambil dari Halaman Akun Dashboard) =====
+DEVICE_TOKEN = "ISI_TOKEN_DARI_PANEL"
 
 DEVICE_ID = "esp32-ecosort-1"
 SEND_INTERVAL_SECONDS = 1

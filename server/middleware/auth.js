@@ -3,50 +3,58 @@
 // ============================================================
 
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'ecosort-jwt-secret-key-2024';
-const TOKEN_FILE = path.join(__dirname, '..', 'data', 'device_token.txt');
 
 /**
  * Dapatkan DEVICE_TOKEN:
- * 1. Prioritas utama: process.env.DEVICE_TOKEN
- * 2. Jika tidak ada, baca dari file server/data/device_token.txt
- * 3. Jika file belum ada, buat token acak aman (32 karakter hex) dan simpan
+ * HANYA dibaca dari environment variable DEVICE_TOKEN
+ * Tidak ada token hardcoded atau tersimpan di file
  */
 function getDeviceToken() {
-  if (process.env.DEVICE_TOKEN && process.env.DEVICE_TOKEN.trim().length > 0) {
-    return process.env.DEVICE_TOKEN.trim();
-  }
-  try {
-    if (fs.existsSync(TOKEN_FILE)) {
-      const saved = fs.readFileSync(TOKEN_FILE, 'utf8').trim();
-      if (saved.length >= 8) return saved;
-    }
-  } catch (_) {}
+  return (process.env.DEVICE_TOKEN || '').trim();
+}
 
-  // Generate token acak aman panjang
-  const generated = 'eco_' + crypto.randomBytes(16).toString('hex');
-  try {
-    const dir = path.dirname(TOKEN_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(TOKEN_FILE, generated, 'utf8');
-  } catch (_) {}
-  return generated;
+/**
+ * Helper: Parse cookie dari req.headers.cookie
+ */
+function parseCookies(req) {
+  const list = {};
+  const rc = req.headers && req.headers.cookie;
+  if (rc) {
+    rc.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      const key = parts.shift().trim();
+      const val = decodeURIComponent(parts.join('='));
+      list[key] = val;
+    });
+  }
+  return list;
 }
 
 /**
  * Middleware: verifikasi JWT dari header Authorization: Bearer <token>
+ * ATAU dari cookie httpOnly (ecosort_token)
  */
 function requireAuth(req, res, next) {
+  let token = null;
+
+  // 1. Cek Header Authorization
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  }
+
+  // 2. Jika tidak ada di header, cek cookie httpOnly
+  if (!token) {
+    const cookies = parseCookies(req);
+    token = cookies.ecosort_token;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'Token tidak ditemukan' });
   }
 
-  const token = authHeader.split(' ')[1];
   if (token === 'demo_test_token') {
     req.user = { username: 'admin' };
     return next();
@@ -62,15 +70,22 @@ function requireAuth(req, res, next) {
 }
 
 /**
- * Middleware: verifikasi token perangkat ESP dari header X-Device-Token
+ * Middleware: verifikasi token perangkat ESP dari header X-Device-Token atau query token
+ * Token dicocokkan HANYA dengan process.env.DEVICE_TOKEN
  */
 function requireDeviceToken(req, res, next) {
-  const token = req.headers['x-device-token'];
+  const token = req.headers['x-device-token'] || req.query.token;
   const expectedToken = getDeviceToken();
-  if (!token || token !== expectedToken) {
-    return res.status(403).json({ error: 'Device token tidak valid' });
+
+  if (!expectedToken) {
+    return res.status(500).json({ error: 'DEVICE_TOKEN belum dikonfigurasi di environment server' });
   }
+
+  if (!token || token !== expectedToken) {
+    return res.status(401).json({ error: 'Device token tidak valid' });
+  }
+
   next();
 }
 
-module.exports = { requireAuth, requireDeviceToken, JWT_SECRET, getDeviceToken };
+module.exports = { requireAuth, requireDeviceToken, JWT_SECRET, getDeviceToken, parseCookies };

@@ -1423,6 +1423,9 @@ body {
 }
 
 .btn-quick-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   border-radius: 9999px;
   background: #f1f5f9;
@@ -1434,6 +1437,13 @@ body {
   white-space: nowrap;
   transition: all 0.15s ease;
   font-family: inherit;
+}
+
+.btn-quick-prompt svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
 }
 
 .btn-quick-prompt:hover {
@@ -1901,9 +1911,33 @@ body {
 
 .reports-summary-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, 1.2vw, 14px);
   flex-shrink: 0;
+}
+
+.chart-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.badge-type-label {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.05);
+  color: #4a5568;
 }
 
 .reports-summary-card {
@@ -1957,6 +1991,20 @@ body {
 .reports-table-scroll table {
   width: 100%;
   border-collapse: collapse;
+}
+
+#reportsFullTable th,
+#reportsFullTable td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+#reportsFullTable th {
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .table-empty-row {
@@ -2330,7 +2378,7 @@ body {
   }
 
   .reports-summary-row {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
