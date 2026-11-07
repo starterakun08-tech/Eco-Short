@@ -1,15 +1,35 @@
 from hx711 import HX711
-from machine import Pin, time_pulse_us, reset
+from machine import Pin, PWM, time_pulse_us, reset
 import network
 import time
 import urequests
 
-# --- KONFIGURASI PIN ---
-trig = Pin(19, Pin.OUT)
-echo = Pin(18, Pin.IN)
+# --- KONFIGURASI PIN HARDWARE ---
+# Sensor Ultrasonik HC-SR04
+TRIG_PIN = 19
+ECHO_PIN = 21
+
+trig = Pin(TRIG_PIN, Pin.OUT)
+echo = Pin(ECHO_PIN, Pin.IN)
+
+# Servo MG995 (Penggerak Tutup Tempat Sampah)
+SERVO_PIN = 18
+servo_pwm = PWM(Pin(SERVO_PIN), freq=50)
+
+# Sensor Berat Load Cell + Modul HX711
 hx = HX711(d_out=4, pd_sck=5)
 
-# --- PENGATURAN ---
+# --- PENGATURAN SERVO & TUTUP TONG ---
+JARAK_DETEKSI_TANGAN_CM = 20   # Jarak deteksi tangan untuk membuka tutup (cm)
+DURASI_TAHAN_DETIK = 3.0       # Durasi tutup tetap terbuka setelah tangan menjauh (detik)
+SUDUT_TUTUP = 0                # Sudut servo saat tertutup rapat (derajat)
+SUDUT_BUKA = 90                # Sudut servo saat terbuka penuh (derajat)
+
+current_servo_angle = SUDUT_TUTUP
+is_lid_open = False
+last_hand_detected_ms = 0
+
+# --- PENGATURAN SISTEM & SENSOR ---
 FAKTOR_KALIBRASI = 423.5
 AMBANG_PENUH_CM = 10
 JARAK_KOSONG_CM = 35
@@ -82,15 +102,43 @@ def connect_wifi():
     return False
 
 
+# --- FUNGSI KONTROL SERVO MG995 ---
+def set_servo_angle(angle):
+    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman."""
+    global current_servo_angle
+    angle = max(0, min(180, int(angle)))
+    current_servo_angle = angle
+    # MG995: 500us (0 deg) s/d 2500us (180 deg) pada periode 20.000us (50Hz)
+    pulse_us = 500 + (angle / 180.0) * 2000
+    duty = int((pulse_us / 20000.0) * 65535)
+    servo_pwm.duty_u16(duty)
+
+
+def move_servo_smooth(target_angle, step_delay_ms=8):
+    """Menggerakkan servo secara bertahap agar gerakan halus & arus stabil."""
+    global current_servo_angle
+    target_angle = max(0, min(180, int(target_angle)))
+    step = 4 if target_angle > current_servo_angle else -4
+    for a in range(current_servo_angle, target_angle, step):
+        set_servo_angle(a)
+        time.sleep_ms(step_delay_ms)
+    set_servo_angle(target_angle)
+
+
+def release_servo():
+    """Matikan sinyal PWM saat diam agar servo rileks, tidak panas & tidak mendengung."""
+    servo_pwm.duty_u16(0)
+
+
 def get_distance():
     trig.value(0)
-    time.sleep_us(2)
+    time.sleep_us(5)
     trig.value(1)
     time.sleep_us(10)
     trig.value(0)
 
     try:
-        duration = time_pulse_us(echo, 1, 30000)
+        duration = time_pulse_us(echo, 1, 35000)
         if duration <= 0:
             return None
         return (duration / 2) / 29.1
@@ -283,6 +331,21 @@ def poll_and_execute_commands():
                         SEND_INTERVAL_SECONDS = int(new_val)
                         print("[CMD] SEND_INTERVAL_SECONDS =", SEND_INTERVAL_SECONDS)
 
+                elif cmd_type == "open_lid":
+                    # Buka tutup tempat sampah dari dashboard
+                    print("[CMD] Buka tutup tempat sampah...")
+                    move_servo_smooth(SUDUT_BUKA)
+                    is_lid_open = True
+                    last_hand_detected_ms = time.ticks_ms()
+
+                elif cmd_type == "close_lid":
+                    # Tutup tempat sampah dari dashboard
+                    print("[CMD] Tutup tempat sampah...")
+                    move_servo_smooth(SUDUT_TUTUP)
+                    time.sleep_ms(300)
+                    release_servo()
+                    is_lid_open = False
+
                 elif cmd_type == "restart":
                     # Restart ESP32
                     print("[CMD] Restart ESP32...")
@@ -301,6 +364,11 @@ def poll_and_execute_commands():
 print("Start system...")
 connect_wifi()
 
+print("Inisialisasi Servo MG995 (Tutup)...")
+set_servo_angle(SUDUT_TUTUP)
+time.sleep_ms(500)
+release_servo()
+
 print("Tare HX711...")
 hx.tare()
 print("Ready\n")
@@ -309,6 +377,25 @@ while True:
     try:
         berat_raw = read_weight_gram()
         jarak_raw = read_distance_cm()
+
+        # ===== KONTROL OTOMATIS TUTUP TEMPAT SAMPAH (SERVO MG995) =====
+        now_ms = time.ticks_ms()
+        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat
+        if jarak_raw is not None and jarak_raw <= JARAK_DETEKSI_TANGAN_CM:
+            last_hand_detected_ms = now_ms
+            if not is_lid_open:
+                print(">>> [TANGAN TERDETEKSI ({:.1f} cm)] MEMBUKA TUTUP TONG...".format(jarak_raw))
+                move_servo_smooth(SUDUT_BUKA)
+                is_lid_open = True
+        else:
+            # Jika tutup sedang terbuka dan tangan sudah menjauh melebihi DURASI_TAHAN_DETIK
+            if is_lid_open and time.ticks_diff(now_ms, last_hand_detected_ms) > int(DURASI_TAHAN_DETIK * 1000):
+                print(">>> [TANGAN MENJAUH] MENUTUP KEMBALI TUTUP TONG...")
+                move_servo_smooth(SUDUT_TUTUP)
+                time.sleep_ms(300)
+                release_servo()  # Rilekskan motor servo agar tidak mendengung & tidak panas
+                is_lid_open = False
+        # ===============================================================
 
         smoothed_weight_gram = smooth_weight(smoothed_weight_gram, berat_raw)
         smoothed_distance_cm = apply_ema(smoothed_distance_cm, jarak_raw, DISTANCE_SMOOTHING_ALPHA)
@@ -331,13 +418,14 @@ while True:
 
         print("----------------------")
         print("Berat total:", format_weight_label(berat))
-        print("Berat sensor:", format_weight_label(berat_sensor))
-        print("Jarak:", "ERROR" if jarak is None else "{:.1f} cm".format(jarak))
+        print("Berat sensor (Load Cell):", format_weight_label(berat_sensor))
+        print("Jarak Tangan:", "ERROR / OUT" if jarak_raw is None else "{:.1f} cm".format(jarak_raw))
+        print("Status Tutup:", "TERBUKA" if is_lid_open else "TERTUTUP")
 
         if jarak is not None and jarak <= AMBANG_PENUH_CM:
             print("STATUS: PENUH")
         elif jarak is None:
-            print("STATUS: SENSOR ERROR")
+            print("STATUS: SENSOR STANDBY")
         else:
             print("STATUS: AMAN")
 
