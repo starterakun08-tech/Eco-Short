@@ -1,50 +1,60 @@
-# EcoSort IoT Dashboard
+# Creativilo — EcoSort IoT Dashboard & ESP32 Integration
 
-Dashboard monitoring & kontrol perangkat IoT EcoSort (sensor berat HX711 + ultrasonik) berbasis ESP32 (MicroPython).
+Dashboard web modern dengan tema hijau (Pixel-Perfect mengikuti desain Creativilo) untuk memonitor tong sampah pintar berbasis ESP32 (MicroPython dengan sensor berat HX711 & sensor jarak ultrasonik).
+
+---
 
 ## 📁 Struktur Proyek
 
-```
+```text
 IOT AKBAR/
-├── codeesp.py              ← Kode ESP32 (MicroPython) yang sudah dimodifikasi
-├── package.json             ← Dependensi Node.js
-├── README.md
+├── index.js                  ← Entry point root untuk Hostingin (Pterodactyl)
+├── package.json              ← Dependensi Node.js (express, jsonwebtoken, bcryptjs, dll)
+├── codeesp.py                ← Firmware ESP32 MicroPython
+├── README.md                 ← Panduan lengkap ini
 ├── server/
-│   ├── index.js             ← Entry point server
-│   ├── routes/
-│   │   ├── iot.js           ← API endpoint IoT (data & perintah)
-│   │   └── auth.js          ← API login/verifikasi
+│   ├── index.js              ← Express server utama (Port 40122)
 │   ├── middleware/
-│   │   └── auth.js          ← Middleware autentikasi
-│   └── data/                ← Otomatis dibuat saat server berjalan
+│   │   └── auth.js           ← Autentikasi JWT & Device Token (X-Device-Token)
+│   ├── routes/
+│   │   ├── iot.js            ← Endpoint /api/iot (data, commands, history, transactions)
+│   │   └── auth.js           ← Endpoint /api/auth (login & session)
+│   └── data/                 ← Penyimpanan data JSON ringan (users, history, commands)
 └── public/
-    ├── index.html           ← Dashboard utama
-    ├── login.html           ← Halaman login
-    ├── css/style.css        ← Stylesheet
-    └── js/
-        ├── app.js           ← Logika dashboard
-        └── chart.js         ← Grafik sensor
+    ├── index.html            ← Halaman utama Dashboard Creativilo (Layout 3 kolom)
+    ├── login.html            ← Halaman login bertema serasi
+    ├── css/
+    │   └── style.css         ← Styling visual pixel-perfect (gradien hijau, panel gelap)
+    ├── js/
+    │   ├── app.js            ← Logika dashboard, polling real-time, kontrol perintah
+    │   └── chart.js          ← Grafik Revenue (Spline) & Customers (Donut)
+    └── images/
+        └── avatar.svg        ← Avatar foto profil melingkar sesuai desain
 ```
+
+---
 
 ## 🚀 Cara Upload ke Panel Hostingin (Pterodactyl)
 
-### 1. Upload File
-1. Buka panel di `panel.hostingin.net`, pilih server kamu.
-2. Klik tab **Files**.
-3. Upload **semua** file & folder (`server/`, `public/`, `package.json`) ke direktori root (`/home/container/`).
-   - Atau gunakan SFTP jika tersedia.
+### 1. Upload File ZIP / Folder
+1. Buka panel di `panel.hostingin.net` dan pilih server kamu.
+2. Buka tab **Files**.
+3. Upload file `ecosort-upload.zip` (atau seluruh file proyek: `index.js`, `package.json`, `server/`, `public/`).
+4. Jika mengupload file ZIP: klik titik tiga di sebelah file `ecosort-upload.zip` lalu pilih **Unarchive**.
 
-### 2. Atur Startup
-1. Klik tab **Startup**.
-2. Pada **Main File** (atau `MAIN_FILE`), isi: `server/index.js`
-3. Pastikan **Node.js Version** = `24` (atau biarkan default).
-
-### 3. Install Dependensi
-1. Klik tab **Console**.
-2. Ketik restart / klik **Restart**. 
-3. Pterodactyl akan otomatis menjalankan `npm install` saat startup (lihat skrip startup di console).
-4. Setelah selesai, di console akan muncul:
+### 2. Konfigurasi Menu Startup
+1. Buka tab **Startup** di panel Hostingin.
+2. Pada kolom **Main File** (atau `MAIN_FILE`), pastikan terisi:
+   ```text
+   index.js
    ```
+3. Pastikan **Node.js Version** adalah `24`.
+
+### 3. Jalankan Server
+1. Masuk ke tab **Console** di panel.
+2. Klik tombol **Restart** (atau **Start**).
+3. Pterodactyl akan membaca dependensi dan menjalankan server. Di console akan muncul banner resmi:
+   ```text
    ========================================
      NEXA HOME MULTI-CAMERA CCTV RELAY AKTIF
      ECOSORT IoT Dashboard AKTIF
@@ -53,76 +63,49 @@ IOT AKBAR/
    ```
 
 ### 4. Akses Dashboard
-- Buka browser: `http://144.79.202.196:40122/`
-- Login default:
+- Buka di browser: `http://144.79.202.196:40122/` (atau `http://localhost:40122/` di lokal).
+- Akun default:
   - **Username**: `admin`
   - **Password**: `ecosort2024`
 
-## 🔌 Cara Upload codeesp.py ke ESP32
+---
 
-### Prasyarat
-- ESP32 dengan firmware MicroPython
-- Library `hx711.py` sudah ada di ESP32
-- Thonny IDE (atau ampy/mpremote)
+## 🔌 Catatan Firmware ESP32 (codeesp.py)
 
-### Langkah
-1. Buka **Thonny** → Pilih interpreter **MicroPython (ESP32)**.
-2. Buka file `codeesp.py`.
-3. Sesuaikan jika perlu:
-   - `WIFI_SSID` dan `WIFI_PASSWORD` → WiFi yang bisa akses internet.
-   - `SERVER_URL` sudah diisi `http://144.79.202.196:40122/api/iot/data`.
-   - `DEVICE_TOKEN` harus sama dengan yang di server (`ecosort-secret-2024`).
-4. Klik **Save as** → pilih **MicroPython device** → simpan sebagai `main.py`.
-5. Reset ESP32. ESP akan otomatis connect WiFi dan mulai kirim data.
+- Firmware ESP32 tetap menggunakan **MicroPython**.
+- **Perbaikan bug sintaks:** Pada loop utama baris 311, trailing koma pada `jarak_raw = read_distance_cm(),` telah dihapus agar mengembalikan nilai `float` murni (bukan `tuple`), sehingga perhitungan filter EMA dan persentase kapasitas berjalan normal tanpa error.
+- ESP32 berkomunikasi via HTTP POST ke `/api/iot/data` dan polling perintah via GET ke `/api/iot/commands` menggunakan header autentikasi `X-Device-Token: ecosort-secret-2024`.
 
-## 🧪 Cara Tes Koneksi
+---
 
-### Tes dari laptop (simulasi ESP):
+## 🧪 Cara Tes Koneksi & Simulasi
+
+### 1. Tes Kirim Data Sensor (Simulasi dari Terminal):
 ```bash
-# Kirim data sensor dummy
 curl -X POST http://144.79.202.196:40122/api/iot/data \
   -H "Content-Type: application/json" \
   -H "X-Device-Token: ecosort-secret-2024" \
-  -d '{"deviceId":"esp32-ecosort-1","weightGram":150.5,"totalWeightGram":300.0,"distanceCm":20.3,"fullThresholdCm":10,"emptyDistanceCm":35}'
+  -d '{
+    "deviceId": "esp32-ecosort-1",
+    "weightGram": 245.5,
+    "totalWeightGram": 1820.0,
+    "currentWeightGram": 245.5,
+    "distanceCm": 21.4,
+    "fullThresholdCm": 10,
+    "emptyDistanceCm": 35,
+    "resetWeight": false
+  }'
+```
 
-# Cek perintah (seperti yang dilakukan ESP)
-curl http://144.79.202.196:40122/api/iot/commands?deviceId=esp32-ecosort-1 \
+### 2. Tes Ambil Antrean Perintah (Sebagaimana Dilakukan ESP32):
+```bash
+curl "http://144.79.202.196:40122/api/iot/commands?deviceId=esp32-ecosort-1" \
   -H "X-Device-Token: ecosort-secret-2024"
 ```
 
-### Tes login dashboard:
+### 3. Tes Login Dashboard:
 ```bash
 curl -X POST http://144.79.202.196:40122/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"ecosort2024"}'
 ```
-
-## 📝 Perubahan di codeesp.py
-
-Berikut bagian yang **diubah/ditambah** dari kode ESP asli (ditandai komentar `[DIUBAH]` dan `[DITAMBAH]`):
-
-| Baris | Perubahan | Keterangan |
-|-------|-----------|------------|
-| 21 | `SERVER_URL` | Diubah ke `http://144.79.202.196:40122/api/iot/data` |
-| 23-25 | `COMMAND_URL`, `DEVICE_TOKEN` | Ditambah: URL endpoint perintah & token autentikasi |
-| 53-55 | `command_poll_counter`, `COMMAND_POLL_EVERY` | Ditambah: counter untuk polling perintah |
-| 196-198 | Header di `send_to_dashboard()` | Ditambah: header `X-Device-Token` pada HTTP POST |
-| 207-251 | `poll_and_execute_commands()` | Ditambah: fungsi baru untuk mengambil & eksekusi perintah |
-| 278-281 | Loop utama | Ditambah: panggil `poll_and_execute_commands()` tiap 5 siklus kirim |
-
-**Yang TIDAK diubah**: semua logika sensor, kalibrasi, smoothing, konfigurasi pin, WiFi, dan format tampilan serial.
-
-## 🔐 Keamanan
-
-- Dashboard dilindungi JWT (expired 24 jam)
-- ESP menggunakan token `X-Device-Token` untuk autentikasi
-- Default password: `ecosort2024` — **ganti setelah deploy!**
-
-## ⚙️ Environment Variables (opsional)
-
-| Variable | Default | Keterangan |
-|----------|---------|------------|
-| `PORT` / `SERVER_PORT` | `40122` | Port server |
-| `JWT_SECRET` | `ecosort-jwt-secret-key-2024` | Secret untuk JWT |
-| `DEVICE_TOKEN` | `ecosort-secret-2024` | Token autentikasi ESP |
-

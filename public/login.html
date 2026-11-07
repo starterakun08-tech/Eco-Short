@@ -2,213 +2,234 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — EcoSort IoT</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Login — Creativilo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    
+
     body {
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: #f4f6f8;
-      color: #1e293b;
-      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: #f7f6f2;
+      color: #1a202c;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 1.25rem;
+      padding: clamp(16px, 3vw, 24px) clamp(12px, 3vw, 20px);
+      -webkit-font-smoothing: antialiased;
     }
 
-    .login-card {
+    .login-container {
+      width: min(94vw, 420px);
       background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 2.75rem 2.25rem;
-      width: 100%;
-      max-width: 410px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+      border-radius: clamp(20px, 4vw, 28px);
+      padding: clamp(28px, 4vw, 38px) clamp(20px, 4vw, 32px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06), 0 2px 10px rgba(0, 0, 0, 0.02);
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      animation: fadeIn 0.3s ease;
     }
 
-    .logo {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 28px;
     }
 
-    .logo .icon-box {
-      width: 54px;
-      height: 54px;
-      background: #546B41;
-      border-radius: 14px;
-      display: inline-flex;
+    .brand-icon-box {
+      width: 46px;
+      height: 46px;
+      background: #72c01a;
+      border-radius: 12px;
+      display: flex;
       align-items: center;
       justify-content: center;
       color: #ffffff;
-      margin-bottom: 0.85rem;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 18px rgba(114, 192, 26, 0.32);
     }
 
-    .logo .icon-box svg {
-      width: 28px;
-      height: 28px;
+    .brand-icon-box svg {
+      width: 24px;
+      height: 24px;
       fill: currentColor;
     }
 
-    .logo h1 {
+    .brand-title {
       font-size: 1.4rem;
-      font-weight: 700;
-      color: #1e293b;
-      letter-spacing: -0.3px;
+      font-weight: 800;
+      color: #1a202c;
+      letter-spacing: -0.4px;
     }
 
-    .logo p {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin-top: 0.35rem;
+    .brand-desc {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      font-weight: 500;
+      margin-top: 3px;
     }
 
     .form-group {
-      margin-bottom: 1.25rem;
+      margin-bottom: 18px;
     }
 
-    .form-group label {
+    .form-label {
       display: block;
-      font-size: 0.82rem;
-      color: #475569;
-      margin-bottom: 0.45rem;
-      font-weight: 600;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #4a5568;
+      margin-bottom: 6px;
     }
 
-    .form-group input {
+    .form-input {
       width: 100%;
-      height: 44px;
-      padding: 0 1rem;
-      background: #ffffff;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 8px;
-      color: #1e293b;
-      font-size: 0.95rem;
+      height: 46px;
+      padding: 0 16px;
+      background: #f8fafc;
+      border: 1.5px solid #edf2f7;
+      border-radius: 12px;
+      color: #1a202c;
+      font-size: 0.9rem;
       font-family: inherit;
       outline: none;
       transition: all 0.2s ease;
     }
 
-    .form-group input:focus {
-      border-color: #546B41;
-      box-shadow: 0 0 0 3px rgba(84, 107, 65, 0.2);
+    .form-input:focus {
+      border-color: #72c01a;
+      background: #ffffff;
+      box-shadow: 0 0 0 3.5px rgba(114, 192, 26, 0.16);
     }
 
-    .btn {
+    .btn-submit {
       width: 100%;
-      height: 44px;
-      background: #546B41;
-      border: none;
-      border-radius: 8px;
+      height: 46px;
+      background: #72c01a;
       color: #ffffff;
-      font-size: 0.95rem;
-      font-weight: 600;
+      border: none;
+      border-radius: 9999px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: inherit;
       cursor: pointer;
       transition: all 0.2s ease;
-      font-family: inherit;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 0.5rem;
+      box-shadow: 0 8px 20px rgba(114, 192, 26, 0.35);
+      margin-top: 8px;
     }
 
-    .btn:hover:not(:disabled) {
-      background: #435634;
+    .btn-submit:hover {
+      background: #64ae12;
+      transform: translateY(-1px);
     }
 
-    .btn:active:not(:disabled) {
-      transform: scale(0.99);
-    }
-
-    .btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .error-msg {
-      background: #fee2e2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-      padding: 0.65rem 0.85rem;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      margin-bottom: 1.25rem;
+    .error-alert {
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      color: #dc2626;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 16px;
       display: none;
-      font-weight: 500;
+    }
+
+    .demo-credentials {
+      margin-top: 24px;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #edf2f7;
+      font-size: 0.74rem;
+      color: #718096;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .demo-credentials strong {
+      color: #1a202c;
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="logo">
-      <div class="icon-box">
+
+  <div class="login-container">
+    <div class="brand-header">
+      <div class="brand-icon-box">
         <svg viewBox="0 0 24 24">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h2v3h3v2h-3v3h-2v-3h-2v-2z"/>
         </svg>
       </div>
-      <h1>EcoSort IoT</h1>
-      <p>Dashboard Monitoring & Kontrol</p>
+      <h1 class="brand-title">Creativilo</h1>
+      <p class="brand-desc">Monitoring tong sampah ESP32 EcoSort</p>
     </div>
 
-    <div class="error-msg" id="error"></div>
+    <div class="error-alert" id="errorMsg"></div>
 
-    <form id="loginForm">
+    <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
-        <label for="username">Nama Pengguna</label>
-        <input type="text" id="username" name="username" autocomplete="username" placeholder="admin" required>
+        <label class="form-label" for="username">Username</label>
+        <input type="text" id="username" class="form-input" placeholder="admin" required autofocus autocomplete="username" />
       </div>
+
       <div class="form-group">
-        <label for="password">Kata Sandi</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
+        <label class="form-label" for="password">Password</label>
+        <input type="password" id="password" class="form-input" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required autocomplete="current-password" />
       </div>
-      <button type="submit" class="btn" id="loginBtn">Masuk</button>
+
+      <button type="submit" class="btn-submit" id="btnLogin">Masuk</button>
     </form>
+
+    <div class="demo-credentials">
+      Default Login:<br>
+      Username: <strong>admin</strong> &bull; Password: <strong>ecosort2024</strong>
+    </div>
   </div>
 
   <script>
-    if (localStorage.getItem('ecosort_token')) {
-      window.location.href = '/';
-    }
-
-    const form = document.getElementById('loginForm');
-    const errorEl = document.getElementById('error');
-    const btn = document.getElementById('loginBtn');
-
-    form.addEventListener('submit', async (e) => {
+    async function handleLogin(e) {
       e.preventDefault();
-      errorEl.style.display = 'none';
-      btn.disabled = true;
-      btn.textContent = 'Memproses...';
+      const errEl = document.getElementById('errorMsg');
+      const btn = document.getElementById('btnLogin');
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
 
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
+      errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Memverifikasi...';
 
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username: u, password: p })
         });
         const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || 'Username atau password salah');
+        if (res.ok && data.token) {
+          localStorage.setItem('ecosort_token', data.token);
+          localStorage.setItem('ecosort_username', data.user?.username || u);
+          window.location.href = '/';
+        } else {
+          errEl.textContent = data.error || 'Username atau password salah';
+          errEl.style.display = 'block';
         }
-
-        localStorage.setItem('ecosort_token', data.token);
-        localStorage.setItem('ecosort_user', data.username);
-        window.location.href = '/';
       } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.style.display = 'block';
+        errEl.textContent = 'Gagal menghubungi server';
+        errEl.style.display = 'block';
       } finally {
         btn.disabled = false;
         btn.textContent = 'Masuk';
       }
-    });
+    }
   </script>
 </body>
 </html>

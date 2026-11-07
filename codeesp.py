@@ -308,7 +308,7 @@ print("Ready\n")
 while True:
     try:
         berat_raw = read_weight_gram()
-        jarak_raw = read_distance_cm(), 
+        jarak_raw = read_distance_cm()
 
         smoothed_weight_gram = smooth_weight(smoothed_weight_gram, berat_raw)
         smoothed_distance_cm = apply_ema(smoothed_distance_cm, jarak_raw, DISTANCE_SMOOTHING_ALPHA)
