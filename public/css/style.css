@@ -1,5 +1,5 @@
 /* ============================================================
-   Creativilo / EcoSort IoT Dashboard — Fully Responsive Theme
+   EcoSort IoT Dashboard — Fully Responsive Theme
    Mendukung: Monitor Besar (>=1440px), Laptop (1024-1439px),
    Tablet (768-1023px), HP (<768px: 360px-430px & Landscape).
    ============================================================ */
@@ -41,8 +41,8 @@
   --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.025);
   --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.05);
 
-  --sidebar-w: clamp(175px, 15vw, 215px);
-  --profile-w: clamp(235px, 21vw, 285px);
+  --sidebar-w: clamp(180px, 15vw, 225px);
+  --profile-w: clamp(245px, 21vw, 300px);
 }
 
 *, *::before, *::after {
@@ -51,9 +51,9 @@
   padding: 0;
 }
 
-/* Skala proporsional berbasis lebar DAN tinggi layar */
+/* Skala proporsional berbasis lebar DAN tinggi layar (Dioptimalkan agar jelas terbaca) */
 html {
-  font-size: clamp(11.5px, min(0.85vw, 1.55vh), 16px);
+  font-size: clamp(12.5px, min(0.95vw, 1.8vh), 18px);
   width: 100%;
   height: 100%;
 }
@@ -68,7 +68,7 @@ body {
 }
 
 /* ============================================================
-   1. DESKTOP LAYOUT (>= 1024px: Tepat 1 Layar, 100dvh, No Page Scroll)
+   1. DESKTOP LAYOUT (>= 1024px: Tepat 1 Layar Penuh, 100dvh, No Page Scroll)
    ============================================================ */
 @media (min-width: 1024px) {
   html, body {
@@ -86,7 +86,7 @@ body {
 
   .dashboard-window {
     width: 100%;
-    max-width: 1780px;
+    max-width: 1800px;
     height: 100%;
     max-height: 100%;
     background: var(--bg-main);
@@ -100,6 +100,7 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.03);
   }
 
+  /* Kolom 1: Sidebar */
   .sidebar {
     grid-area: sidebar;
     height: 100%;
@@ -116,6 +117,7 @@ body {
     overflow: hidden;
   }
 
+  /* Kolom 2: Area Tengah */
   .main-content {
     grid-area: main;
     height: 100%;
@@ -123,10 +125,9 @@ body {
     min-height: 0;
     min-width: 0;
     background: var(--bg-main);
-    padding: clamp(12px, 1.8vh, 20px) clamp(14px, 1.6vw, 24px);
+    padding: clamp(12px, 1.6vh, 20px) clamp(14px, 1.6vw, 22px);
     display: flex;
     flex-direction: column;
-    gap: clamp(8px, 1.2vh, 14px);
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
@@ -141,6 +142,18 @@ body {
     border-radius: 4px;
   }
 
+  /* Grid Vertikal Penuh untuk View Dashboard */
+  #view-dashboard {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: clamp(8px, 1.2vh, 14px);
+  }
+
+  /* Kolom 3: Panel Kanan */
   .profile-panel {
     grid-area: profile;
     height: 100%;
@@ -151,8 +164,7 @@ body {
     padding: clamp(12px, 1.6vh, 20px) clamp(12px, 1.4vw, 18px);
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: clamp(8px, 1.2vh, 14px);
+    gap: clamp(10px, 1.4vh, 16px);
     color: var(--text-light);
     border-radius: 0 var(--radius-outer) var(--radius-outer) 0;
     overflow-y: auto;
@@ -170,7 +182,7 @@ body {
 }
 
 /* ============================================================
-   SIDEBAR COMPONENTS (Sederhana & Rapi)
+   SIDEBAR COMPONENTS
    ============================================================ */
 
 .brand-wrap {
@@ -201,7 +213,7 @@ body {
 }
 
 .brand-name {
-  font-size: 1.12rem;
+  font-size: 1.18rem;
   font-weight: 800;
   color: var(--text-dark);
   letter-spacing: -0.4px;
@@ -223,7 +235,7 @@ body {
   min-height: 40px;
   border-radius: 10px;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -300,7 +312,7 @@ body {
 }
 
 .sidebar-copyright {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: #cbd5e1;
   font-weight: 500;
   margin-top: 10px;
@@ -308,20 +320,13 @@ body {
 }
 
 /* ============================================================
-   MAIN CONTENT VIEWS & COMPONENTS
+   MAIN CONTENT COMPONENTS
    ============================================================ */
 
 .dashboard-view {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 1.2vh, 14px);
   width: 100%;
   min-height: 0;
   min-width: 0;
-}
-
-.dashboard-view.active {
-  display: flex;
 }
 
 .content-header {
@@ -338,7 +343,7 @@ body {
 }
 
 .header-titles h1 {
-  font-size: clamp(1.2rem, 2vh, 1.5rem);
+  font-size: clamp(1.25rem, 2.1vh, 1.55rem);
   font-weight: 800;
   color: var(--text-dark);
   letter-spacing: -0.4px;
@@ -346,7 +351,7 @@ body {
 }
 
 .header-titles p {
-  font-size: clamp(0.7rem, 0.95vw, 0.78rem);
+  font-size: clamp(0.72rem, 1vw, 0.82rem);
   color: var(--text-muted);
   font-weight: 500;
   margin-top: 2px;
@@ -361,7 +366,7 @@ body {
   border-radius: var(--radius-pill);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   border: 1px solid var(--border-light);
-  width: clamp(170px, 16vw, 210px);
+  width: clamp(170px, 16vw, 220px);
   min-height: 38px;
   transition: all 0.2s ease;
 }
@@ -375,7 +380,7 @@ body {
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-family: inherit;
   color: var(--text-dark);
   width: 100%;
@@ -444,7 +449,7 @@ body {
 }
 
 .hero-card-title {
-  font-size: clamp(0.68rem, 0.9vw, 0.74rem);
+  font-size: clamp(0.7rem, 0.95vw, 0.78rem);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   letter-spacing: -0.1px;
@@ -454,7 +459,7 @@ body {
 }
 
 .hero-card-value {
-  font-size: clamp(1.25rem, 2.1vh, 1.65rem);
+  font-size: clamp(1.3rem, 2.2vh, 1.7rem);
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.5px;
@@ -469,7 +474,7 @@ body {
 }
 
 .hero-unit {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -486,9 +491,9 @@ body {
   align-items: center;
   gap: 3px;
   background: rgba(255, 255, 255, 0.22);
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: var(--radius-pill);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: #ffffff;
   backdrop-filter: blur(4px);
@@ -503,7 +508,7 @@ body {
 }
 
 .hero-sparkline {
-  width: clamp(48px, 5vw, 64px);
+  width: clamp(50px, 5vw, 68px);
   height: 20px;
   overflow: visible;
   flex-shrink: 0;
@@ -518,24 +523,23 @@ body {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-/* Row 2: Analytics Row (Revenue Spline + Customers Donut) */
+/* Row 2: Analytics Row (Revenue Spline + Donut Kapasitas) — Mengisi Sisa Ruang (1fr) */
 .analytics-row {
   display: grid;
-  grid-template-columns: 1.6fr 1.1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: clamp(10px, 1.2vw, 16px);
-  flex: 1 1 0; /* Mengisi sisa ruang vertikal secara proporsional */
-  min-height: 130px;
+  min-height: 0;
+  height: 100%;
 }
 
 .analytics-card {
   background: var(--bg-card);
   border-radius: var(--radius-card);
-  padding: clamp(10px, 1.3vh, 16px) clamp(12px, 1.4vw, 18px);
+  padding: clamp(10px, 1.4vh, 16px) clamp(12px, 1.4vw, 18px);
   box-shadow: var(--shadow-card);
   border: 1px solid rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   transition: box-shadow 0.2s ease;
   min-width: 0;
   min-height: 0;
@@ -556,7 +560,7 @@ body {
 }
 
 .card-title {
-  font-size: clamp(0.88rem, 1.1vw, 1rem);
+  font-size: clamp(0.92rem, 1.1vw, 1.05rem);
   font-weight: 700;
   color: var(--text-dark);
   letter-spacing: -0.3px;
@@ -573,7 +577,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.7rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -609,9 +613,9 @@ body {
   transform: translateX(-50%);
   background: var(--color-green-primary);
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 6px;
   box-shadow: 0 4px 10px rgba(114, 192, 26, 0.35);
   pointer-events: none;
@@ -621,22 +625,22 @@ body {
 
 .revenue-tooltip-bar {
   position: absolute;
-  top: 30px;
+  top: 32px;
   left: 48%;
   transform: translateX(-50%);
   width: 20px;
-  height: calc(100% - 40px);
+  height: calc(100% - 42px);
   background: linear-gradient(180deg, rgba(114, 192, 26, 0.16) 0%, rgba(114, 192, 26, 0.02) 100%);
   border-radius: 4px;
   pointer-events: none;
   z-index: 1;
 }
 
-/* Customers Donut Card */
+/* Donut Center Wrap (Membesar Mengikuti Kartunya, Terpusat & Tidak Meluap) */
 .donut-center-wrap {
   position: relative;
   flex: 1 1 0;
-  min-height: 0;
+  min-height: 120px;
   width: 100%;
   margin: 2px auto 6px auto;
   display: flex;
@@ -647,7 +651,9 @@ body {
 .donut-center-wrap canvas {
   width: 100% !important;
   height: 100% !important;
-  max-height: 150px;
+  max-height: 185px !important;
+  max-width: 185px !important;
+  aspect-ratio: 1 / 1;
 }
 
 .donut-center-text {
@@ -657,7 +663,7 @@ body {
 }
 
 .donut-center-val {
-  font-size: clamp(1.2rem, 1.8vw, 1.45rem);
+  font-size: clamp(1.3rem, 2vw, 1.6rem);
   font-weight: 800;
   color: var(--text-dark);
   line-height: 1.1;
@@ -665,7 +671,7 @@ body {
 }
 
 .donut-center-sub {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: var(--text-muted);
 }
@@ -674,28 +680,28 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 1.5vw, 18px);
+  gap: clamp(12px, 1.8vw, 20px);
   margin-top: 2px;
   flex-shrink: 0;
 }
 
-/* Row 3: Recent Transaction Table Card (Hanya 4 Baris Rapi) */
+/* Row 3: Recent Transaction Table Card (Duduk Pas di Bawah, Tanpa Ruang Kosong) */
 .transaction-card {
   background: var(--bg-card);
   border-radius: var(--radius-card);
-  padding: clamp(8px, 1.2vh, 14px) clamp(12px, 1.4vw, 18px);
+  padding: clamp(8px, 1.2vh, 12px) clamp(12px, 1.4vw, 18px);
   box-shadow: var(--shadow-card);
   border: 1px solid rgba(0, 0, 0, 0.02);
   flex-shrink: 0;
 }
 
 .view-all-link {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--text-muted);
   text-decoration: none;
   transition: color 0.15s ease;
-  min-height: 32px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
 }
@@ -717,17 +723,17 @@ body {
 }
 
 .transaction-table th {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-bottom: 1px solid var(--border-light);
   letter-spacing: 0.2px;
 }
 
 .transaction-table td {
-  padding: clamp(3px, 0.55vh, 6px) 6px;
-  font-size: 0.76rem;
+  padding: clamp(4px, 0.6vh, 7px) 6px;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-dark);
   border-bottom: 1px solid rgba(0, 0, 0, 0.02);
@@ -745,8 +751,8 @@ body {
 }
 
 .tx-icon-circle {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #fef3c7;
   display: flex;
@@ -757,15 +763,15 @@ body {
 }
 
 .tx-icon-circle svg {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   fill: currentColor;
 }
 
 .tx-date-col {
   color: var(--text-secondary) !important;
   font-weight: 500 !important;
-  font-size: 0.72rem !important;
+  font-size: 0.76rem !important;
 }
 
 .tx-amount-col {
@@ -779,9 +785,9 @@ body {
 
 .badge-status {
   display: inline-block;
-  padding: 2px 7px;
+  padding: 2px 8px;
   border-radius: var(--radius-pill);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: capitalize;
 }
@@ -802,13 +808,14 @@ body {
 }
 
 /* ============================================================
-   PROFILE & EARNING PANEL (Kanan)
+   PROFILE & EARNING PANEL (Kanan — Penuh Tanpa Lubang Kosong)
    ============================================================ */
 
 .profile-panel-top {
   display: flex;
   flex-direction: column;
   gap: clamp(8px, 1.2vh, 12px);
+  flex-shrink: 0;
   position: relative;
 }
 
@@ -821,7 +828,7 @@ body {
 }
 
 .panel-title {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.3px;
@@ -914,7 +921,7 @@ body {
   background: transparent;
   border: none;
   color: var(--color-green-primary);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -932,7 +939,7 @@ body {
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid #f1f5f9;
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   transition: background 0.15s;
 }
 
@@ -954,7 +961,7 @@ body {
 
 .notif-item-body strong {
   display: block;
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--text-dark);
   margin-bottom: 2px;
 }
@@ -966,7 +973,7 @@ body {
 
 .notif-item-body small {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -1063,8 +1070,8 @@ body {
 }
 
 .profile-avatar-circle {
-  width: clamp(44px, 6vh, 56px);
-  height: clamp(44px, 6vh, 56px);
+  width: clamp(46px, 6.2vh, 58px);
+  height: clamp(46px, 6.2vh, 58px);
   border-radius: 50%;
   border: 3px solid var(--bg-dark-card);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -1082,14 +1089,14 @@ body {
 }
 
 .profile-avatar-initial {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: 0.5px;
 }
 
 .profile-name {
-  font-size: clamp(0.95rem, 1.3vh, 1.12rem);
+  font-size: clamp(0.98rem, 1.35vh, 1.16rem);
   font-weight: 700;
   color: #ffffff;
   letter-spacing: -0.2px;
@@ -1097,7 +1104,7 @@ body {
 }
 
 .profile-task-sub {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
   display: flex;
@@ -1159,7 +1166,7 @@ body {
 }
 
 .metric-num {
-  font-size: clamp(0.92rem, 1.3vh, 1.08rem);
+  font-size: clamp(0.95rem, 1.35vh, 1.12rem);
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.3px;
@@ -1167,7 +1174,7 @@ body {
 }
 
 .metric-lbl {
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
   margin-top: 1px;
@@ -1180,7 +1187,7 @@ body {
   color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -1203,21 +1210,24 @@ body {
   fill: currentColor;
 }
 
-/* Earning Section (Kanan Bawah) */
+/* Earning Section (Kanan Bawah — Melebar Mengisi Sisa Tinggi, Isi Dipusatkan) */
 .earning-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 0; /* Mengisi sisa tinggi panel profil */
+  min-height: 0;
 }
 
 .earning-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .earning-title {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: #ffffff;
 }
@@ -1236,34 +1246,39 @@ body {
 .earning-inner-card {
   background: var(--bg-dark-card);
   border-radius: var(--radius-card);
-  padding: clamp(10px, 1.3vh, 14px);
+  padding: clamp(12px, 1.8vh, 20px) clamp(12px, 1.4vw, 18px);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center; /* Dipusatkan secara vertikal! */
+  flex: 1 1 0; /* Mengisi seluruh ruang yang tersisa */
+  min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  gap: clamp(4px, 0.8vh, 8px);
 }
 
 .earning-wallet-icon {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   background: rgba(114, 192, 26, 0.16);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-green-primary);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .earning-wallet-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   fill: currentColor;
 }
 
 .earning-amount {
-  font-size: clamp(1.2rem, 1.9vh, 1.5rem);
+  font-size: clamp(1.25rem, 2vh, 1.55rem);
   font-weight: 800;
   color: var(--color-green-primary);
   letter-spacing: -0.5px;
@@ -1271,16 +1286,16 @@ body {
 }
 
 .earning-sub {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.7);
   margin-top: 1px;
 }
 
 .earning-note {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.45);
-  margin: 4px 0 8px 0;
+  margin: 2px 0 6px 0;
 }
 
 .btn-earning-withdraw {
@@ -1290,12 +1305,13 @@ body {
   color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(114, 192, 26, 0.35);
   transition: all 0.2s ease;
   font-family: inherit;
+  flex-shrink: 0;
 }
 
 .btn-earning-withdraw:hover {
@@ -1321,7 +1337,7 @@ body {
   border-radius: 9999px;
   background: var(--color-green-soft);
   color: var(--color-green-primary);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
@@ -1354,7 +1370,7 @@ body {
   background: #f8fafc;
   border-radius: 12px;
   border: 1px solid var(--border-light);
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   flex-shrink: 0;
 }
 
@@ -1385,11 +1401,11 @@ body {
 }
 
 .btn-quick-prompt {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 9999px;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: #475569;
   cursor: pointer;
@@ -1432,8 +1448,8 @@ body {
 }
 
 .msg-avatar {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--color-green-primary);
   color: #ffffff;
@@ -1452,7 +1468,7 @@ body {
 .msg-bubble {
   padding: 8px 12px;
   border-radius: 14px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   line-height: 1.45;
 }
 
@@ -1469,7 +1485,7 @@ body {
 }
 
 .msg-sender {
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--color-green-primary);
   margin-bottom: 2px;
@@ -1491,7 +1507,7 @@ body {
   border: none;
   background: transparent;
   outline: none;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-family: inherit;
   color: var(--text-dark);
 }
@@ -1556,16 +1572,16 @@ body {
 }
 
 .form-group label {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .form-group input {
-  padding: 7px 12px;
+  padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-light);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-family: inherit;
   outline: none;
   background: #f8fafc;
@@ -1587,7 +1603,7 @@ body {
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   margin-top: 4px;
@@ -1603,7 +1619,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
 }
 
 .info-row {
@@ -1635,14 +1651,14 @@ body {
 }
 
 .stat-highlight {
-  font-size: 2rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: var(--color-green-primary);
   margin-bottom: 4px;
 }
 
 .detail-stat-box p {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
 }
 
@@ -1655,7 +1671,7 @@ body {
   background: var(--color-green-primary);
   color: #ffffff;
   border: none;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -1687,7 +1703,7 @@ body {
   background: #f8fafc;
   border-radius: 10px;
   border: 1px solid var(--border-light);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
 }
 
 /* ============================================================
@@ -1742,7 +1758,7 @@ body {
 }
 
 .modal-header h2 {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 800;
   color: var(--text-dark);
 }
@@ -1785,13 +1801,13 @@ body {
 }
 
 .control-item-info h4 {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--text-dark);
 }
 
 .control-item-info p {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -1803,11 +1819,11 @@ body {
 }
 
 .control-input-group input {
-  width: 70px;
+  width: 72px;
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid var(--border-light);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   text-align: center;
   font-family: inherit;
   background: #ffffff;
@@ -1819,7 +1835,7 @@ body {
   background: var(--color-green-primary);
   color: #ffffff;
   border: none;
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
@@ -1854,7 +1870,7 @@ body {
 .toast {
   padding: 10px 16px;
   border-radius: 10px;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: #ffffff;
   background: #1e293b;
@@ -1875,29 +1891,51 @@ body {
    2. TABLET LAYOUT (768px - 1023px)
    ============================================================ */
 @media (min-width: 768px) and (max-width: 1023px) {
+  html, body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100dvh;
+    height: auto;
+  }
+
   body {
     padding: 12px;
-    align-items: flex-start;
-    overflow-y: auto;
+    background: var(--bg-backdrop);
+    display: block;
   }
 
   .dashboard-window {
     width: 100%;
     min-height: auto;
+    height: auto;
+    background: var(--bg-main);
     border-radius: 20px;
-    grid-template-columns: 72px 1fr;
+    box-shadow: var(--shadow-window);
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: auto auto;
     grid-template-areas:
       "sidebar main"
       "sidebar profile";
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(0, 0, 0, 0.04);
   }
 
   .sidebar {
-    padding: 18px 8px;
+    grid-area: sidebar;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-light);
+    padding: 20px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
+    user-select: none;
   }
 
   .brand-name,
-  .nav-item span:not(.chat-dot),
+  .nav-item .nav-left > span,
   .nav-active-bar,
   .sidebar-copyright {
     display: none !important;
@@ -1908,34 +1946,138 @@ body {
     justify-content: center;
   }
 
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+  }
+
   .nav-item {
     justify-content: center;
-    padding: 10px;
+    padding: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 
   .nav-item .nav-left {
     justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .nav-item svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    fill: currentColor;
+  }
+
+  .sidebar-footer {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .btn-logout,
+  .nav-item-logout {
+    justify-content: center;
+    padding: 0;
+    width: 44px;
+    height: 44px;
+  }
+
+  .btn-logout .nav-left,
+  .nav-item-logout .nav-left {
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .btn-logout span,
+  .nav-item-logout .nav-left > span {
+    display: none !important;
+  }
+
+  .main-content {
+    grid-area: main;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: clamp(14px, 2vh, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  #view-dashboard,
+  .dashboard-view {
+    height: auto;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+  }
+
+  .analytics-row {
+    height: auto;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 14px;
+  }
+
+  .analytics-card {
+    height: auto;
+  }
+
+  .revenue-chart-wrap {
+    min-height: 220px;
+    height: 220px;
+    position: relative;
+  }
+
+  .donut-center-wrap {
+    min-height: 180px;
+    height: 180px;
+    position: relative;
   }
 
   .profile-panel {
+    grid-area: profile;
+    background: var(--bg-dark-panel);
     border-radius: 0 0 20px 0;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 18px;
     align-items: start;
-    padding: 18px;
+    padding: 20px;
+    color: var(--text-light);
   }
 
   .earning-section {
     margin-top: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .earning-inner-card {
+    flex: 1 1 auto;
+    justify-content: center;
   }
 }
 
-@media (min-width: 768px) and (max-width: 890px) {
-  .analytics-row {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* ============================================================
    3. HP LAYOUT (< 768px: 360px - 430px & Landscape)
@@ -1945,20 +2087,24 @@ body {
     overflow-x: hidden;
     overflow-y: auto;
     min-height: 100dvh;
+    height: auto;
   }
 
   body {
     padding: 0;
-    background: var(--bg-main);
+    background: var(--bg-backdrop);
+    display: block;
   }
 
   .dashboard-window {
     width: 100%;
+    min-height: 100dvh;
     border-radius: 0;
     box-shadow: none;
     border: none;
     display: flex;
     flex-direction: column;
+    background: var(--bg-main);
   }
 
   /* Sidebar menjadi Bottom Navigation Bar */
@@ -2031,7 +2177,7 @@ body {
   }
 
   .nav-item span:not(.chat-dot) {
-    font-size: 0.62rem;
+    font-size: 0.65rem;
     font-weight: 600;
     display: block !important;
   }
@@ -2042,9 +2188,24 @@ body {
 
   /* Area Utama */
   .main-content {
-    padding: 14px 12px calc(72px + env(safe-area-inset-bottom)) 12px;
-    gap: 14px;
     order: 1;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  #view-dashboard,
+  .dashboard-view {
+    height: auto;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
 
   .content-header {
@@ -2063,6 +2224,22 @@ body {
     gap: 14px;
   }
 
+  .revenue-chart-wrap {
+    min-height: 200px;
+    height: 200px;
+    position: relative;
+  }
+
+  .donut-center-wrap {
+    min-height: 190px;
+    height: 190px;
+    position: relative;
+  }
+
+  .transaction-card {
+    overflow-x: auto;
+  }
+
   .transaction-table {
     min-width: 420px;
   }
@@ -2070,10 +2247,14 @@ body {
   /* Panel Profil di bawah pada HP */
   .profile-panel {
     order: 2;
+    background: var(--bg-dark-panel);
     border-radius: 18px;
     margin: 0 12px calc(80px + env(safe-area-inset-bottom)) 12px;
     padding: 16px;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+    color: var(--text-light);
   }
 
   .earning-section {

@@ -14,8 +14,8 @@ FAKTOR_KALIBRASI = 423.5
 AMBANG_PENUH_CM = 10
 JARAK_KOSONG_CM = 35
 
-WIFI_SSID = "Galaxy S26 Ultra"
-WIFI_PASSWORD = "Bangkoks"
+WIFI_SSID = "NAMA_WIFI_ANDA"
+WIFI_PASSWORD = "PASSWORD_WIFI_ANDA"
 
 # ===== [DIUBAH] SERVER_URL mengarah ke hosting publik =====
 SERVER_URL = "http://144.79.202.196:40122/api/iot/data"

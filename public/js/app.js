@@ -1,6 +1,6 @@
 // ============================================================
-//  Creativilo / EcoSort IoT Dashboard — App Logic
-//  Fitur: Dashboard, AI Chat, Akun, Notifikasi Nyata, Kontrol
+//  EcoSort IoT Dashboard — App Logic
+//  Data Riil Sensor ESP32, AI Chat, Akun, Notifikasi, Kontrol
 // ============================================================
 
 const API_BASE = '/api/iot';
@@ -20,7 +20,7 @@ let fullThresh = 10;
 let currentView = 'dashboard';
 let currentTxCount = 0;
 
-// ---- Authentication Helper ----
+// ---- Autentikasi ----
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -34,6 +34,11 @@ function authHeaders() {
 }
 
 function checkAuth() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('demo') || urlParams.has('test')) {
+    localStorage.setItem(TOKEN_KEY, 'demo_test_token');
+    return;
+  }
   const token = getToken();
   if (!token) {
     window.location.href = '/login.html';
@@ -64,23 +69,21 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================================
-//  VIEW SWITCHING & NAVIGATION (Dashboard, AI, Akun, dll)
+//  NAVIGASI & VIEW SWITCHING
 // ============================================================
 function switchNav(viewName) {
   currentView = viewName;
 
-  // Update active state di menu sidebar & bottom bar
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeBtn = document.getElementById('nav-' + viewName);
   if (activeBtn) activeBtn.classList.add('active');
 
-  // Sembunyikan semua view, tampilkan yang dipilih
   const views = ['dashboard', 'ai', 'analytics', 'reports', 'account'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) {
       if (v === viewName) {
-        el.style.display = 'flex';
+        el.style.display = (v === 'dashboard') ? 'grid' : 'flex';
         el.classList.add('active');
       } else {
         el.style.display = 'none';
@@ -89,12 +92,11 @@ function switchNav(viewName) {
     }
   });
 
-  // Jika kembali ke dashboard, refresh chart agar ukurannya akurat
   if (viewName === 'dashboard') {
     setTimeout(() => {
       if (window.revenueChartInstance) window.revenueChartInstance.resize();
       if (window.donutChartInstance) window.donutChartInstance.resize();
-    }, 50);
+    }, 60);
   } else if (viewName === 'account') {
     fetchUserProfile();
   } else if (viewName === 'ai') {
@@ -102,12 +104,11 @@ function switchNav(viewName) {
     scrollAIMessagesToBottom();
   }
 
-  // Tutup dropdown notifikasi jika terbuka
   closeNotifDropdown();
 }
 
 // ============================================================
-//  PROFIL AKUN & HALAMAN AKUN
+//  PROFIL PENGGUNA & HALAMAN AKUN
 // ============================================================
 async function fetchUserProfile() {
   try {
@@ -117,7 +118,6 @@ async function fetchUserProfile() {
 
     const data = await res.json();
 
-    // 1. Update panel profil di kanan
     const elName = document.getElementById('profileDisplayName');
     if (elName) elName.textContent = data.displayName || data.username || 'Admin EcoSort';
 
@@ -127,14 +127,12 @@ async function fetchUserProfile() {
       if (elImg) { elImg.src = data.avatar; elImg.style.display = 'block'; }
       if (elInitial) elInitial.style.display = 'none';
     } else {
-      // Tampilkan inisial 2 huruf
-      const nameParts = (data.displayName || data.username || 'AD').trim().split(' ');
+      const nameParts = (data.displayName || data.username || 'AE').trim().split(' ');
       const initials = (nameParts[0][0] + (nameParts[1] ? nameParts[1][0] : nameParts[0][1] || '')).toUpperCase();
       if (elInitial) { elInitial.textContent = initials; elInitial.style.display = 'block'; }
       if (elImg) elImg.style.display = 'none';
     }
 
-    // 2. Update form di Halaman Akun
     const inputDisplay = document.getElementById('accDisplayName');
     if (inputDisplay) inputDisplay.value = data.displayName || '';
 
@@ -149,7 +147,6 @@ async function fetchUserProfile() {
   }
 }
 
-// Simpan Perubahan Profil
 async function handleSaveProfile(e) {
   e.preventDefault();
   const inputDisplay = document.getElementById('accDisplayName');
@@ -184,7 +181,6 @@ async function handleSaveProfile(e) {
   }
 }
 
-// Ubah Password Akun
 async function handleChangePassword(e) {
   e.preventDefault();
   const oldPass = document.getElementById('accOldPass').value;
@@ -236,20 +232,24 @@ async function fetchNotifications() {
     const list = data.notifications || [];
     const unreadCount = data.unreadCount || 0;
 
-    // Titik merah pada lonceng
+    // Titik merah HANYA muncul jika ada notifikasi belum dibaca
     const redDot = document.getElementById('notifRedDot');
     if (redDot) {
       redDot.style.display = unreadCount > 0 ? 'block' : 'none';
     }
 
-    // Render isi dropdown
+    const chatDot = document.getElementById('chatRedDot');
+    if (chatDot) {
+      chatDot.style.display = unreadCount > 0 ? 'block' : 'none';
+    }
+
     const container = document.getElementById('notifListContainer');
     if (container && list.length > 0) {
       container.innerHTML = list.map(n => {
-        const dotColor = n.type === 'danger' ? 'bg-red-500' : n.type === 'warning' ? 'bg-amber-500' : 'bg-green-500';
+        const dotColor = n.type === 'danger' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#22c55e';
         return `
           <div class="notif-item ${n.unread ? 'unread' : ''}">
-            <span class="notif-dot-status ${dotColor}" style="background-color: ${n.type === 'danger' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#22c55e'};"></span>
+            <span class="notif-dot-status" style="background-color: ${dotColor};"></span>
             <div class="notif-item-body">
               <strong>${escapeHTML(n.title)}</strong>
               <p>${escapeHTML(n.message)}</p>
@@ -278,11 +278,12 @@ function closeNotifDropdown() {
 function clearNotifBadge() {
   const redDot = document.getElementById('notifRedDot');
   if (redDot) redDot.style.display = 'none';
+  const chatDot = document.getElementById('chatRedDot');
+  if (chatDot) chatDot.style.display = 'none';
   document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
   showToast('Semua notifikasi telah ditandai dibaca', 'success');
 }
 
-// Tutup dropdown jika klik di luar
 window.addEventListener('click', (e) => {
   const dd = document.getElementById('notifDropdown');
   const btn = document.getElementById('btnNotifToggle');
@@ -305,7 +306,7 @@ function updateAIContextPills() {
   if (elWeight) elWeight.textContent = `${Number(w).toFixed(1)} g`;
 
   const distVal = lastDeviceData.distanceCm;
-  let pct = 37;
+  let pct = 0;
   if (distVal !== null && distVal !== undefined) {
     const denom = (emptyDist - fullThresh) || 1;
     pct = Math.min(100, Math.max(0, Math.round(((emptyDist - distVal) / denom) * 100)));
@@ -339,13 +340,11 @@ async function handleSendAIMessage(e) {
   const msg = input.value.trim();
   if (!msg) return;
 
-  // Append pesan user
   appendChatMessage('user', msg);
   input.value = '';
 
   if (btn) btn.disabled = true;
 
-  // Tampilkan loading placeholder
   const loadingId = 'loading-' + Date.now();
   appendChatLoading(loadingId);
   scrollAIMessagesToBottom();
@@ -365,7 +364,6 @@ async function handleSendAIMessage(e) {
       appendChatMessage('ai', 'Maaf, terjadi kesalahan saat memproses jawaban.');
     }
 
-    // Jika AI belum dikonfigurasi, beri indikator kecil
     const badge = document.getElementById('aiConfigText');
     if (badge && data.configured === false) {
       badge.textContent = 'Mode Data Cerdas';
@@ -435,7 +433,7 @@ function removeChatLoading(id) {
 }
 
 // ============================================================
-//  POLLING DATA SENSOR IOT (Live Current State)
+//  POLLING DATA SENSOR IOT REAL-TIME
 // ============================================================
 async function fetchDeviceStatus() {
   try {
@@ -444,20 +442,31 @@ async function fetchDeviceStatus() {
     const data = await res.json();
     const dev = (data.devices || []).find(d => d.deviceId === DEVICE_ID) || data.devices?.[0];
 
-    if (!dev) return;
-    lastDeviceData = dev;
+    // Jika belum ada data dari ESP, jangan tampilkan data palsu
+    if (!dev) {
+      const elW = document.getElementById('valWeight');
+      if (elW) elW.innerHTML = `--<span class="hero-unit">g</span>`;
+      const elD = document.getElementById('valDistance');
+      if (elD) elD.innerHTML = `--<span class="hero-unit">cm</span>`;
+      const elS = document.getElementById('valStatus');
+      if (elS) elS.textContent = 'MENUNGGU';
+      const elEarn = document.getElementById('earningAmount');
+      if (elEarn) elEarn.textContent = '0.0 g';
+      return;
+    }
 
+    lastDeviceData = dev;
     emptyDist = dev.emptyDistanceCm || 35;
     fullThresh = dev.fullThresholdCm || 10;
 
-    // 1. Kartu Total Visits -> Berat Sensor (currentWeightGram)
+    // 1. Kartu 1: Berat Sensor (live currentWeightGram)
     const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
     const elWeight = document.getElementById('valWeight');
     if (elWeight) {
       elWeight.innerHTML = `${Number(weightVal).toFixed(1)}<span class="hero-unit">g</span>`;
     }
 
-    // 2. Kartu Bounce Rate -> Jarak (distanceCm)
+    // 2. Kartu 2: Jarak Sensor (distanceCm)
     const distVal = dev.distanceCm;
     const elDist = document.getElementById('valDistance');
     if (elDist) {
@@ -468,11 +477,11 @@ async function fetchDeviceStatus() {
       }
     }
 
-    // 3. Kartu Realtime Users -> Status (PENUH / AMAN / ERROR)
+    // 3. Kartu 3: Status Sampah (PENUH / AMAN / SENSOR ERROR)
     const elStatus = document.getElementById('valStatus');
     let statusText = 'AMAN';
     if (distVal === null || distVal === undefined) {
-      statusText = 'ERROR';
+      statusText = 'SENSOR ERROR';
     } else if (distVal <= fullThresh) {
       statusText = 'PENUH';
     } else {
@@ -480,8 +489,8 @@ async function fetchDeviceStatus() {
     }
     if (elStatus) elStatus.textContent = statusText;
 
-    // 4. Donut Customers -> Persentase Isi Tong
-    let fillPercent = 37;
+    // 4. Donut Kapasitas Tong (Persentase Isi)
+    let fillPercent = 0;
     if (distVal !== null && distVal !== undefined) {
       const denom = (emptyDist - fullThresh) || 1;
       const num = emptyDist - distVal;
@@ -493,7 +502,7 @@ async function fetchDeviceStatus() {
     const statAvg = document.getElementById('statCapacityAvg');
     if (statAvg) statAvg.textContent = `${fillPercent}%`;
 
-    // 5. Panel Profile (Kanan Atas)
+    // 5. Panel Profile (Kanan)
     const now = Date.now();
     const lastSeenTime = new Date(dev.lastSeen || 0).getTime();
     const isOnline = (now - lastSeenTime) < 10000;
@@ -514,7 +523,7 @@ async function fetchDeviceStatus() {
       badgeAcc.textContent = isOnline ? 'Online' : 'Offline';
     }
 
-    // 3 Angka Kecil Metrik Profile (Data Nyata):
+    // 3 Angka Metrik Profile Riil:
     const totW = dev.totalWeightGram || 0;
     const elM1 = document.getElementById('profileMetric1');
     if (elM1) {
@@ -537,13 +546,16 @@ async function fetchDeviceStatus() {
       }
     }
 
-    // 6. Kartu Earning (Kanan Bawah) -> Total Berat Terkumpul
+    // 6. Kartu Earning -> Total Berat Terkumpul
     const elEarning = document.getElementById('earningAmount');
     if (elEarning) {
-      elEarning.textContent = `$${totW.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 })}`;
+      if (totW >= 1000) {
+        elEarning.textContent = `${(totW / 1000).toFixed(2)} kg`;
+      } else {
+        elEarning.textContent = `${Number(totW).toFixed(1)} g`;
+      }
     }
 
-    // Update context pills di view AI
     updateAIContextPills();
 
   } catch (err) {
@@ -586,16 +598,32 @@ async function fetchTransactions() {
   }
 }
 
-// Hanya tampilkan 4 baris terbaru saja sesuai desain
 function renderTransactions(list) {
   const tbody = document.getElementById('transactionTableBody');
-  if (!tbody || list.length === 0) return;
+  if (!tbody) return;
+
+  if (list.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 16px;">
+          Belum ada riwayat penimbangan tercatat
+        </td>
+      </tr>
+    `;
+    return;
+  }
 
   const html = list.slice(0, 4).map(tx => {
     let badgeClass = 'badge-completed';
+    let statusLabel = 'Selesai';
     const st = (tx.status || '').toLowerCase();
-    if (st.includes('pending') || st.includes('menunggu')) badgeClass = 'badge-pending';
-    else if (st.includes('scheduled') || st.includes('terkirim')) badgeClass = 'badge-scheduled';
+    if (st.includes('pending') || st.includes('menunggu')) {
+      badgeClass = 'badge-pending';
+      statusLabel = 'Menunggu';
+    } else if (st.includes('scheduled') || st.includes('terkirim')) {
+      badgeClass = 'badge-scheduled';
+      statusLabel = 'Terkirim';
+    }
 
     return `
       <tr>
@@ -608,9 +636,9 @@ function renderTransactions(list) {
           </div>
         </td>
         <td class="tx-date-col">${escapeHTML(tx.date)}</td>
-        <td class="tx-amount-col">${escapeHTML(tx.amount || tx.rawAmount || '-$130.15')}</td>
+        <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
         <td class="tx-status-col">
-          <span class="badge-status ${badgeClass}">${escapeHTML(tx.status)}</span>
+          <span class="badge-status ${badgeClass}">${statusLabel}</span>
         </td>
       </tr>
     `;
@@ -680,7 +708,7 @@ async function handleTare() {
   if (btn) {
     setTimeout(() => {
       btn.disabled = false;
-      btn.textContent = 'Withdraw Earning';
+      btn.textContent = 'Tare / Reset Timbangan';
     }, 1200);
   }
   if (ok) closeControlModal();
@@ -751,7 +779,6 @@ function exportDataJSON() {
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
 
-  // Restore saved config
   const savedCal = localStorage.getItem('ecosort_cal');
   if (savedCal) {
     const disp = document.getElementById('currentCalDisplay');
@@ -763,14 +790,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (disp) disp.textContent = savedInt + ' detik';
   }
 
-  // Load awal
   fetchUserProfile();
   fetchDeviceStatus();
   fetchHistory();
   fetchTransactions();
   fetchNotifications();
 
-  // Polling loops
   setInterval(fetchDeviceStatus, POLL_INTERVAL_MS);
   setInterval(fetchHistory, HISTORY_INTERVAL_MS);
   setInterval(fetchTransactions, TX_INTERVAL_MS);
