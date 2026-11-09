@@ -1,67 +1,76 @@
 """
-============================================================
-  TES SERVO + ULTRASONIK RCWL-9616
-============================================================
-- Jarak tangan <= 20 cm → Servo buka 90 derajat
-- Jeda 6 detik → Servo tutup kembali ke 0 derajat
-- Pin: Trig=19, Echo=21, Servo=18
-============================================================
+==========================================================
+  KODE ASLI SERVO MG995 + ULTRASONIK (DENGAN SERVO_SMOOTH)
+==========================================================
+- Deteksi tangan <= 20 cm -> Membuka 90 derajat secara halus
+- Menahan terbuka selama 6 detik
+- Menutup kembali ke 0 derajat secara halus
+- Menggunakan step-by-step (step=2) agar arus USB tidak melonjak
+==========================================================
 """
 from machine import Pin, PWM, time_pulse_us
 import time
 
-# --- PIN ---
+# ==========================================================
+#  KONFIGURASI PIN RANGKAIAN
+# ==========================================================
 TRIG_PIN = 19
-ECHO_PIN = 21
-SERVO_PIN = 18
+ECHO_PIN = 21       # Echo dihubungkan ke GPIO 21
+SERVO_PIN = 18      # Sinyal Servo MG995 dihubungkan ke GPIO 18
 
-# --- PENGATURAN ---
-JARAK_DETEKSI_CM = 20     # Jarak tangan untuk buka tutup
-JEDA_TUTUP_DETIK = 6      # Jeda sebelum tutup kembali
-SUDUT_TUTUP = 0            # Posisi tertutup
-SUDUT_BUKA = 90            # Posisi terbuka
-
-# --- INISIALISASI ---
 trig = Pin(TRIG_PIN, Pin.OUT)
 echo = Pin(ECHO_PIN, Pin.IN)
-servo = PWM(Pin(SERVO_PIN), freq=50)
+servo_pwm = PWM(Pin(SERVO_PIN), freq=50)  # Frekuensi standar servo 50 Hz
 
-is_open = False
-last_detect_ms = 0
+# ==========================================================
+#  PENGATURAN LOGIKA TONG SAMPAH
+# ==========================================================
+JARAK_DETEKSI_CM = 20     # Jarak tangan untuk membuka tutup (cm)
+DURASI_BUKA_DETIK = 6     # Lama tutup tong terbuka (6 detik)
+SUDUT_TUTUP = 0           # Sudut tertutup (0 derajat)
+SUDUT_BUKA = 90           # Sudut terbuka (90 derajat)
 
-
-def set_servo(angle):
-    """
-    Atur sudut servo 0-180 derajat untuk MG995:
-    - 0 derajat   = 1000 us
-    - 90 derajat  = 1500 us (atau tengah)
-    - 180 derajat = 2000 us
-    """
-    angle = max(0, min(180, angle))
-    pulse_us = 1000 + (angle / 180.0) * 1000
-    duty = int((pulse_us / 20000.0) * 65535)
-    servo.duty_u16(duty)
+current_angle = 0
 
 
-def gerak_halus(target, delay_ms=8):
-    """Gerakkan servo secara halus ke sudut target."""
+# ==========================================================
+#  FUNGSI KONTROL SERVO MG995
+# ==========================================================
+def set_servo_angle(angle):
+    """Atur sudut servo antara 0 s/d 180 derajat."""
     global current_angle
-    target = max(0, min(180, target))
-    step = 4 if target > current_angle else -4
-    for a in range(current_angle, target, step):
-        set_servo(a)
-        time.sleep_ms(delay_ms)
-    set_servo(target)
-    current_angle = target
+    angle = max(0, min(180, int(angle)))
+    current_angle = angle
+    # Konversi sudut ke pulse width (500us - 2500us) pada periode 20.000us
+    pulse_us = 500 + (angle / 180.0) * (2500 - 500)
+    duty = int((pulse_us / 20000.0) * 65535)
+    servo_pwm.duty_u16(duty)
+
+
+def servo_smooth(target_angle, delay_ms=15, step=2):
+    """Gerakan servo secara bertahap dan halus (mencegah lonjakan arus USB)."""
+    global current_angle
+    target_angle = max(0, min(180, int(target_angle)))
+    if current_angle < target_angle:
+        for a in range(current_angle, target_angle + 1, step):
+            set_servo_angle(a)
+            time.sleep_ms(delay_ms)
+    else:
+        for a in range(current_angle, target_angle - 1, -step):
+            set_servo_angle(a)
+            time.sleep_ms(delay_ms)
+    set_servo_angle(target_angle)
 
 
 def release_servo():
-    """Matikan PWM agar servo tidak mendengung."""
-    servo.duty_u16(0)
+    """Matikan sinyal PWM saat diam agar servo rileks, tidak bergetar & tidak panas."""
+    servo_pwm.duty_u16(0)
 
 
-def baca_jarak():
-    """Baca jarak dari sensor ultrasonik."""
+# ==========================================================
+#  FUNGSI BACA JARAK ULTRASONIK (HC-SR04 / RCWL-9616)
+# ==========================================================
+def get_distance_cm():
     trig.value(0)
     time.sleep_us(5)
     trig.value(1)
@@ -69,64 +78,66 @@ def baca_jarak():
     trig.value(0)
 
     try:
-        dur = time_pulse_us(echo, 1, 50000)
-        if dur > 100:
-            cm = (dur / 2.0) / 29.1
+        duration = time_pulse_us(echo, 1, 50000)
+        if duration > 100:
+            cm = (duration / 2.0) / 29.1
             if 2 <= cm <= 300:
                 return cm
-    except:
-        pass
-    return None
+        return None
+    except Exception:
+        return None
 
 
-# --- MULAI ---
-current_angle = SUDUT_TUTUP
-set_servo(SUDUT_TUTUP)
+# ==========================================================
+#  PROGRAM UTAMA
+# ==========================================================
+print("=" * 55)
+print("  SISTEM ULTRASONIK + SERVO MG995 AKTIF")
+print("=" * 55)
+print("Jarak Deteksi : <= {} cm".format(JARAK_DETEKSI_CM))
+print("Durasi Buka   : {} detik".format(DURASI_BUKA_DETIK))
+print("Pin           : Trig=19, Echo=21, Servo=18")
+print("-" * 55)
+
+# Posisi awal: tutup tong tertutup rapat
+print("Inisialisasi posisi awal (0 derajat)...")
+set_servo_angle(SUDUT_TUTUP)
 time.sleep_ms(500)
 release_servo()
-
-print("=" * 50)
-print("  SERVO + ULTRASONIK AKTIF")
-print("=" * 50)
-print("Jarak deteksi: <= {} cm".format(JARAK_DETEKSI_CM))
-print("Jeda tutup: {} detik".format(JEDA_TUTUP_DETIK))
-print("Dekatkan tangan ke sensor!")
-print("Tekan Ctrl+C untuk berhenti.")
-print("-" * 50)
+print("Siap! Dekatkan tangan Anda ke sensor.")
+print("-" * 55)
 
 try:
     while True:
-        jarak = baca_jarak()
-        now_ms = time.ticks_ms()
+        jarak = get_distance_cm()
 
         if jarak is not None:
-            print("Jarak: {:.1f} cm | Tutup: {}".format(
-                jarak, "TERBUKA" if is_open else "TERTUTUP"))
+            print("Jarak: {:5.1f} cm | Status: {}".format(
+                jarak, "TANGAN DEKAT" if jarak <= JARAK_DETEKSI_CM else "Standby"))
 
-            # Tangan terdeteksi dalam jarak <= 20 cm
+            # Jika tangan / objek terdeteksi mendekat (<= 20 cm)
             if jarak <= JARAK_DETEKSI_CM:
-                last_detect_ms = now_ms
-                if not is_open:
-                    print(">>> TANGAN TERDETEKSI! MEMBUKA TUTUP...")
-                    gerak_halus(SUDUT_BUKA)
-                    is_open = True
-        else:
-            print("Jarak: --- | Tutup: {}".format(
-                "TERBUKA" if is_open else "TERTUTUP"))
+                print("\n>>> TANGAN TERDETEKSI! Membuka tutup tong (90 deg)...")
+                servo_smooth(SUDUT_BUKA, delay_ms=12, step=2)
+                release_servo()  # Rilekskan motor saat terbuka
 
-        # Tutup kembali setelah 6 detik tangan menjauh
-        if is_open and time.ticks_diff(now_ms, last_detect_ms) > (JEDA_TUTUP_DETIK * 1000):
-            print(">>> MENUTUP KEMBALI...")
-            gerak_halus(SUDUT_TUTUP)
-            time.sleep_ms(300)
-            release_servo()
-            is_open = False
+                # Tunggu 6 detik agar user sempat membuang sampah
+                print(">>> Menunggu {} detik...".format(DURASI_BUKA_DETIK))
+                time.sleep(DURASI_BUKA_DETIK)
+
+                print(">>> Menutup kembali (0 deg)...")
+                servo_smooth(SUDUT_TUTUP, delay_ms=15, step=2)
+                release_servo()  # Rilekskan motor saat tertutup
+                
+                # Jeda 1 detik agar tidak langsung terpicu ulang
+                print(">>> Siap kembali.\n")
+                time.sleep(1)
+        else:
+            print("Jarak:  ---   cm | Status: Standby")
 
         time.sleep_ms(150)
 
 except KeyboardInterrupt:
-    set_servo(SUDUT_TUTUP)
-    time.sleep_ms(500)
+    print("\nProgram dihentikan.")
     release_servo()
-    print("\nBerhenti. Servo kembali ke 0 derajat.")
-
+    servo_pwm.deinit()
