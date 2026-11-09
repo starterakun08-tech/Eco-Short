@@ -10,7 +10,7 @@ TRIG_PIN = 19
 ECHO_PIN = 21
 
 trig = Pin(TRIG_PIN, Pin.OUT)
-echo = Pin(ECHO_PIN, Pin.IN)
+echo = Pin(ECHO_PIN, Pin.IN, Pin.PULL_DOWN)
 
 # Servo MG995 (Penggerak Tutup Tempat Sampah)
 SERVO_PIN = 18
@@ -156,39 +156,34 @@ def release_servo():
 
 
 def get_distance():
-    # Kirim pulsa trigger 10us
+    # 1. Pastikan pin trigger LOW sebelum kirim sinyal
     trig.value(0)
-    time.sleep_us(5)
-    trig.value(1)
     time.sleep_us(10)
+    # 2. Pulsa HIGH 20us (lebih stabil untuk mendrive HC-SR04 dengan level logika 3.3V)
+    trig.value(1)
+    time.sleep_us(20)
     trig.value(0)
 
     try:
-        # Timeout 35.000us (~5.5 meter). Jika tidak ada pantulan (kosong), time_pulse_us menghasilkan -1
+        # Timeout 35.000us (~5.5 meter). Jika tidak ada pantulan (kosong), menghasilkan -1 atau exception
         duration = time_pulse_us(echo, 1, 35000)
-        if duration <= 0:
-            return None
-        return (duration / 2.0) / 29.1
-    except Exception as e:
+        if duration > 0:
+            cm = (duration / 2.0) / 29.1
+            if 2 <= cm <= 300:
+                return cm
+        return None
+    except Exception:
         return None
 
 
 def read_distance_cm():
-    samples = []
-    for _ in range(ULTRASONIC_SAMPLE_COUNT):
-        jarak = get_distance()
-        if jarak is not None and MIN_VALID_DISTANCE_CM <= jarak <= MAX_VALID_DISTANCE_CM:
-            samples.append(jarak)
-        time.sleep_ms(ULTRASONIC_SAMPLE_DELAY_MS)
-
-    if not samples:
-        return None
-
-    samples.sort()
-    mid = len(samples) // 2
-    if len(samples) % 2:
-        return samples[mid]
-    return (samples[mid - 1] + samples[mid]) / 2
+    # Lakukan 2 kali sampling cepat (jeda 15ms) untuk mencegah miss-detection pada pantulan tangan
+    for _ in range(2):
+        d = get_distance()
+        if d is not None:
+            return d
+        time.sleep_ms(15)
+    return None
 
 
 def read_hx711_value():
