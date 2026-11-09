@@ -1,99 +1,95 @@
 """
 ============================================================
-  TES MANDIRI SERVO MG995: 0 -> 90 -> 180 -> UJI 360 DERAJAT
+  KODE SERVO MG995: PUTAR 90 DERAJAT -> TAHAN 4 DETIK -> KEMBALI 0
 ============================================================
-Tanpa sensor ultrasonik sama sekali.
-Pin Servo: GPIO 5
+Logika:
+1. Posisi Awal (0 Derajat / 1000 us).
+2. Memutar Halus 90 Derajat (1500 us).
+3. Menahan kokoh di posisi 90 Derajat selama 4 DETIK.
+4. Memutar Halus Kembali ke Posisi Awal (0 Derajat).
+5. Jeda 3 detik, lalu mengulang siklus.
 
-Catatan Jenis MG995:
-1. Jika MG995 180 Derajat (Standar):
-   - Akan berhenti di 0, 90, dan 180 derajat secara presisi.
-2. Jika MG995 360 Derajat (Continuous):
-   - Sinyal 90 derajat = Berhenti (Stop)
-   - Sinyal 0 & 180 derajat = Berputar terus-menerus (Maju / Mundur).
+Pin Servo: GPIO 5
+Metode   : duty_ns() hardware timer (Anti-Getar & Halus)
 ============================================================
 """
 from machine import Pin, PWM
 import time
 
-SERVO_PIN = 5
-servo_pwm = PWM(Pin(SERVO_PIN), freq=50)
+SERVO_PIN = 5  # GPIO 5
 
-current_angle = 0
+# Konfigurasi PWM 50Hz (periode 20ms)
+servo = PWM(Pin(SERVO_PIN), freq=50)
 
-def set_servo_angle(angle):
-    """Kirim sudut servo (0 - 180 derajat)."""
-    global current_angle
-    angle = max(0, min(180, int(angle)))
-    current_angle = angle
-    # MG995: 500us (0 deg) s/d 2500us (180 deg)
-    pulse_us = 500 + (angle / 180.0) * 2000
-    duty = int((pulse_us / 20000.0) * 65535)
-    servo_pwm.duty_u16(duty)
+# Rentang pulsa aman anti-mentok untuk MG995:
+PULSA_0_DEG  = 1000   # Posisi Awal (0 derajat)
+PULSA_90_DEG = 1500   # Posisi Buka (90 derajat)
+JEDA_TAHAN   = 4      # Tahan selama 4 detik
 
-def gerak_halus(target, delay_ms=20, step=2):
-    """Gerakan bertahap agar stabil dan arus tidak anjlok."""
-    global current_angle
-    target = max(0, min(180, int(target)))
-    if current_angle < target:
-        for a in range(current_angle, target + 1, step):
-            set_servo_angle(a)
+def set_pulse_us(us):
+    """Kirim sinyal mikrodetik langsung via hardware timer nanodetik."""
+    servo.duty_ns(int(us * 1000))
+
+def gerak_halus(us_mulai, us_tujuan, step_us=15, delay_ms=15):
+    """Menggeser posisi secara bertahap agar gerakan stabil tanpa hentakan."""
+    if us_mulai < us_tujuan:
+        for u in range(us_mulai, us_tujuan + 1, step_us):
+            set_pulse_us(u)
             time.sleep_ms(delay_ms)
     else:
-        for a in range(current_angle, target - 1, -step):
-            set_servo_angle(a)
+        for u in range(us_mulai, us_tujuan - 1, -step_us):
+            set_pulse_us(u)
             time.sleep_ms(delay_ms)
-    set_servo_angle(target)
+    set_pulse_us(us_tujuan)
 
 print("=" * 55)
-print("  MULAI PENGUJIAN SUDUT SERVO (GPIO 5)")
+print("  SERVO MG995: BUKA 90 DEG -> TAHAN 4 DETIK -> TUTUP 0 DEG")
 print("=" * 55)
-print("Perhatikan gerakan fisik tuas servo Anda!")
+print("Pin Servo : GPIO 5")
+print("Tekan Ctrl+C di Thonny untuk berhenti.")
 print("-" * 55)
 
+# 1. Inisialisasi ke Posisi Awal
+print("Menyetel posisi awal (0 Derajat)...")
+set_pulse_us(PULSA_0_DEG)
+time.sleep(2)
+posisi_sekarang = PULSA_0_DEG
+
 try:
+    siklus = 1
     while True:
-        # 1. Posisi 0 Derajat
-        print("\n>>> [1] Posisi: 0 DERAJAT (Tutup Rapat)")
-        gerak_halus(0, delay_ms=20, step=2)
-        print("    Menahan di 0 derajat selama 3 detik...")
+        print("\n" + "=" * 45)
+        print(">>> SIKLUS #{}: MEMULAI GERAKAN".format(siklus))
+        print("=" * 45)
+
+        # LANGKAH 1: Memutar 90 Derajat
+        print("[1] Memutar HALUS ke 90 DERAJAT...")
+        gerak_halus(posisi_sekarang, PULSA_90_DEG, step_us=15, delay_ms=15)
+        posisi_sekarang = PULSA_90_DEG
+        print("    -> Sudah di posisi 90 Derajat!")
+
+        # LANGKAH 2: Menahan di 90 Derajat selama 4 Detik
+        print("[2] MENAHAN POSISI SELAMA {} DETIK...".format(JEDA_TAHAN))
+        for s in range(JEDA_TAHAN, 0, -1):
+            print("    Sisa waktu tahan: {} detik...".format(s))
+            time.sleep(1)
+
+        # LANGKAH 3: Memutar Kembali ke 0 Derajat
+        print("[3] Memutar HALUS KEMBALI ke 0 DERAJAT (Posisi Awal)...")
+        gerak_halus(posisi_sekarang, PULSA_0_DEG, step_us=15, delay_ms=15)
+        posisi_sekarang = PULSA_0_DEG
+        print("    -> Sudah kembali ke Posisi Awal (0 Derajat)!")
+
+        # Jeda sebelum siklus berikutnya
+        print("[4] Standby di posisi awal selama 3 detik...")
         time.sleep(3)
-
-        # 2. Posisi 90 Derajat
-        print("\n>>> [2] Posisi: 90 DERAJAT (Tegak Lurus / Terbuka)")
-        gerak_halus(90, delay_ms=20, step=2)
-        print("    Menahan di 90 derajat selama 3 detik...")
-        time.sleep(3)
-
-        # 3. Posisi 180 Derajat
-        print("\n>>> [3] Posisi: 180 DERAJAT (Maksimal Putaran)")
-        gerak_halus(180, delay_ms=20, step=2)
-        print("    Menahan di 180 derajat selama 3 detik...")
-        time.sleep(3)
-
-        # 4. Kembali Halus ke 0 Derajat
-        print("\n>>> [4] Memutar Kembali secara Halus ke 0 DERAJAT...")
-        gerak_halus(0, delay_ms=20, step=2)
-        print("    Menahan di 0 derajat selama 2 detik...")
-        time.sleep(2)
-
-        # 5. Uji Mode Putaran Bebas (360 Derajat Continuous Check)
-        print("\n>>> [5] UJI SINYAL 360 DERAJAT:")
-        print("    - Jika servo 180 deg : Akan tetap di posisi ujung.")
-        print("    - Jika servo 360 deg : Akan berputar penuh tanpa henti.")
-        set_servo_angle(180)
-        time.sleep(3)
-
-        print("\n" + "=" * 55)
-        print("Satu siklus selesai! Mengulang pengujian...")
-        print("Tekan Ctrl+C di Thonny untuk berhenti.")
-        print("=" * 55)
-        time.sleep(2)
+        siklus += 1
 
 except KeyboardInterrupt:
-    print("\nPengujian dihentikan oleh pengguna.")
-    set_servo_angle(0)
+    print("\nPengujian dihentikan.")
+    print("Mengembalikan ke posisi 0 derajat...")
+    set_pulse_us(PULSA_0_DEG)
     time.sleep_ms(500)
-    servo_pwm.duty_u16(0)
-    servo_pwm.deinit()
-    print("PWM dinonaktifkan. Servo lemas.")
+    servo.duty_ns(0)
+    servo.deinit()
+    print("PWM dinonaktifkan. Selesai.")
