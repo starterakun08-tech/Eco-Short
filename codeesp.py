@@ -131,12 +131,12 @@ def connect_wifi(timeout_sec=6):
 
 # --- FUNGSI KONTROL SERVO MG995 ---
 def set_servo_angle(angle):
-    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman."""
+    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman standar MG995."""
     global current_servo_angle
     angle = max(0, min(180, int(angle)))
     current_servo_angle = angle
-    # MG995: 500us (0 deg) s/d 2500us (180 deg) pada periode 20.000us (50Hz)
-    pulse_us = 500 + (angle / 180.0) * 2000
+    # MG995 standar: 1000us (0 deg) s/d 2000us (180 deg) pada periode 20.000us (50Hz)
+    pulse_us = 1000 + (angle / 180.0) * 1000
     duty = int((pulse_us / 20000.0) * 65535)
     servo_pwm.duty_u16(duty)
 

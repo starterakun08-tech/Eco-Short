@@ -31,9 +31,14 @@ last_detect_ms = 0
 
 
 def set_servo(angle):
-    """Atur sudut servo 0-180 derajat."""
+    """
+    Atur sudut servo 0-180 derajat untuk MG995:
+    - 0 derajat   = 1000 us
+    - 90 derajat  = 1500 us (atau tengah)
+    - 180 derajat = 2000 us
+    """
     angle = max(0, min(180, angle))
-    pulse_us = 500 + (angle / 180.0) * 2000
+    pulse_us = 1000 + (angle / 180.0) * 1000
     duty = int((pulse_us / 20000.0) * 65535)
     servo.duty_u16(duty)
 
