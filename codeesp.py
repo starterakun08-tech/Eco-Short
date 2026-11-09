@@ -23,7 +23,7 @@ hx = HX711(d_out=4, pd_sck=5)
 
 # --- PENGATURAN SERVO & TUTUP TONG ---
 JARAK_DETEKSI_TANGAN_CM = 20   # Jarak deteksi tangan untuk membuka tutup (cm)
-DURASI_TAHAN_DETIK = 3.0       # Durasi tutup tetap terbuka setelah tangan menjauh (detik)
+DURASI_TAHAN_DETIK = 6.0       # Durasi tutup tetap terbuka setelah tangan menjauh (6 detik)
 SUDUT_TUTUP = 0                # Sudut servo saat tertutup rapat (derajat)
 SUDUT_BUKA = 90                # Sudut servo saat terbuka penuh (derajat)
 
