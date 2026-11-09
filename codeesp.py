@@ -1,16 +1,21 @@
 from hx711 import HX711
-from machine import Pin, PWM, time_pulse_us, reset
+from machine import Pin, PWM, UART, reset
 import network
 import time
 import urequests
 
 # --- KONFIGURASI PIN HARDWARE ---
-# Sensor Ultrasonik HC-SR04
-TRIG_PIN = 19
-ECHO_PIN = 21
+# Sensor Ultrasonik HC-SR04-RC (Chip RCWL-9616 - Mode UART)
+# Sensor ini BUKAN HC-SR04 biasa! Menggunakan chip RCWL-9616 yang
+# dikonfigurasi dalam mode UART (M1=1, M2=0 pada PCB).
+# Pin Trig = TX sensor (GPIO 19) -> RX ESP32
+# Pin Echo = RX sensor (GPIO 21) -> TX ESP32
+SENSOR_RX_PIN = 19   # Trig pin sensor = TX sensor -> masuk ke RX ESP32
+SENSOR_TX_PIN = 21   # Echo pin sensor = RX sensor -> keluar dari TX ESP32
+SENSOR_BAUD = 9600   # Baud rate RCWL-9616 UART mode
 
-trig = Pin(TRIG_PIN, Pin.OUT)
-echo = Pin(ECHO_PIN, Pin.IN, Pin.PULL_DOWN)
+# Inisialisasi UART untuk sensor ultrasonik RCWL-9616
+sensor_uart = UART(1, baudrate=SENSOR_BAUD, rx=SENSOR_RX_PIN, tx=SENSOR_TX_PIN, timeout=300)
 
 # Servo MG995 (Penggerak Tutup Tempat Sampah)
 SERVO_PIN = 18
@@ -155,40 +160,62 @@ def release_servo():
     servo_pwm.duty_u16(0)
 
 
-def get_distance():
-    # 1. Pastikan pin trigger stabil di LOW
-    trig.value(0)
-    time.sleep_us(5)
-    # 2. Kirim pulsa trigger 10us
-    trig.value(1)
-    time.sleep_us(10)
-    trig.value(0)
+def get_distance_uart():
+    """Membaca jarak dari sensor RCWL-9616 via UART.
+    
+    Protokol RCWL-9616 UART mode:
+    - Sensor otomatis mengirim data terus-menerus (auto-transmit)
+    - Format frame: [0xFF] [Jarak_High] [Jarak_Low] [Checksum]
+    - Checksum = (0xFF + High + Low) & 0xFF
+    - Jarak dalam milimeter = (High << 8) | Low
+    """
+    global _uart_buf
+    
+    # Baca semua data yang tersedia di buffer UART
+    new_data = sensor_uart.read()
+    if new_data:
+        _uart_buf += new_data
+    
+    # Batasi buffer agar tidak membengkak (simpan 64 byte terakhir)
+    if len(_uart_buf) > 64:
+        _uart_buf = _uart_buf[-64:]
+    
+    # Cari frame valid terakhir (paling baru) dari belakang
+    best_cm = None
+    i = 0
+    while i < len(_uart_buf) - 3:
+        if _uart_buf[i] == 0xFF:
+            high = _uart_buf[i+1]
+            low = _uart_buf[i+2]
+            checksum = _uart_buf[i+3]
+            calc = (0xFF + high + low) & 0xFF
+            if checksum == calc:
+                jarak_mm = (high << 8) | low
+                cm = jarak_mm / 10.0
+                if 2 <= cm <= 300:
+                    best_cm = cm
+            i += 4
+        else:
+            i += 1
+    
+    # Buang data yang sudah diproses, simpan sisa yang belum lengkap
+    if len(_uart_buf) >= 4:
+        _uart_buf = _uart_buf[-3:]  # Simpan 3 byte terakhir (bisa jadi awal frame)
+    
+    return best_cm
 
-    # 3. FILTER CROSSTALK: Jeda 60us agar glitch listrik (1-5us) pada falling edge Trig
-    #    mereda dulu sebelum Echo mulai mendeteksi pantulan suara yang sesungguhnya.
-    time.sleep_us(60)
 
-    try:
-        # Timeout 35.000us (~5.5 meter).
-        duration = time_pulse_us(echo, 1, 35000)
-        # Sinyal pantulan valid HC-SR04 selalu > 100us (jarak minimal 2 cm).
-        # Pulsa di bawah 100us adalah noise listrik/crosstalk antar kabel dan wajib diabaikan.
-        if duration > 100:
-            cm = (duration / 2.0) / 29.1
-            if 2 <= cm <= 300:
-                return cm
-        return None
-    except Exception:
-        return None
+# Buffer internal untuk data UART sensor
+_uart_buf = bytearray()
 
 
 def read_distance_cm():
-    # Lakukan 2 kali sampling cepat (jeda 15ms) untuk mencegah miss-detection pada pantulan tangan
+    """Baca jarak sensor RCWL-9616 via UART, dengan 2x percobaan."""
     for _ in range(2):
-        d = get_distance()
+        d = get_distance_uart()
         if d is not None:
             return d
-        time.sleep_ms(15)
+        time.sleep_ms(50)  # Tunggu data UART masuk
     return None
 
 
@@ -420,14 +447,24 @@ try:
 except Exception as e:
     print("      -> Gagal tare HX711:", e)
 
-# 3. Tes Awal Ultrasonik
-print("[3/3] Menguji Sensor Ultrasonik HC-SR04...")
+# 3. Tes Awal Ultrasonik (RCWL-9616 UART Mode)
+print("[3/3] Menguji Sensor Ultrasonik RCWL-9616 (UART)...")
 try:
-    test_d = get_distance()
+    # Buang data lama di buffer UART
+    sensor_uart.read()
+    time.sleep_ms(300)  # Tunggu sensor mulai transmit
+    test_d = read_distance_cm()
     if test_d is not None:
         print(f"      -> Objek terdeteksi pada: {test_d:.1f} cm")
     else:
-        print("      -> Area di depan sensor KOSONG (Standby / Normal).")
+        # Coba sekali lagi dengan waktu tunggu lebih lama
+        time.sleep_ms(500)
+        test_d = read_distance_cm()
+        if test_d is not None:
+            print(f"      -> Objek terdeteksi pada: {test_d:.1f} cm")
+        else:
+            print("      -> Area di depan sensor KOSONG (Standby / Normal).")
+            print("         (Jika selalu kosong, coba baud rate 19200)")
 except Exception as e:
     print("      -> Cek kabel ultrasonik:", e)
 
