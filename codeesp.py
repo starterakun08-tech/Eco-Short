@@ -156,18 +156,24 @@ def release_servo():
 
 
 def get_distance():
-    # 1. Pastikan pin trigger LOW sebelum kirim sinyal
+    # 1. Pastikan pin trigger stabil di LOW
     trig.value(0)
-    time.sleep_us(10)
-    # 2. Pulsa HIGH 20us (lebih stabil untuk mendrive HC-SR04 dengan level logika 3.3V)
+    time.sleep_us(5)
+    # 2. Kirim pulsa trigger 10us
     trig.value(1)
-    time.sleep_us(20)
+    time.sleep_us(10)
     trig.value(0)
 
+    # 3. FILTER CROSSTALK: Jeda 60us agar glitch listrik (1-5us) pada falling edge Trig
+    #    mereda dulu sebelum Echo mulai mendeteksi pantulan suara yang sesungguhnya.
+    time.sleep_us(60)
+
     try:
-        # Timeout 35.000us (~5.5 meter). Jika tidak ada pantulan (kosong), menghasilkan -1 atau exception
+        # Timeout 35.000us (~5.5 meter).
         duration = time_pulse_us(echo, 1, 35000)
-        if duration > 0:
+        # Sinyal pantulan valid HC-SR04 selalu > 100us (jarak minimal 2 cm).
+        # Pulsa di bawah 100us adalah noise listrik/crosstalk antar kabel dan wajib diabaikan.
+        if duration > 100:
             cm = (duration / 2.0) / 29.1
             if 2 <= cm <= 300:
                 return cm
