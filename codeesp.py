@@ -156,6 +156,7 @@ def release_servo():
 
 
 def get_distance():
+    # Kirim pulsa trigger 10us
     trig.value(0)
     time.sleep_us(5)
     trig.value(1)
@@ -163,12 +164,12 @@ def get_distance():
     trig.value(0)
 
     try:
+        # Timeout 35.000us (~5.5 meter). Jika tidak ada pantulan (kosong), time_pulse_us menghasilkan -1
         duration = time_pulse_us(echo, 1, 35000)
         if duration <= 0:
             return None
-        return (duration / 2) / 29.1
+        return (duration / 2.0) / 29.1
     except Exception as e:
-        print("Ultrasonic error:", e)
         return None
 
 
@@ -391,17 +392,47 @@ def poll_and_execute_commands():
 # ===== [AKHIR TAMBAHAN] =====
 
 
-print("Start system...")
+print("========================================")
+print("     SISTEM ECOSORT ESP32 DIMULAI")
+print("========================================")
 connect_wifi()
 
-print("Inisialisasi Servo MG995 (Tutup)...")
-set_servo_angle(SUDUT_TUTUP)
-time.sleep_ms(500)
-release_servo()
+print("\n--- UJI MANDIRI PERANGKAT (SELF-TEST) ---")
 
-print("Tare HX711...")
-hx.tare()
-print("Ready\n")
+# 1. Tes Gerakan Servo MG995
+print("[1/3] Menguji Servo MG995 (Buka 45 deg lalu Tutup)...")
+try:
+    move_servo_smooth(45, step_delay_ms=10)
+    time.sleep_ms(300)
+    move_servo_smooth(SUDUT_TUTUP, step_delay_ms=10)
+    time.sleep_ms(300)
+    release_servo()
+    print("      -> Servo MG995 Merespons OK!")
+except Exception as e:
+    print("      -> Gagal uji servo:", e)
+
+# 2. Tes Load Cell HX711
+print("[2/3] Menguji Load Cell + HX711 (Tare bobot nol)...")
+try:
+    hx.tare()
+    print("      -> HX711 Siap & Nilai Nol Ditentukan!")
+except Exception as e:
+    print("      -> Gagal tare HX711:", e)
+
+# 3. Tes Awal Ultrasonik
+print("[3/3] Menguji Sensor Ultrasonik HC-SR04...")
+try:
+    test_d = get_distance()
+    if test_d is not None:
+        print(f"      -> Objek terdeteksi pada: {test_d:.1f} cm")
+    else:
+        print("      -> Area di depan sensor KOSONG (Standby / Normal).")
+except Exception as e:
+    print("      -> Cek kabel ultrasonik:", e)
+
+print("----------------------------------------")
+print("Semua modul siap. Dekatkan tangan ke sensor (<= 20 cm) untuk membuka tutup.")
+print("========================================\n")
 
 while True:
     try:
@@ -410,11 +441,11 @@ while True:
 
         # ===== KONTROL OTOMATIS TUTUP TEMPAT SAMPAH (SERVO MG995) =====
         now_ms = time.ticks_ms()
-        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat
+        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat (<= 20 cm)
         if jarak_raw is not None and jarak_raw <= JARAK_DETEKSI_TANGAN_CM:
             last_hand_detected_ms = now_ms
             if not is_lid_open:
-                print(">>> [TANGAN TERDETEKSI ({:.1f} cm)] MEMBUKA TUTUP TONG...".format(jarak_raw))
+                print(f">>> [TANGAN TERDETEKSI: {jarak_raw:.1f} cm] MEMBUKA TUTUP TONG...")
                 move_servo_smooth(SUDUT_BUKA)
                 is_lid_open = True
         else:
@@ -449,7 +480,10 @@ while True:
         print("----------------------")
         print("Berat total:", format_weight_label(berat))
         print("Berat sensor (Load Cell):", format_weight_label(berat_sensor))
-        print("Jarak Tangan:", "ERROR / OUT" if jarak_raw is None else "{:.1f} cm".format(jarak_raw))
+        if jarak_raw is not None:
+            print(f"Jarak Tangan: {jarak_raw:.1f} cm")
+        else:
+            print("Jarak Tangan: Standby (Area Kosong / Tidak Ada Tangan)")
         print("Status Tutup:", "TERBUKA" if is_lid_open else "TERTUTUP")
 
         if jarak is not None and jarak <= AMBANG_PENUH_CM:
