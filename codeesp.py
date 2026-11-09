@@ -318,7 +318,7 @@ def poll_and_execute_commands():
     """Ambil perintah dari server dan jalankan."""
     global FAKTOR_KALIBRASI, SEND_INTERVAL_SECONDS, total_weight_gram
     global pending_weight_gram, weight_event_active, weight_clear_count
-    global smoothed_weight_gram
+    global smoothed_weight_gram, is_lid_open, last_hand_detected_ms
 
     if not wifi.isconnected():
         return
