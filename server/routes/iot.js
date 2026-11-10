@@ -18,6 +18,7 @@ const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const COMMANDS_FILE = path.join(DATA_DIR, 'commands.json');
 const COMMAND_LOG_FILE = path.join(DATA_DIR, 'command_log.json');
 const TRANSACTIONS_FILE = path.join(DATA_DIR, 'transactions.json');
+const READ_NOTIFS_FILE = path.join(DATA_DIR, 'read_notifs.json');
 
 const MAX_HISTORY_PER_DEVICE = 1000;
 const ONLINE_TIMEOUT_MS = 10000; // 10 detik
@@ -37,6 +38,22 @@ function writeJSON(file, data) {
   const tmp = file + '.' + Date.now() + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf8');
   fs.renameSync(tmp, file);
+}
+
+// ---- Helper Generate ID Transaksi Sekuensial Runtut (Bukan Acak) ----
+function getNextTransactionId(txs) {
+  let maxId = 2024000;
+  if (Array.isArray(txs)) {
+    for (const t of txs) {
+      if (t && t.id) {
+        const num = parseInt(String(t.id).replace(/\D/g, ''), 10);
+        if (!isNaN(num) && num > maxId) {
+          maxId = num;
+        }
+      }
+    }
+  }
+  return '#' + (maxId + 1);
 }
 
 // ---- Bersihkan Perintah Kedaluwarsa (> 2 Menit Belum Diambil ESP) ----
@@ -127,15 +144,29 @@ router.post('/data', requireDeviceToken, (req, res) => {
 
     // --- Simpan Status Perangkat Terkini ---
     const devices = readJSON(DEVICES_FILE, {});
+    const existing = devices[deviceId] || {};
+    const tareOffset = Number(existing.tareOffsetGram || 0);
+
+    // Ambil raw weight yang dibaca sensor
+    const incomingRaw = Number(body.rawWeightGram ?? body.currentWeightGram ?? body.weightGram ?? existing.rawWeightGram ?? 0);
+    const rawWeight = Math.max(0, incomingRaw);
+
+    // Hitung berat sampah riil setelah dikurangi beban tong/wadah (tare offset)
+    let realWeight = Math.max(0, Math.round((rawWeight - tareOffset) * 10) / 10);
+    if (realWeight < 1.0) realWeight = 0; // Filter toleransi noise nol saat bak kosong
+
     devices[deviceId] = {
       deviceId,
       lastSeen: now,
-      weightGram: body.weightGram ?? 0,
-      totalWeightGram: body.totalWeightGram ?? 0,
-      currentWeightGram: body.currentWeightGram ?? body.weightGram ?? 0,
-      distanceCm: body.distanceCm ?? null,
-      fullThresholdCm: body.fullThresholdCm ?? 10,
-      emptyDistanceCm: body.emptyDistanceCm ?? 35
+      rawWeightGram: rawWeight,
+      tareOffsetGram: tareOffset,
+      weightGram: realWeight,
+      totalWeightGram: body.totalWeightGram ?? existing.totalWeightGram ?? 0,
+      currentWeightGram: realWeight,
+      distanceCm: body.distanceCm ?? existing.distanceCm ?? null,
+      fullThresholdCm: body.fullThresholdCm ?? existing.fullThresholdCm ?? 10,
+      emptyDistanceCm: body.emptyDistanceCm ?? existing.emptyDistanceCm ?? 35,
+      surroundingTrashCount: body.surroundingTrashCount !== undefined ? Number(body.surroundingTrashCount) : (existing.surroundingTrashCount ?? 0)
     };
     writeJSON(DEVICES_FILE, devices);
 
@@ -144,8 +175,8 @@ router.post('/data', requireDeviceToken, (req, res) => {
     if (!history[deviceId]) history[deviceId] = [];
     history[deviceId].push({
       t: now,
-      w: body.currentWeightGram ?? body.weightGram ?? 0,
-      tw: body.totalWeightGram ?? 0,
+      w: realWeight,
+      tw: body.totalWeightGram ?? existing.totalWeightGram ?? 0,
       d: body.distanceCm ?? null
     });
     if (history[deviceId].length > MAX_HISTORY_PER_DEVICE) {
@@ -154,14 +185,14 @@ router.post('/data', requireDeviceToken, (req, res) => {
     writeJSON(HISTORY_FILE, history);
 
     // --- Catat kejadian penimbangan jika ada berat terakumulasi ---
-    if (body.resetWeight && (body.weightGram > 0 || body.currentWeightGram > 0)) {
+    if (body.resetWeight && realWeight > 0) {
       const txs = readJSON(TRANSACTIONS_FILE, []);
       const nowObj = new Date();
       const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                      nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
-      const addedWeight = body.weightGram || body.currentWeightGram || 0;
+      const addedWeight = realWeight;
       txs.unshift({
-        id: '#' + Math.floor(2024000 + Math.random() * 1000),
+        id: getNextTransactionId(txs),
         date: nowStr,
         timestamp: now,
         type: 'Penimbangan',
@@ -239,9 +270,49 @@ router.post('/command', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'deviceId dan type diperlukan' });
     }
 
-    const validTypes = ['tare', 'set_calibration', 'set_interval', 'restart'];
+    const validTypes = ['tare', 'set_calibration', 'set_tare_offset', 'set_interval', 'restart'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: 'Tipe perintah tidak valid: ' + type });
+    }
+
+    // --- Perbaiki Bug Tare & Hitungan Riil Saat Ini ---
+    if (type === 'tare') {
+      // 1. Langsung nol-kan beban timbangan di sistem server sehingga website langsung menampilkan 0.0 g
+      // dan tidak menunggu ESP32 mengirim data atau terjebak data lama saat bak kosong
+      const devices = readJSON(DEVICES_FILE, {});
+      const dev = devices[deviceId] || { deviceId };
+      dev.rawWeightGram = 0;
+      dev.currentWeightGram = 0;
+      dev.weightGram = 0;
+      dev.totalWeightGram = 0;
+      dev.lastTareAt = new Date().toISOString();
+      devices[deviceId] = dev;
+      writeJSON(DEVICES_FILE, devices);
+
+      // 2. Catat titik nol ke riwayat sensor
+      const history = readJSON(HISTORY_FILE, {});
+      if (!history[deviceId]) history[deviceId] = [];
+      history[deviceId].push({
+        t: new Date().toISOString(),
+        w: 0,
+        tw: 0,
+        d: dev.distanceCm ?? null
+      });
+      if (history[deviceId].length > MAX_HISTORY_PER_DEVICE) {
+        history[deviceId] = history[deviceId].slice(-MAX_HISTORY_PER_DEVICE);
+      }
+      writeJSON(HISTORY_FILE, history);
+    } else if (type === 'set_tare_offset') {
+      const offset = Math.max(0, parseFloat(params?.value) || 0);
+      const devices = readJSON(DEVICES_FILE, {});
+      const dev = devices[deviceId] || { deviceId };
+      dev.tareOffsetGram = offset;
+      const raw = Number(dev.rawWeightGram ?? dev.weightGram ?? 0);
+      dev.rawWeightGram = raw;
+      dev.currentWeightGram = Math.max(0, Math.round((raw - offset) * 10) / 10);
+      dev.weightGram = dev.currentWeightGram;
+      devices[deviceId] = dev;
+      writeJSON(DEVICES_FILE, devices);
     }
 
     const commands = readJSON(COMMANDS_FILE, {});
@@ -289,10 +360,10 @@ router.post('/command', requireAuth, (req, res) => {
     const nowObj = new Date();
     const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const cmdLabel = cmd.type === 'tare' ? 'Tare Nol Timbangan' : cmd.type === 'restart' ? 'Restart ESP32' : `${cmd.type}: ${cmd.params?.value || ''}`;
+    const cmdLabel = cmd.type === 'tare' ? 'Tare Nol Timbangan' : cmd.type === 'set_tare_offset' ? `Tare Kustom: ${cmd.params?.value || 0} g` : cmd.type === 'restart' ? 'Restart ESP32' : `${cmd.type}: ${cmd.params?.value || ''}`;
 
     txs.unshift({
-      id: '#' + Math.floor(2024000 + Math.random() * 1000),
+      id: getNextTransactionId(txs),
       commandId: cmd.id,
       date: nowStr,
       timestamp: cmd.createdAt,
@@ -300,7 +371,7 @@ router.post('/command', requireAuth, (req, res) => {
       amount: cmdLabel,
       rawAmount: cmdLabel,
       distance: '--',
-      status: 'Menunggu' // Tetap 'Menunggu' sampai diambil ESP32
+      status: cmd.type === 'tare' || cmd.type === 'set_tare_offset' ? 'Selesai' : 'Menunggu'
     });
     if (txs.length > 100) txs.pop();
     writeJSON(TRANSACTIONS_FILE, txs);
@@ -309,6 +380,157 @@ router.post('/command', requireAuth, (req, res) => {
   } catch (err) {
     console.error('[IOT/command] Error:', err.message);
     res.status(500).json({ error: 'Gagal mengirim perintah' });
+  }
+});
+
+// =================================================================
+//  POST /api/iot/tare-offset — Atur berat wadah/komponen (Tare Kustom)
+//  Admin input berat tong sampah agar tidak masuk ke hitungan sampah riil
+// =================================================================
+router.post('/tare-offset', requireAuth, (req, res) => {
+  try {
+    const { deviceId = 'esp32-ecosort-1', tareOffsetGram = 0 } = req.body || {};
+    const offset = Math.max(0, parseFloat(tareOffsetGram) || 0);
+
+    const devices = readJSON(DEVICES_FILE, {});
+    const existing = devices[deviceId] || {
+      deviceId,
+      lastSeen: new Date().toISOString(),
+      weightGram: 0,
+      totalWeightGram: 0,
+      currentWeightGram: 0,
+      distanceCm: 30,
+      fullThresholdCm: 10,
+      emptyDistanceCm: 35
+    };
+
+    existing.tareOffsetGram = offset;
+    const raw = Number(existing.rawWeightGram ?? existing.weightGram ?? 0);
+    existing.rawWeightGram = raw;
+    existing.currentWeightGram = Math.max(0, Math.round((raw - offset) * 10) / 10);
+    existing.weightGram = existing.currentWeightGram;
+
+    devices[deviceId] = existing;
+    writeJSON(DEVICES_FILE, devices);
+
+    // Catat log transaksi agar admin tahu perubahan
+    const txs = readJSON(TRANSACTIONS_FILE, []);
+    const nowObj = new Date();
+    const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
+                   nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    txs.unshift({
+      id: getNextTransactionId(txs),
+      date: nowStr,
+      timestamp: new Date().toISOString(),
+      type: 'Perintah',
+      amount: `Tare Kustom: ${offset.toFixed(1)} g`,
+      rawAmount: `Tare Wadah: ${offset.toFixed(1)} g`,
+      distance: '--',
+      status: 'Selesai'
+    });
+    if (txs.length > 100) txs.pop();
+    writeJSON(TRANSACTIONS_FILE, txs);
+
+    res.json({ success: true, tareOffsetGram: offset, currentWeightGram: existing.currentWeightGram });
+  } catch (err) {
+    console.error('[IOT/tare-offset] Error:', err.message);
+    res.status(500).json({ error: 'Gagal menyimpan tare offset' });
+  }
+});
+
+// =================================================================
+//  POST /api/iot/tare — Nol-kan timbangan website secara langsung
+// =================================================================
+router.post('/tare', requireAuth, (req, res) => {
+  try {
+    const { deviceId = 'esp32-ecosort-1' } = req.body || {};
+    const devices = readJSON(DEVICES_FILE, {});
+    const existing = devices[deviceId] || { deviceId };
+    existing.rawWeightGram = 0;
+    existing.currentWeightGram = 0;
+    existing.weightGram = 0;
+    existing.totalWeightGram = 0;
+    existing.lastTareAt = new Date().toISOString();
+    devices[deviceId] = existing;
+    writeJSON(DEVICES_FILE, devices);
+
+    const history = readJSON(HISTORY_FILE, {});
+    if (!history[deviceId]) history[deviceId] = [];
+    history[deviceId].push({
+      t: new Date().toISOString(),
+      w: 0,
+      tw: 0,
+      d: existing.distanceCm ?? null
+    });
+    if (history[deviceId].length > MAX_HISTORY_PER_DEVICE) {
+      history[deviceId] = history[deviceId].slice(-MAX_HISTORY_PER_DEVICE);
+    }
+    writeJSON(HISTORY_FILE, history);
+
+    // Antrekan perintah tare ke ESP32 agar sensor fisik HX711 ikut tare saat terkoneksi
+    const commands = readJSON(COMMANDS_FILE, {});
+    if (!commands[deviceId]) commands[deviceId] = [];
+    commands[deviceId].push({
+      id: uuidv4(),
+      type: 'tare',
+      params: {},
+      createdAt: new Date().toISOString()
+    });
+    writeJSON(COMMANDS_FILE, commands);
+
+    // Catat transaksi tare
+    const txs = readJSON(TRANSACTIONS_FILE, []);
+    const nowObj = new Date();
+    const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
+                   nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    txs.unshift({
+      id: getNextTransactionId(txs),
+      date: nowStr,
+      timestamp: new Date().toISOString(),
+      type: 'Perintah',
+      amount: 'Tare Nol Timbangan',
+      rawAmount: 'Tare Nol Timbangan',
+      distance: '--',
+      status: 'Selesai'
+    });
+    if (txs.length > 100) txs.pop();
+    writeJSON(TRANSACTIONS_FILE, txs);
+
+    res.json({ success: true, message: 'Timbangan berhasil di-nolkan (0.0 g)' });
+  } catch (err) {
+    console.error('[IOT/tare] Error:', err.message);
+    res.status(500).json({ error: 'Gagal melakukan tare' });
+  }
+});
+
+// =================================================================
+//  POST /api/iot/surrounding-trash — Update / Simulasi deteksi kamera sampah sekitar
+//  0: Lingkungan bersih (Hijau)
+//  1-5: Waspada (Kuning)
+//  >5: Bahaya / Penuh (Merah)
+// =================================================================
+router.post('/surrounding-trash', requireAuth, (req, res) => {
+  try {
+    const { deviceId = 'esp32-ecosort-1', count = 0 } = req.body || {};
+    const devices = readJSON(DEVICES_FILE, {});
+    const existing = devices[deviceId] || {
+      deviceId,
+      lastSeen: new Date().toISOString(),
+      weightGram: 0,
+      totalWeightGram: 0,
+      currentWeightGram: 0,
+      distanceCm: 30,
+      fullThresholdCm: 10,
+      emptyDistanceCm: 35
+    };
+    existing.surroundingTrashCount = Math.max(0, Number(count) || 0);
+    existing.surroundingTrashStatus = existing.surroundingTrashCount === 0 ? 'Bersih' : (existing.surroundingTrashCount <= 5 ? 'Waspada' : 'Kotor');
+    devices[deviceId] = existing;
+    writeJSON(DEVICES_FILE, devices);
+    res.json({ success: true, count: existing.surroundingTrashCount });
+  } catch (err) {
+    console.error('[IOT/surrounding-trash] Error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -362,6 +584,14 @@ router.get('/transactions', requireAuth, (req, res) => {
   try {
     cleanupExpiredCommands();
     const txs = readJSON(TRANSACTIONS_FILE, []);
+    txs.sort((a, b) => {
+      const tA = new Date(a.timestamp || 0).getTime();
+      const tB = new Date(b.timestamp || 0).getTime();
+      if (tB !== tA) return tB - tA;
+      const idA = parseInt(String(a.id || '').replace(/\D/g, ''), 10) || 0;
+      const idB = parseInt(String(b.id || '').replace(/\D/g, ''), 10) || 0;
+      return idB - idA;
+    });
     res.json({ transactions: txs.slice(0, 100) });
   } catch (err) {
     res.json({ transactions: [] });
@@ -410,6 +640,11 @@ router.get('/analytics', requireAuth, (req, res) => {
     const deviceId = req.query.deviceId || 'esp32-ecosort-1';
     const range = req.query.range || 'today';
 
+    const devicesAll = readJSON(DEVICES_FILE, {});
+    const dev = devicesAll[deviceId] || Object.values(devicesAll)[0] || {};
+    const surroundingTrashCount = Number(dev.surroundingTrashCount ?? 0);
+    const surroundingTrashStatus = dev.surroundingTrashStatus || (surroundingTrashCount === 0 ? 'Bersih' : surroundingTrashCount <= 5 ? 'Waspada' : 'Kotor');
+
     const historyAll = readJSON(HISTORY_FILE, {});
     const list = historyAll[deviceId] || [];
     const txs = readJSON(TRANSACTIONS_FILE, []);
@@ -422,94 +657,179 @@ router.get('/analytics', requireAuth, (req, res) => {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfYesterday = startOfToday - 86400000;
 
-    const todayData = list.filter(item => {
-      const t = new Date(item.t).getTime();
-      return t >= startOfToday;
-    });
+    let hourlyLabels = [];
+    let hourlyWeights = [];
+    let hourlyCapacities = [];
+    let yesterdayWeights = [];
+    let hasYesterdayData = false;
 
-    const yesterdayData = list.filter(item => {
-      const t = new Date(item.t).getTime();
-      return t >= startOfYesterday && t < startOfToday;
-    });
+    if (range === '7days') {
+      // 7 Hari Terakhir: dari (today - 6 hari) sampai hari ini
+      const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      for (let i = 6; i >= 0; i--) {
+        const dStart = new Date(startOfToday - i * 86400000);
+        const dEnd = new Date(dStart.getTime() + 86400000);
+        const dName = dayNames[dStart.getDay()];
+        const dDate = `${dStart.getDate()} ${monthNames[dStart.getMonth()]}`;
+        hourlyLabels.push(`${dName}, ${dDate}`);
 
-    // Buat slot jam (kelipatan 2 jam: 00:00, 02:00, ... 22:00)
-    const hourlyLabels = [];
-    const hourlyWeights = [];
-    const hourlyCapacities = [];
-    const yesterdayWeights = [];
+        const dayMatches = list.filter(item => {
+          const t = new Date(item.t).getTime();
+          return t >= dStart.getTime() && t < dEnd.getTime();
+        });
 
-    for (let h = 0; h < 24; h += 2) {
-      const hStr = String(h).padStart(2, '0') + ':00';
-      hourlyLabels.push(hStr);
+        const dayTxs = weighingTxs.filter(t => {
+          if (!t.timestamp) return false;
+          const time = new Date(t.timestamp).getTime();
+          return time >= dStart.getTime() && time < dEnd.getTime();
+        });
 
-      const hStart = startOfToday + h * 3600000;
-      const hEnd = hStart + 2 * 3600000;
+        if (dayMatches.length > 0) {
+          const avgW = dayMatches.reduce((acc, c) => acc + (c.w || 0), 0) / dayMatches.length;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+          // Kapasitas dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
+          const fillPct = Math.min(100, Math.max(0, Math.round((avgW / 10000) * 100)));
+          hourlyCapacities.push(fillPct);
+        } else if (dayTxs.length > 0) {
+          const txWeights = dayTxs.map(t => {
+            const m = String(t.amount || t.rawAmount || '').match(/([0-9.]+)/);
+            return m ? parseFloat(m[1]) : 0;
+          }).filter(w => w > 0);
+          const avgW = txWeights.length > 0 ? txWeights.reduce((a, b) => a + b, 0) / txWeights.length : 0;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+          hourlyCapacities.push(Math.min(100, Math.round((avgW / 10000) * 100)));
+        } else if (i === 0 && (dev.currentWeightGram > 0 || dev.weightGram > 0)) {
+          const curW = dev.currentWeightGram ?? dev.weightGram ?? 0;
+          hourlyWeights.push(Number(curW.toFixed(1)));
+          hourlyCapacities.push(Math.min(100, Math.max(0, Math.round((curW / 10000) * 100))));
+        } else {
+          hourlyWeights.push(null);
+          hourlyCapacities.push(null);
+        }
+      }
+    } else if (range === '30days') {
+      // 30 Hari Terakhir: dari (today - 29 hari) sampai hari ini
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      for (let i = 29; i >= 0; i--) {
+        const dStart = new Date(startOfToday - i * 86400000);
+        const dEnd = new Date(dStart.getTime() + 86400000);
+        const dDate = `${dStart.getDate()} ${monthNames[dStart.getMonth()]}`;
+        hourlyLabels.push(dDate);
 
-      const matches = todayData.filter(d => {
-        const t = new Date(d.t).getTime();
-        return t >= hStart && t < hEnd;
+        const dayMatches = list.filter(item => {
+          const t = new Date(item.t).getTime();
+          return t >= dStart.getTime() && t < dEnd.getTime();
+        });
+
+        const dayTxs = weighingTxs.filter(t => {
+          if (!t.timestamp) return false;
+          const time = new Date(t.timestamp).getTime();
+          return time >= dStart.getTime() && time < dEnd.getTime();
+        });
+
+        if (dayMatches.length > 0) {
+          const avgW = dayMatches.reduce((acc, c) => acc + (c.w || 0), 0) / dayMatches.length;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+          // Kapasitas dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
+          const fillPct = Math.min(100, Math.max(0, Math.round((avgW / 10000) * 100)));
+          hourlyCapacities.push(fillPct);
+        } else if (dayTxs.length > 0) {
+          const txWeights = dayTxs.map(t => {
+            const m = String(t.amount || t.rawAmount || '').match(/([0-9.]+)/);
+            return m ? parseFloat(m[1]) : 0;
+          }).filter(w => w > 0);
+          const avgW = txWeights.length > 0 ? txWeights.reduce((a, b) => a + b, 0) / txWeights.length : 0;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+          hourlyCapacities.push(Math.min(100, Math.round((avgW / 10000) * 100)));
+        } else if (i === 0 && (dev.currentWeightGram > 0 || dev.weightGram > 0)) {
+          const curW = dev.currentWeightGram ?? dev.weightGram ?? 0;
+          hourlyWeights.push(Number(curW.toFixed(1)));
+          hourlyCapacities.push(Math.min(100, Math.max(0, Math.round((curW / 10000) * 100))));
+        } else {
+          hourlyWeights.push(null);
+          hourlyCapacities.push(null);
+        }
+      }
+    } else {
+      // Default: 'today' (12 slot kelipatan 2 jam: 00:00 - 22:00)
+      const todayData = list.filter(item => {
+        const t = new Date(item.t).getTime();
+        return t >= startOfToday;
       });
 
-      if (matches.length > 0) {
-        const avgW = matches.reduce((acc, c) => acc + (c.w || 0), 0) / matches.length;
-        hourlyWeights.push(Number(avgW.toFixed(1)));
-
-        const avgD = matches.reduce((acc, c) => acc + (c.d || 35), 0) / matches.length;
-        const fillPct = Math.min(100, Math.max(0, Math.round(((35 - avgD) / 25) * 100)));
-        hourlyCapacities.push(fillPct);
-      } else {
-        hourlyWeights.push(null);
-        hourlyCapacities.push(null);
-      }
-
-      // Kemarin
-      const yMatches = yesterdayData.filter(d => {
-        const t = new Date(d.t).getTime();
-        return t >= (hStart - 86400000) && t < (hEnd - 86400000);
+      const yesterdayData = list.filter(item => {
+        const t = new Date(item.t).getTime();
+        return t >= startOfYesterday && t < startOfToday;
       });
-      if (yMatches.length > 0) {
-        const avgYW = yMatches.reduce((acc, c) => acc + (c.w || 0), 0) / yMatches.length;
-        yesterdayWeights.push(Number(avgYW.toFixed(1)));
-      } else {
-        yesterdayWeights.push(null);
+
+      for (let h = 0; h < 24; h += 2) {
+        const hStr = String(h).padStart(2, '0') + ':00';
+        hourlyLabels.push(hStr);
+
+        const hStart = startOfToday + h * 3600000;
+        const hEnd = hStart + 2 * 3600000;
+
+        const matches = todayData.filter(d => {
+          const t = new Date(d.t).getTime();
+          return t >= hStart && t < hEnd;
+        });
+
+        if (matches.length > 0) {
+          const avgW = matches.reduce((acc, c) => acc + (c.w || 0), 0) / matches.length;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+
+          // Kapasitas dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
+          const fillPct = Math.min(100, Math.max(0, Math.round((avgW / 10000) * 100)));
+          hourlyCapacities.push(fillPct);
+        } else {
+          hourlyWeights.push(null);
+          hourlyCapacities.push(null);
+        }
+
+        // Kemarin
+        const yMatches = yesterdayData.filter(d => {
+          const t = new Date(d.t).getTime();
+          return t >= (hStart - 86400000) && t < (hEnd - 86400000);
+        });
+        if (yMatches.length > 0) {
+          const avgYW = yMatches.reduce((acc, c) => acc + (c.w || 0), 0) / yMatches.length;
+          yesterdayWeights.push(Number(avgYW.toFixed(1)));
+        } else {
+          yesterdayWeights.push(null);
+        }
       }
+      hasYesterdayData = yesterdayWeights.some(v => v !== null);
     }
 
-    // Hitung rata-rata dan puncak HANYA dari kejadian penimbangan
-    const weighingAmounts = weighingTxs.map(t => {
+    // Filter transaksi untuk rentang yang dipilih saat menghitung rata-rata & puncak
+    let rangeFilterMs = startOfToday;
+    if (range === '7days') rangeFilterMs = startOfToday - 6 * 86400000;
+    if (range === '30days') rangeFilterMs = startOfToday - 29 * 86400000;
+
+    const filteredWeighingTxs = weighingTxs.filter(t => {
+      if (!t.timestamp) return true;
+      return new Date(t.timestamp).getTime() >= rangeFilterMs;
+    });
+
+    const weighingAmounts = (filteredWeighingTxs.length > 0 ? filteredWeighingTxs : weighingTxs).map(t => {
       const match = String(t.amount || t.rawAmount || '').match(/([0-9.]+)/);
       return match ? parseFloat(match[1]) : 0;
     }).filter(w => w > 0);
 
-    const weightsRecorded = weighingAmounts.length > 0
-      ? weighingAmounts
-      : todayData.map(d => d.w || 0).filter(w => w > 0);
+    const validHistoryWeights = hourlyWeights.filter(w => w !== null && w > 0);
+    const weightsRecorded = weighingAmounts.length > 0 ? weighingAmounts : validHistoryWeights;
 
     const avgWeight = weightsRecorded.length > 0
       ? (weightsRecorded.reduce((a, b) => a + b, 0) / weightsRecorded.length).toFixed(1)
-      : '0.0';
+      : (dev.currentWeightGram ? Number(dev.currentWeightGram).toFixed(1) : '0.0');
     const peakWeight = weightsRecorded.length > 0
       ? Math.max(...weightsRecorded).toFixed(1)
-      : '0.0';
+      : (dev.currentWeightGram ? Number(dev.currentWeightGram).toFixed(1) : '0.0');
 
-    // Jam tersibuk dihitung HANYA dari kejadian penimbangan:
-    const hourCounts = {};
-    for (const t of weighingTxs) {
-      if (t.timestamp) {
-        const h = new Date(t.timestamp).getHours();
-        hourCounts[h] = (hourCounts[h] || 0) + 1;
-      }
-    }
-    let busiestHour = '--';
-    let maxHourCount = 0;
-    for (const [h, count] of Object.entries(hourCounts)) {
-      if (count > maxHourCount) {
-        maxHourCount = count;
-        busiestHour = `${String(h).padStart(2, '0')}:00 - ${String(Number(h)+1).padStart(2, '0')}:00`;
-      }
-    }
-
-    const hasYesterdayData = yesterdayWeights.some(v => v !== null);
+    const validHistoryCapacities = hourlyCapacities.filter(c => c !== null);
+    const currentCap = dev.fillPercent != null ? Math.min(100, Math.max(0, Math.round(Number(dev.fillPercent)))) : Math.min(100, Math.round((Number(avgWeight) / 10000) * 100));
+    const peakCapacity = validHistoryCapacities.length > 0 ? Math.max(...validHistoryCapacities) : currentCap;
 
     res.json({
       range,
@@ -521,10 +841,13 @@ router.get('/analytics', requireAuth, (req, res) => {
       metrics: {
         avgWeight: avgWeight + ' g',
         peakWeight: peakWeight + ' g',
-        weighingEvents: weighingTxs.length,
+        capacity: peakCapacity + '%',
+        peakCapacity: peakCapacity + '%',
+        surroundingTrashCount: (range === '7days' || range === '30days') ? '-' : surroundingTrashCount,
+        surroundingTrashStatus: (range === '7days' || range === '30days') ? '-' : surroundingTrashStatus,
+        weighingEvents: filteredWeighingTxs.length,
         commandEvents: commandTxs.length,
-        totalEvents: weighingTxs.length, // Frekuensi Buang = penimbangan
-        busiestHour: busiestHour !== '--' ? busiestHour : 'Belum Terdeteksi'
+        totalEvents: filteredWeighingTxs.length
       }
     });
   } catch (err) {
@@ -600,12 +923,15 @@ router.post('/demo-seed', requireAuth, (_req, res) => {
     devices[devId] = {
       deviceId: devId,
       lastSeen: new Date().toISOString(),
+      rawWeightGram: 245.5,
+      tareOffsetGram: 0,
       weightGram: 245.5,
       totalWeightGram: 1820.0,
       currentWeightGram: 245.5,
       distanceCm: 21.4,
       fullThresholdCm: 10,
-      emptyDistanceCm: 35
+      emptyDistanceCm: 35,
+      surroundingTrashCount: 0
     };
     writeJSON(DEVICES_FILE, devices);
 
@@ -757,6 +1083,29 @@ router.get('/notifications', requireAuth, (req, res) => {
       });
     }
 
+    const surroundingTrash = Number(dev?.surroundingTrashCount ?? 0);
+    if (surroundingTrash > 5) {
+      notifs.push({
+        id: 'notif-trash-high',
+        type: 'danger',
+        icon: 'warning',
+        title: '🚨 Peringatan Petugas Kebersihan!',
+        message: `Kamera AI CCTV mendeteksi sekitar ${surroundingTrash} sampah berserakan di sekitar tong (radius 2m). Status: Kotor. Peringatan telah dikirim ke petugas kebersihan untuk pembersihan darurat.`,
+        time: 'Penting',
+        unread: true
+      });
+    } else if (surroundingTrash >= 1) {
+      notifs.push({
+        id: 'notif-trash-warn',
+        type: 'warning',
+        icon: 'info',
+        title: 'Sampah Sekitar Terdeteksi',
+        message: `Kamera AI CCTV mendeteksi perkiraan ${surroundingTrash} sampah di sekitar tong (radius <= 2 meter). Sampah jalan raya diabaikan.`,
+        time: 'Baru saja',
+        unread: true
+      });
+    }
+
     if (log && log.length > 0) {
       const lastCmd = log[log.length - 1];
       const cmdName = lastCmd.type === 'tare' ? 'Tare Timbangan' : lastCmd.type === 'restart' ? 'Restart ESP32' : lastCmd.type;
@@ -782,10 +1131,52 @@ router.get('/notifications', requireAuth, (req, res) => {
       unread: false
     });
 
+    // Cek daftar notifikasi yang sudah dibaca pengguna
+    const readIds = readJSON(READ_NOTIFS_FILE, []);
+    notifs.forEach(n => {
+      if (readIds.includes(n.id)) {
+        n.unread = false;
+      }
+    });
+
     const unreadCount = notifs.filter(n => n.unread).length;
     res.json({ notifications: notifs, unreadCount });
   } catch (err) {
     res.json({ notifications: [], unreadCount: 0 });
+  }
+});
+
+// =================================================================
+//  POST /api/iot/notifications/read-all — Tandai semua notifikasi dibaca
+// =================================================================
+router.post('/notifications/read-all', requireAuth, (req, res) => {
+  try {
+    const { ids } = req.body || {};
+    const existing = readJSON(READ_NOTIFS_FILE, []);
+    const merged = Array.from(new Set([...existing, ...(Array.isArray(ids) ? ids : [])]));
+    writeJSON(READ_NOTIFS_FILE, merged);
+    res.json({ ok: true, count: merged.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal memperbarui notifikasi' });
+  }
+});
+
+// =================================================================
+//  POST /api/iot/notifications/read — Tandai satu notifikasi dibaca
+// =================================================================
+router.post('/notifications/read', requireAuth, (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (id) {
+      const existing = readJSON(READ_NOTIFS_FILE, []);
+      if (!existing.includes(id)) {
+        existing.push(id);
+        writeJSON(READ_NOTIFS_FILE, existing);
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal memperbarui notifikasi' });
   }
 });
 

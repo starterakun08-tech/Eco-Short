@@ -51,53 +51,236 @@ function logout() {
   window.location.href = '/login.html';
 }
 
-// ---- Toast Notifications ----
+// ---- Toast Notifications (Modern Centered Pill with Icons) ----
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
   if (!container) return;
 
+  const safeType = (type === 'danger' ? 'error' : (type || 'info'));
   const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
+  toast.className = `toast ${safeType}`;
+
+  // SVG Icon based on type
+  let iconSvg = '';
+  if (safeType === 'success') {
+    iconSvg = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+  } else if (safeType === 'error') {
+    iconSvg = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+  } else {
+    iconSvg = '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>';
+  }
+
+  const iconEl = document.createElement('span');
+  iconEl.className = 'toast-icon';
+  iconEl.innerHTML = iconSvg;
+
+  const contentEl = document.createElement('div');
+  contentEl.className = 'toast-content';
+  contentEl.textContent = message;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'toast-close';
+  closeBtn.setAttribute('aria-label', 'Tutup');
+  closeBtn.innerHTML = '&times;';
+
+  const dismiss = () => {
+    if (!toast.parentElement) return;
+    toast.style.opacity = '0';
+    toast.style.transform = 'translate3d(0, 10px, 0) scale(0.96)';
+    toast.style.transition = 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+    setTimeout(() => {
+      if (toast.parentElement) toast.remove();
+    }, 220);
+  };
+
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    dismiss();
+  };
+
+  toast.appendChild(iconEl);
+  toast.appendChild(contentEl);
+  toast.appendChild(closeBtn);
   container.appendChild(toast);
 
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    toast.style.transition = 'all 0.25s ease';
-    setTimeout(() => toast.remove(), 250);
-  }, 3200);
+  setTimeout(dismiss, 3600);
 }
+
+// ============================================================
+//  CENTRALIZED ROUTER & MENU CONFIGURATION (SINGLE SOURCE OF TRUTH)
+// ============================================================
+const APP_ROUTES = [
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    paths: ['/dashboard', '/beranda'],
+    hash: '#dashboard',
+    aliases: ['dashboard', 'beranda', '']
+  },
+  {
+    id: 'ai',
+    title: 'AI & Analisis CCTV Sampah',
+    paths: ['/ai', '/cctv'],
+    hash: '#ai',
+    aliases: ['ai', 'cctv']
+  },
+  {
+    id: 'analytics',
+    title: 'Analitik & Riset Penimbangan',
+    paths: ['/analytics', '/analitik'],
+    hash: '#analytics',
+    aliases: ['analytics', 'analitik']
+  },
+  {
+    id: 'reports',
+    title: 'Laporan',
+    paths: ['/reports', '/laporan'],
+    hash: '#reports',
+    aliases: ['reports', 'laporan']
+  },
+  {
+    id: 'control',
+    title: 'Kontrol & Pengaturan ESP32',
+    paths: ['/control', '/kontrol'],
+    hash: '#control',
+    aliases: ['control', 'kontrol']
+  },
+  {
+    id: 'account',
+    title: 'Akun Administrator',
+    paths: ['/account', '/akun'],
+    hash: '#account',
+    aliases: ['account', 'akun', 'password']
+  },
+  {
+    id: 'notifications',
+    title: 'Notifikasi Sistem',
+    paths: ['/notifications', '/notifikasi'],
+    hash: '#notifications',
+    aliases: ['notifications', 'notifikasi']
+  }
+];
+
+function resolveCurrentRoute(inputStr) {
+  let target = (inputStr || '').trim().toLowerCase();
+  if (!target) {
+    const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+    const saved = (localStorage.getItem('ecosort_current_view') || '').trim().toLowerCase();
+    target = hash || path || saved || 'dashboard';
+  }
+  target = target.replace('#', '').replace(/^\/+/, '');
+
+  for (const route of APP_ROUTES) {
+    if (route.id === target || route.aliases.includes(target) || route.paths.includes('/' + target)) {
+      return route;
+    }
+  }
+  return APP_ROUTES[0]; // fallback to dashboard
+}
+
+// ============================================================
+//  INDIKATOR GARIS HIJAU BERGERAK DINAMIS PADA SIDEBAR
+// ============================================================
+function updateNavSlider(viewName) {
+  const targetRoute = resolveCurrentRoute(viewName || currentView);
+  const targetName = targetRoute.id;
+  const navList = document.getElementById('sidebarNavList') || document.querySelector('.nav-list');
+  const slider = document.getElementById('navSliderBar');
+  if (!navList || !slider) return;
+
+  const activeBtn = document.getElementById('nav-' + targetName);
+  if (!activeBtn) {
+    slider.style.opacity = '0';
+    return;
+  }
+
+  const listRect = navList.getBoundingClientRect();
+  const btnRect = activeBtn.getBoundingClientRect();
+
+  if (listRect.height === 0 || btnRect.height === 0) {
+    requestAnimationFrame(() => updateNavSlider(targetName));
+    return;
+  }
+
+  // Posisi Y dihitung relatif terhadap nav-list agar tepat di tengah vertikal tombol aktif
+  const targetY = (btnRect.top - listRect.top) + (btnRect.height / 2) - 8; // 8 = 16px / 2
+
+  slider.style.opacity = '1';
+  slider.style.transform = `translate3d(0, ${Math.round(targetY)}px, 0)`;
+}
+
+// Responsif saat window di-resize
+window.addEventListener('resize', () => {
+  updateNavSlider();
+});
+
+// Listener Sinkronisasi Back/Forward Browser & Perubahan URL Hash (popstate & hashchange)
+window.addEventListener('popstate', () => {
+  const route = resolveCurrentRoute();
+  switchNav(route.id, { updateHistory: false });
+});
+
+window.addEventListener('hashchange', () => {
+  const route = resolveCurrentRoute();
+  switchNav(route.id, { updateHistory: false });
+});
 
 // ============================================================
 //  NAVIGASI & VIEW SWITCHING (SEMUA HALAMAN TERINTEGRASI)
 // ============================================================
-function switchNav(viewName) {
-  if (!viewName) viewName = 'dashboard';
+function switchNav(target, options = {}) {
+  const route = resolveCurrentRoute(target);
+  const viewName = route.id;
   currentView = viewName;
 
-  // Update URL Hash tanpa reload
-  if (window.location.hash !== '#' + viewName) {
-    window.history.replaceState(null, '', '#' + viewName);
+  try {
+    localStorage.setItem('ecosort_current_view', viewName);
+  } catch (_) {}
+
+  // Update URL Hash dan browser history tanpa memicu reload
+  const { updateHistory = true, replace = false } = options;
+  if (updateHistory) {
+    const targetHash = '#' + viewName;
+    if (window.location.hash !== targetHash) {
+      if (replace) {
+        window.history.replaceState({ view: viewName }, '', targetHash);
+      } else {
+        window.history.pushState({ view: viewName }, '', targetHash);
+      }
+    }
   }
+
+  // Hapus style early-view-style jika ada setelah switchNav aktif
+  const earlyStyle = document.getElementById('early-view-style');
+  if (earlyStyle) earlyStyle.remove();
 
   // Set body class untuk kontrol responsif HP (panel profil hanya di dashboard)
   const isDashboard = (viewName === 'dashboard');
   document.body.classList.toggle('view-dashboard-active', isDashboard);
   document.body.classList.toggle('view-non-dashboard', !isDashboard);
+  document.documentElement.setAttribute('data-active-view', viewName);
 
-  // Active status pada item sidebar / bottom bar
+  // SINKRONISASI TOTAL ACTIVE STATE PADA SIDEBAR:
+  // 1. Hapus class 'active' dari SEMUA tombol navigasi tanpa kecuali
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const activeBtn = document.getElementById('nav-' + viewName);
-  if (activeBtn) activeBtn.classList.add('active');
 
-  // Toggle tampilan view dengan flex column penuh
-  const views = ['dashboard', 'ai', 'analytics', 'reports', 'account'];
-  views.forEach(v => {
-    const el = document.getElementById('view-' + v);
+  // 2. Pasang class 'active' HANYA pada tombol yang sesuai route aktif
+  const activeBtn = document.getElementById('nav-' + viewName);
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+  }
+
+  // 3. Gerakkan indikator garis hijau tunggal dengan animasi mulus dan presisi
+  updateNavSlider(viewName);
+
+  // 4. Toggle tampilan view: Hanya 1 container view yang aktif
+  APP_ROUTES.forEach(r => {
+    const el = document.getElementById('view-' + r.id);
     if (el) {
-      if (v === viewName) {
-        el.style.display = (v === 'dashboard') ? 'grid' : 'flex';
+      if (r.id === viewName) {
+        el.style.display = (r.id === 'dashboard') ? 'grid' : 'flex';
         el.classList.add('active');
       } else {
         el.style.display = 'none';
@@ -115,6 +298,7 @@ function switchNav(viewName) {
     checkAIStatus();
     updateAIContextPills();
     scrollAIMessagesToBottom();
+    loadLatestCctv();
   } else if (viewName === 'analytics') {
     loadAnalyticsData(currentAnalyticsRange);
     setTimeout(() => {
@@ -122,17 +306,41 @@ function switchNav(viewName) {
     }, 60);
   } else if (viewName === 'reports') {
     loadReportsData();
+  } else if (viewName === 'control') {
+    // View kontrol aktif
   } else if (viewName === 'account') {
+    openProfileCard(); // Pastikan default membuka kartu profil pengguna
     fetchUserProfile();
     loadDeviceToken();
+  } else if (viewName === 'notifications') {
+    renderFullNotificationsPage();
   }
 
   closeNotifDropdown();
+  if (viewName !== 'ai' && typeof stopWebcam === 'function') {
+    stopWebcam();
+  }
 }
 
 // ============================================================
 //  PROFIL PENGGUNA & HALAMAN AKUN
 // ============================================================
+let currentUserProfile = {
+  displayName: 'Admin EcoSort',
+  username: 'admin',
+  role: 'Administrator',
+  avatar: '/images/avatar.svg',
+  banner: ''
+};
+
+const BANNER_PRESETS = {
+  emerald: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+  forest: 'linear-gradient(135deg, #065f46 0%, #022c22 100%)',
+  slate: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+  amber: 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+  ocean: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+};
+
 async function fetchUserProfile() {
   try {
     const res = await fetch('/api/auth/me', { headers: authHeaders() });
@@ -140,34 +348,263 @@ async function fetchUserProfile() {
     if (!res.ok) return;
 
     const data = await res.json();
+    currentUserProfile = Object.assign(currentUserProfile, data);
 
-    const elName = document.getElementById('profileDisplayName');
-    if (elName) elName.textContent = data.displayName || data.username || 'Admin EcoSort';
-
-    const elInitial = document.getElementById('profileAvatarInitial');
-    const elImg = document.getElementById('profileAvatarImg');
-    if (data.avatar && data.avatar.trim()) {
-      if (elImg) { elImg.src = data.avatar; elImg.style.display = 'block'; }
-      if (elInitial) elInitial.style.display = 'none';
-    } else {
-      const nameParts = (data.displayName || data.username || 'AE').trim().split(' ');
-      const initials = (nameParts[0][0] + (nameParts[1] ? nameParts[1][0] : nameParts[0][1] || '')).toUpperCase();
-      if (elInitial) { elInitial.textContent = initials; elInitial.style.display = 'block'; }
-      if (elImg) elImg.style.display = 'none';
+    // Sinkronisasi data avatar & banner dari localStorage jika pernah disimpan
+    const localAvatar = localStorage.getItem('ecosort_user_avatar');
+    const localBanner = localStorage.getItem('ecosort_user_banner');
+    if (localAvatar && (!currentUserProfile.avatar || currentUserProfile.avatar === '/images/avatar.svg')) {
+      currentUserProfile.avatar = localAvatar;
+    }
+    if (localBanner && !currentUserProfile.banner) {
+      currentUserProfile.banner = localBanner;
     }
 
+    renderUserProfileUI();
+
+    // Input fields profil
     const inputDisplay = document.getElementById('accDisplayName');
-    if (inputDisplay) inputDisplay.value = data.displayName || '';
+    if (inputDisplay) inputDisplay.value = currentUserProfile.displayName || '';
 
     const inputUser = document.getElementById('accUsername');
-    if (inputUser) inputUser.value = data.username || '';
+    if (inputUser) inputUser.value = currentUserProfile.username || '';
 
     const inputRole = document.getElementById('accRole');
-    if (inputRole) inputRole.value = data.role || 'Administrator';
+    if (inputRole) inputRole.value = currentUserProfile.role || 'Administrator';
+
+    // Kotak Password untuk melihat password
+    const inputPass = document.getElementById('accCurrentPass');
+    if (inputPass) inputPass.value = currentUserProfile.password || 'admin123';
 
   } catch (err) {
     console.error('Error fetching user profile:', err);
   }
+}
+
+function renderUserProfileUI() {
+  // Update profil panel kanan
+  const elName = document.getElementById('profileDisplayName');
+  if (elName) elName.textContent = currentUserProfile.displayName || currentUserProfile.username || 'Admin EcoSort';
+
+  // Update header profil view-account
+  const headerDisplayName = document.getElementById('accHeaderDisplayName');
+  if (headerDisplayName) headerDisplayName.textContent = currentUserProfile.displayName || currentUserProfile.username || 'Admin EcoSort';
+
+  const headerRole = document.getElementById('accHeaderRole');
+  if (headerRole) headerRole.textContent = currentUserProfile.role || 'Administrator';
+
+  // Avatar UI: default ke foto profil sleek
+  const avatarSrc = currentUserProfile.avatar || '/images/avatar.svg';
+  const elImg = document.getElementById('profileAvatarImg');
+  const elInitial = document.getElementById('profileAvatarInitial');
+  const accImg = document.getElementById('accAvatarImg');
+  const accInitial = document.getElementById('accAvatarInitial');
+  const accPreview = document.getElementById('accAvatarPreview');
+
+  if (elImg) {
+    elImg.src = avatarSrc;
+    elImg.style.display = 'block';
+  }
+  if (elInitial) elInitial.style.display = 'none';
+
+  if (accImg) {
+    accImg.src = avatarSrc;
+    accImg.style.display = 'block';
+  }
+  if (accInitial) accInitial.style.display = 'none';
+
+  if (accPreview) {
+    accPreview.src = avatarSrc;
+  }
+
+  // Background Banner UI
+  const bannerValue = currentUserProfile.banner || BANNER_PRESETS.emerald;
+  applyBannerToUI(bannerValue);
+}
+
+function applyBannerToUI(bannerValue) {
+  const profileBanner = document.getElementById('profileMainBanner') || document.querySelector('.profile-green-banner');
+  const accBannerPreview = document.getElementById('accBannerPreview');
+  const shapes = document.getElementById('profileBannerShapes') || document.querySelector('.profile-banner-shapes');
+
+  if (!bannerValue) bannerValue = BANNER_PRESETS.emerald;
+
+  const isGradient = bannerValue.includes('linear-gradient') || bannerValue.includes('radial-gradient');
+  const isImage = bannerValue.startsWith('data:') || bannerValue.startsWith('http') || bannerValue.startsWith('/');
+
+  if (profileBanner) {
+    if (isImage) {
+      profileBanner.style.backgroundImage = `url("${bannerValue}")`;
+      profileBanner.style.backgroundSize = 'cover';
+      profileBanner.style.backgroundPosition = 'center';
+      if (shapes) shapes.style.display = 'none';
+    } else {
+      profileBanner.style.backgroundImage = bannerValue;
+      if (shapes) shapes.style.display = 'block';
+    }
+  }
+
+  if (accBannerPreview) {
+    if (isImage) {
+      accBannerPreview.style.backgroundImage = `url("${bannerValue}")`;
+      accBannerPreview.style.backgroundSize = 'cover';
+      accBannerPreview.style.backgroundPosition = 'center';
+    } else {
+      accBannerPreview.style.backgroundImage = bannerValue;
+    }
+  }
+
+  // Update active swatch
+  document.querySelectorAll('.preset-swatch').forEach(sw => sw.classList.remove('active'));
+  for (const [key, grad] of Object.entries(BANNER_PRESETS)) {
+    if (bannerValue === grad) {
+      const sw = document.getElementById('swatch-' + key);
+      if (sw) sw.classList.add('active');
+    }
+  }
+}
+
+function triggerAvatarUpload() {
+  const input = document.getElementById('inputAvatarFile');
+  if (input) input.click();
+}
+
+function triggerBannerUpload() {
+  const input = document.getElementById('inputBannerFile');
+  if (input) input.click();
+}
+
+async function handleAvatarFileSelect(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Harap pilih file gambar (JPG, PNG, WebP, SVG)', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUrl = e.target.result;
+    currentUserProfile.avatar = dataUrl;
+    localStorage.setItem('ecosort_user_avatar', dataUrl);
+    renderUserProfileUI();
+    await saveProfileToServer({ avatar: dataUrl });
+    showToast('Foto profil berhasil diubah!', 'success');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+async function handleBannerFileSelect(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Harap pilih file gambar untuk banner', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUrl = e.target.result;
+    currentUserProfile.banner = dataUrl;
+    localStorage.setItem('ecosort_user_banner', dataUrl);
+    applyBannerToUI(dataUrl);
+    await saveProfileToServer({ banner: dataUrl });
+    showToast('Background banner berhasil diubah!', 'success');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+async function selectBannerPreset(presetKey) {
+  const grad = BANNER_PRESETS[presetKey];
+  if (!grad) return;
+  currentUserProfile.banner = grad;
+  localStorage.setItem('ecosort_user_banner', grad);
+  applyBannerToUI(grad);
+  await saveProfileToServer({ banner: grad });
+  showToast(`Tema banner diubah ke ${presetKey.charAt(0).toUpperCase() + presetKey.slice(1)}`, 'success');
+}
+
+async function resetAvatarToDefault() {
+  currentUserProfile.avatar = '/images/avatar.svg';
+  localStorage.removeItem('ecosort_user_avatar');
+  renderUserProfileUI();
+  await saveProfileToServer({ avatar: '/images/avatar.svg' });
+  showToast('Foto profil dikembalikan ke default', 'info');
+}
+
+async function saveProfileToServer(extraData = {}) {
+  try {
+    const payload = {
+      displayName: currentUserProfile.displayName || 'Admin EcoSort',
+      avatar: currentUserProfile.avatar,
+      banner: currentUserProfile.banner,
+      ...extraData
+    };
+    await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error('Error saving profile to server:', err);
+  }
+}
+
+// Toggle Lihat / Sembunyikan Password
+function toggleViewPassword(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (!input) return;
+
+  const isPassword = (input.type === 'password');
+  input.type = isPassword ? 'text' : 'password';
+
+  if (icon) {
+    if (isPassword) {
+      // Icon mata dicoret (sembunyikan)
+      icon.innerHTML = `<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>`;
+    } else {
+      // Icon mata normal (lihat)
+      icon.innerHTML = `<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>`;
+    }
+  }
+}
+
+// ============================================================
+//  TUKAR KOTAK: PROFIL PENGGUNA <-> FORM UBAH SANDI (IN-PLACE)
+// ============================================================
+function openPasswordChangeCard() {
+  const cardProfile = document.getElementById('cardProfile');
+  const cardPass = document.getElementById('cardChangePassword');
+  const headerTitle = document.getElementById('accountHeaderTitle');
+
+  if (cardProfile) cardProfile.style.display = 'none';
+  if (cardPass) cardPass.style.display = 'flex';
+  if (headerTitle) headerTitle.textContent = 'Ubah Sandi';
+
+  const oldPass = document.getElementById('accOldPass');
+  if (oldPass) {
+    oldPass.value = '';
+    setTimeout(() => oldPass.focus(), 100);
+  }
+  const newPass = document.getElementById('accNewPass');
+  if (newPass) newPass.value = '';
+  const confPass = document.getElementById('accConfirmPass');
+  if (confPass) confPass.value = '';
+}
+
+function openProfileCard() {
+  const cardProfile = document.getElementById('cardProfile');
+  const cardPass = document.getElementById('cardChangePassword');
+  const headerTitle = document.getElementById('accountHeaderTitle');
+
+  if (cardPass) cardPass.style.display = 'none';
+  if (cardProfile) cardProfile.style.display = 'flex';
+  if (headerTitle) headerTitle.textContent = 'Profil Pengguna';
 }
 
 async function handleSaveProfile(e) {
@@ -188,7 +625,11 @@ async function handleSaveProfile(e) {
     const res = await fetch('/api/auth/profile', {
       method: 'PUT',
       headers: authHeaders(),
-      body: JSON.stringify({ displayName })
+      body: JSON.stringify({
+        displayName,
+        avatar: currentUserProfile.avatar,
+        banner: currentUserProfile.banner
+      })
     });
     const result = await res.json();
     if (res.ok) {
@@ -200,23 +641,29 @@ async function handleSaveProfile(e) {
   } catch (err) {
     showToast('Kesalahan koneksi jaringan', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Simpan Profil'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg><span>Simpan Perubahan Profil</span>`;
+    }
   }
 }
 
-async function handleChangePassword(e) {
-  e.preventDefault();
+async function doChangePassword() {
   const oldPass = document.getElementById('accOldPass').value;
   const newPass = document.getElementById('accNewPass').value;
   const confirmPass = document.getElementById('accConfirmPass').value;
   const btn = document.getElementById('btnChangePass');
 
-  if (newPass !== confirmPass) {
-    showToast('Konfirmasi password tidak cocok', 'error');
+  if (!oldPass) {
+    showToast('Masukkan password lama', 'error');
     return;
   }
-  if (newPass.length < 6) {
+  if (!newPass || newPass.length < 6) {
     showToast('Password baru minimal 6 karakter', 'error');
+    return;
+  }
+  if (newPass !== confirmPass) {
+    showToast('Konfirmasi password tidak cocok', 'error');
     return;
   }
 
@@ -230,18 +677,31 @@ async function handleChangePassword(e) {
     });
     const result = await res.json();
     if (res.ok) {
-      showToast('Password berhasil diubah!', 'success');
+      showToast('Password berhasil diperbarui!', 'success');
       document.getElementById('accOldPass').value = '';
       document.getElementById('accNewPass').value = '';
       document.getElementById('accConfirmPass').value = '';
+      const currentPassInput = document.getElementById('accCurrentPass');
+      if (currentPassInput) currentPassInput.value = newPass;
+      setTimeout(() => {
+        openProfileCard();
+      }, 600);
     } else {
       showToast(result.error || 'Gagal mengubah password', 'error');
     }
   } catch (err) {
     showToast('Kesalahan koneksi jaringan', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Perbarui Password'; }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg><span>Perbarui Password</span>`;
+    }
   }
+}
+
+async function handleChangePassword(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  return doChangePassword();
 }
 
 // Token Perangkat ESP32 & Mode Demo
@@ -340,28 +800,64 @@ async function handleClearData() {
 }
 
 // ============================================================
-//  NOTIFIKASI SISTEM NYATA
+//  NOTIFIKASI SISTEM NYATA & HALAMAN NOTIFIKASI
 // ============================================================
+let allNotifications = [];
+let currentNotifFilter = 'all';
+
+function getReadNotificationIds() {
+  try {
+    return JSON.parse(localStorage.getItem('ecosort_read_notif_ids') || '["notif-offline", "notif-sys"]');
+  } catch (_) {
+    return ["notif-offline", "notif-sys"];
+  }
+}
+
+function saveReadNotificationIds(ids) {
+  try {
+    const existing = getReadNotificationIds();
+    const merged = Array.from(new Set([...existing, ...(Array.isArray(ids) ? ids : [])]));
+    localStorage.setItem('ecosort_read_notif_ids', JSON.stringify(merged));
+  } catch (_) {}
+}
+
 async function fetchNotifications() {
   try {
     const res = await fetch(`${API_BASE}/notifications`, { headers: authHeaders() });
     if (!res.ok) return;
     const data = await res.json();
     const list = data.notifications || [];
-    const unreadCount = data.unreadCount || 0;
+    const readIds = getReadNotificationIds();
 
-    // Titik merah HANYA muncul jika ada notifikasi belum dibaca
+    // Sesuaikan status dibaca dengan daftar riwayat baca lokal pengguna
+    list.forEach(n => {
+      if (readIds.includes(n.id)) {
+        n.unread = false;
+      }
+    });
+
+    const unreadCount = list.filter(n => n.unread).length;
+    allNotifications = list;
+
+    // Titik merah HANYA muncul jika ada notifikasi belum dibaca riil
     const redDot = document.getElementById('notifRedDot');
     if (redDot) {
       redDot.style.display = unreadCount > 0 ? 'block' : 'none';
     }
 
+    // Update badge count pada tab di halaman notifikasi
+    const badgeAll = document.getElementById('badgeNotifAll');
+    if (badgeAll) badgeAll.textContent = String(list.length);
+    const badgeUnread = document.getElementById('badgeNotifUnread');
+    if (badgeUnread) badgeUnread.textContent = String(unreadCount);
+
+    // Render Dropdown di Panel Profil Kanan
     const container = document.getElementById('notifListContainer');
     if (container && list.length > 0) {
       container.innerHTML = list.map(n => {
         const dotColor = n.type === 'danger' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#22c55e';
         return `
-          <div class="notif-item ${n.unread ? 'unread' : ''}">
+          <div class="notif-item ${n.unread ? 'unread' : ''}" onclick="openNotificationsPage()">
             <span class="notif-dot-status" style="background-color: ${dotColor};"></span>
             <div class="notif-item-body">
               <strong>${escapeHTML(n.title)}</strong>
@@ -372,15 +868,112 @@ async function fetchNotifications() {
         `;
       }).join('');
     }
+
+    // Jika sedang berada di halaman notifikasi, render juga halaman penuhnya
+    if (currentView === 'notifications') {
+      renderFullNotificationsPage();
+    }
   } catch (err) {
     console.error('Error fetching notifications:', err);
   }
 }
 
+function openNotificationsPage() {
+  closeNotifDropdown();
+  markAllCurrentNotifsAsRead();
+  switchNav('notifications');
+}
+
+function setNotifFilter(filter) {
+  currentNotifFilter = filter;
+  document.querySelectorAll('.btn-notif-filter').forEach(btn => btn.classList.remove('active'));
+  const btn = document.getElementById('tabNotif' + filter.charAt(0).toUpperCase() + filter.slice(1));
+  if (btn) btn.classList.add('active');
+  renderFullNotificationsPage();
+}
+
+function renderFullNotificationsPage() {
+  const container = document.getElementById('notifFullPageList');
+  if (!container) return;
+
+  let filtered = allNotifications;
+  if (currentNotifFilter === 'unread') {
+    filtered = allNotifications.filter(n => n.unread);
+  } else if (currentNotifFilter === 'warning') {
+    filtered = allNotifications.filter(n => n.type === 'danger' || n.type === 'warning');
+  } else if (currentNotifFilter === 'info') {
+    filtered = allNotifications.filter(n => n.type === 'info' || n.type === 'success');
+  }
+
+  if (filtered.length === 0) {
+    const emptyMsg = currentNotifFilter === 'unread'
+      ? 'Semua notifikasi telah dibaca'
+      : currentNotifFilter === 'warning'
+      ? 'Tidak ada peringatan sensor atau perangkat saat ini'
+      : 'Belum ada notifikasi sistem yang tercatat';
+    container.innerHTML = `
+      <div class="notif-empty-state">
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="currentColor" style="opacity: 0.35;">
+          <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+        </svg>
+        <p>${emptyMsg}</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(n => {
+    const isDanger = n.type === 'danger';
+    const isWarn = n.type === 'warning';
+    const isSuccess = n.type === 'success';
+    const iconClass = isDanger ? 'icon-danger' : isWarn ? 'icon-warning' : isSuccess ? 'icon-success' : 'icon-info';
+
+    // SVG icon sesuai kategori
+    let iconSvg = '';
+    if (isDanger) {
+      iconSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`;
+    } else if (isWarn) {
+      iconSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>`;
+    } else if (isSuccess) {
+      iconSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    } else {
+      iconSvg = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zM11 9h2V7h-2v2z"/></svg>`;
+    }
+
+    return `
+      <div class="notif-page-item ${n.unread ? 'unread' : ''}">
+        <div class="notif-item-icon-box ${iconClass}">
+          ${iconSvg}
+        </div>
+        <div class="notif-item-content">
+          <div class="notif-item-top">
+            <div class="notif-item-title-wrap">
+              <span class="notif-item-title">${escapeHTML(n.title)}</span>
+              ${n.unread ? '<span class="notif-unread-dot" title="Belum dibaca"></span>' : ''}
+            </div>
+            <span class="notif-item-time">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+              ${escapeHTML(n.time)}
+            </span>
+          </div>
+          <p class="notif-item-desc">${escapeHTML(n.message)}</p>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function toggleNotifDropdown(event) {
   if (event) event.stopPropagation();
   const dd = document.getElementById('notifDropdown');
-  if (dd) dd.classList.toggle('open');
+  if (dd) {
+    const isOpening = !dd.classList.contains('open');
+    dd.classList.toggle('open');
+    // Saat membuka dropdown notifikasi, otomatis hilangkan badge merah dan tandai dibaca
+    if (isOpening) {
+      markAllCurrentNotifsAsRead();
+    }
+  }
 }
 
 function closeNotifDropdown() {
@@ -388,10 +981,36 @@ function closeNotifDropdown() {
   if (dd) dd.classList.remove('open');
 }
 
-function clearNotifBadge() {
+function markAllCurrentNotifsAsRead() {
   const redDot = document.getElementById('notifRedDot');
   if (redDot) redDot.style.display = 'none';
+
+  const ids = allNotifications.map(n => n.id);
+  saveReadNotificationIds(ids);
+
+  allNotifications.forEach(n => { n.unread = false; });
   document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
+  document.querySelectorAll('.notif-page-item.unread').forEach(el => el.classList.remove('unread'));
+
+  const badgeUnread = document.getElementById('badgeNotifUnread');
+  if (badgeUnread) badgeUnread.textContent = '0';
+
+  // Laporkan ke server agar status sinkron
+  if (ids.length > 0) {
+    fetch(`${API_BASE}/notifications/read-all`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ids })
+    }).catch(() => {});
+  }
+
+  if (currentView === 'notifications') {
+    renderFullNotificationsPage();
+  }
+}
+
+function clearNotifBadge() {
+  markAllCurrentNotifsAsRead();
   showToast('Semua notifikasi telah ditandai dibaca', 'success');
 }
 
@@ -440,14 +1059,10 @@ function updateAIContextPills() {
   }
 
   const w = lastDeviceData.currentWeightGram ?? lastDeviceData.weightGram ?? 0;
-  if (elWeight) elWeight.textContent = `${Number(w).toFixed(1)} g`;
+  if (elWeight) elWeight.textContent = w >= 1000 ? `${(w / 1000).toFixed(2)} kg` : `${Number(w).toFixed(1)} g`;
 
-  const distVal = lastDeviceData.distanceCm;
-  let pct = 0;
-  if (distVal !== null && distVal !== undefined) {
-    const denom = (emptyDist - fullThresh) || 1;
-    pct = Math.min(100, Math.max(0, Math.round(((emptyDist - distVal) / denom) * 100)));
-  }
+  // Kapasitas sampah dihitung proporsional dari berat maksimal 10 kg (10.000 gram)
+  const pct = Math.min(100, Math.max(0, Math.round((Number(w) / 10000) * 100)));
   if (elFill) elFill.textContent = `${pct}%`;
 
   const isOnline = (Date.now() - new Date(lastDeviceData.lastSeen || 0).getTime()) < 10000;
@@ -565,14 +1180,322 @@ function removeChatLoading(id) {
 }
 
 // ============================================================
+//  CCTV AI & ANALISIS SAMPAH SEKITAR (RADIUS 2 METER)
+// ============================================================
+let activeWebcamStream = null;
+let currentCctvBase64 = null;
+
+function switchAiTab(tab) {
+  const btnCctv = document.getElementById('tabAiCctvBtn');
+  const btnChat = document.getElementById('tabAiChatBtn');
+  const secCctv = document.getElementById('aiCctvSection');
+  const secChat = document.getElementById('aiChatSection');
+
+  if (tab === 'cctv') {
+    if (btnCctv) btnCctv.classList.add('active');
+    if (btnChat) btnChat.classList.remove('active');
+    if (secCctv) secCctv.style.display = 'block';
+    if (secChat) secChat.style.display = 'none';
+  } else {
+    if (btnCctv) btnCctv.classList.remove('active');
+    if (btnChat) btnChat.classList.add('active');
+    if (secCctv) secCctv.style.display = 'none';
+    if (secChat) secChat.style.display = 'flex';
+  }
+}
+
+async function handleCctvFileUpload(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    currentCctvBase64 = e.target.result;
+    const imgPreview = document.getElementById('cctvImagePreview');
+    const placeholder = document.getElementById('cctvPlaceholderScreen');
+    const video = document.getElementById('cctvWebcamVideo');
+
+    if (video) video.style.display = 'none';
+    stopWebcam();
+
+    if (imgPreview) {
+      imgPreview.src = currentCctvBase64;
+      imgPreview.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+
+    // Otomatis jalankan analisa setelah upload foto
+    await analyzeCctvImage(currentCctvBase64);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function toggleWebcam() {
+  const video = document.getElementById('cctvWebcamVideo');
+  const imgPreview = document.getElementById('cctvImagePreview');
+  const placeholder = document.getElementById('cctvPlaceholderScreen');
+  const btnText = document.getElementById('btnWebcamText');
+
+  if (activeWebcamStream) {
+    stopWebcam();
+    if (btnText) btnText.textContent = 'Kamera Langsung';
+    if (video) video.style.display = 'none';
+    if (placeholder && (!imgPreview || imgPreview.style.display === 'none')) {
+      placeholder.style.display = 'flex';
+    }
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    activeWebcamStream = stream;
+    if (video) {
+      video.srcObject = stream;
+      video.style.display = 'block';
+    }
+    if (imgPreview) imgPreview.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'none';
+    if (btnText) btnText.textContent = 'Matikan Kamera';
+    showToast('Kamera aktif. Arahkan ke tong sampah (radius 2 meter)', 'success');
+  } catch (err) {
+    console.error('Webcam error:', err);
+    showToast('Gagal mengakses kamera: ' + err.message, 'error');
+  }
+}
+
+function stopWebcam() {
+  if (activeWebcamStream) {
+    activeWebcamStream.getTracks().forEach(track => track.stop());
+    activeWebcamStream = null;
+  }
+}
+
+async function triggerAnalyzeCctv() {
+  const video = document.getElementById('cctvWebcamVideo');
+  if (activeWebcamStream && video && video.videoWidth) {
+    // Tangkap snapshot dari webcam
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const base64 = canvas.toDataURL('image/jpeg', 0.85);
+    currentCctvBase64 = base64;
+    await analyzeCctvImage(base64);
+  } else if (currentCctvBase64) {
+    await analyzeCctvImage(currentCctvBase64);
+  } else {
+    // Analisis frame terkini
+    await analyzeCctvImage(null);
+  }
+}
+
+async function analyzeCctvImage(base64Data = null, countOverride = null) {
+  const btn = document.getElementById('btnAnalyzeCctv');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `
+      <svg class="spin-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M12 4V2C6.48 2 2 6.48 2 12h2c0-4.41 3.59-8 8-8z"/>
+      </svg>
+      <span>Menganalisis AI...</span>
+    `;
+  }
+
+  try {
+    const res = await fetch(`/api/ai/analyze-cctv`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        image: base64Data,
+        count: countOverride,
+        deviceId: DEVICE_ID
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal menganalisis');
+
+    renderCctvResult(data);
+    showToast(`Analisis CCTV Selesai: ${data.status} (${data.detectedTrashCount} sampah)`, 'success');
+
+    // Segera sinkronkan status dashboard & notifikasi
+    fetchDeviceStatus();
+    fetchNotifications();
+    fetchTransactions();
+
+  } catch (err) {
+    console.error('CCTV Analysis error:', err);
+    showToast('Analisis gagal: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 13c-3.04 0-5.5-2.46-5.5-5.5S8.96 6.5 12 6.5s5.5 2.46 5.5 5.5-2.46 5.5-5.5 5.5zm0-9c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5z"/>
+        </svg>
+        <span>Analisis AI Gemini</span>
+      `;
+    }
+  }
+}
+
+function renderCctvResult(data) {
+  const count = Number(data.detectedTrashCount || 0);
+  const banner = document.getElementById('cctvResultBanner');
+  const statusEl = document.getElementById('cctvResultStatus');
+  const countBadge = document.getElementById('cctvCountBadge');
+  const hudBadge = document.getElementById('cctvHudStatusBadge');
+  const hudText = document.getElementById('cctvHudStatusText');
+  const identifiedCountEl = document.getElementById('cctvIdentifiedCount');
+  const identifiedDescEl = document.getElementById('cctvIdentifiedDesc');
+  const tagList = document.getElementById('cctvTrashItemsList');
+  const alertBox = document.getElementById('cctvAlertCleanerBox');
+  const alertMsg = document.getElementById('cctvAlertCleanerMsg');
+  const reportTime = document.getElementById('cctvReportTime');
+
+  if (reportTime) {
+    const now = new Date();
+    reportTime.textContent = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  // Update banner warna: Hijau (0), Kuning (1-5), Merah (>5)
+  if (banner) {
+    banner.classList.remove('banner-green', 'banner-yellow', 'banner-red');
+    if (count === 0) {
+      banner.classList.add('banner-green');
+      if (statusEl) statusEl.textContent = 'Bersih';
+      if (hudText) hudText.textContent = 'Status: Bersih (0 Sampah)';
+      if (hudBadge) {
+        hudBadge.style.color = '#22c55e';
+        hudBadge.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+      }
+    } else if (count <= 5) {
+      banner.classList.add('banner-yellow');
+      if (statusEl) statusEl.textContent = 'Waspada (Ada Sampah)';
+      if (hudText) hudText.textContent = `Status: Waspada (${count} Sampah)`;
+      if (hudBadge) {
+        hudBadge.style.color = '#f59e0b';
+        hudBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      }
+    } else {
+      banner.classList.add('banner-red');
+      if (statusEl) statusEl.textContent = 'Kotor (Sampah Menumpuk)';
+      if (hudText) hudText.textContent = `Status: Kotor (${count} Sampah)`;
+      if (hudBadge) {
+        hudBadge.style.color = '#ef4444';
+        hudBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      }
+    }
+  }
+
+  if (countBadge) {
+    countBadge.textContent = `${count} Sampah Sekitar`;
+  }
+
+  // Update kotak "Jumlah Sampah yang Teridentifikasi" di bawah status lingkungan
+  if (identifiedCountEl) {
+    identifiedCountEl.textContent = count;
+    if (count === 0) {
+      identifiedCountEl.style.color = '#15803d';
+    } else if (count <= 5) {
+      identifiedCountEl.style.color = '#d97706';
+    } else {
+      identifiedCountEl.style.color = '#dc2626';
+    }
+  }
+
+  if (identifiedDescEl) {
+    if (data.summary && data.summary.trim()) {
+      identifiedDescEl.textContent = data.summary;
+    } else if (count === 0) {
+      identifiedDescEl.textContent = 'Lingkungan sekitar tong sampah bersih. Tidak ada sampah yang berserakan di radius 2 meter.';
+    } else if (count <= 5) {
+      identifiedDescEl.textContent = `Teridentifikasi ${count} objek sampah berserakan di sekitar tong sampah (Radius \u2264 2 meter). Status waspada.`;
+    } else {
+      identifiedDescEl.textContent = `Teridentifikasi ${count} objek sampah berserakan melebihi batas toleransi (> 5 sampah). Status lingkungan kotor dan peringatan telah diteruskan ke petugas kebersihan.`;
+    }
+  }
+
+  // Tampilkan peringatan petugas kebersihan jika > 5 sampah
+  if (alertBox) {
+    if (count > 5 || data.alertSent) {
+      alertBox.style.display = 'flex';
+      if (alertMsg && data.alertMessage) {
+        alertMsg.textContent = data.alertMessage;
+      }
+    } else {
+      alertBox.style.display = 'none';
+    }
+  }
+
+  if (tagList) {
+    tagList.innerHTML = '';
+    const items = data.trashItems || [];
+    if (items.length > 0) {
+      items.forEach(it => {
+        const span = document.createElement('span');
+        span.className = 'cctv-tag-item';
+        span.textContent = it;
+        tagList.appendChild(span);
+      });
+    }
+  }
+}
+
+function simulateCctvDetection(count) {
+  analyzeCctvImage(null, count);
+}
+
+async function loadLatestCctv() {
+  try {
+    const res = await fetch(`/api/ai/latest-cctv`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.latest?.result) {
+      renderCctvResult(data.latest.result);
+    }
+    if (data.hasImage) {
+      const imgPreview = document.getElementById('cctvImagePreview');
+      const placeholder = document.getElementById('cctvPlaceholderScreen');
+      if (imgPreview) {
+        imgPreview.src = `/api/ai/latest-cctv-image?t=${Date.now()}`;
+        imgPreview.style.display = 'block';
+      }
+      if (placeholder) placeholder.style.display = 'none';
+    }
+  } catch (err) {
+    console.error('loadLatestCctv error:', err);
+  }
+}
+
+// ============================================================
 //  HALAMAN ANALITIK (GRAFIK RISET & METRIK LENGKAP)
 // ============================================================
 function setAnalyticsRange(range) {
   currentAnalyticsRange = range;
   const btnToday = document.getElementById('btnRangeToday');
   const btn7d = document.getElementById('btnRange7d');
+  const btn30d = document.getElementById('btnRange30d');
   if (btnToday) btnToday.classList.toggle('active', range === 'today');
-  if (btn7d) btn7d.classList.toggle('active', range !== 'today');
+  if (btn7d) btn7d.classList.toggle('active', range === '7days');
+  if (btn30d) btn30d.classList.toggle('active', range === '30days');
+
+  const titleEl = document.getElementById('analyticsWeightChartTitle');
+  const legendPeriod = document.getElementById('legendAnalyticsWeightPeriod');
+  if (range === 'today') {
+    if (titleEl) titleEl.textContent = 'Riwayat Berat per Jam';
+    if (legendPeriod) legendPeriod.textContent = 'Hari ini (g)';
+  } else if (range === '7days') {
+    if (titleEl) titleEl.textContent = 'Riwayat Berat 7 Hari Terakhir';
+    if (legendPeriod) legendPeriod.textContent = '7 Hari (g)';
+  } else if (range === '30days') {
+    if (titleEl) titleEl.textContent = 'Riwayat Berat 1 Bulan Terakhir';
+    if (legendPeriod) legendPeriod.textContent = '1 Bulan (g)';
+  }
+
   loadAnalyticsData(range);
 }
 
@@ -584,13 +1507,48 @@ async function loadAnalyticsData(range = 'today') {
 
     const mAvg = document.getElementById('metricAvgWeight');
     const mPeak = document.getElementById('metricPeakWeight');
-    const mEv = document.getElementById('metricTotalEvents');
-    const mHr = document.getElementById('metricBusiestHour');
+    const mEnv = document.getElementById('metricEnvStatus');
+    const mEnvSub = document.getElementById('metricEnvSub');
 
     if (mAvg) mAvg.textContent = data.metrics?.avgWeight || '-- g';
-    if (mPeak) mPeak.textContent = data.metrics?.peakWeight || '-- g';
-    if (mEv) mEv.textContent = `${data.metrics?.totalEvents || 0} kali`;
-    if (mHr) mHr.textContent = data.metrics?.busiestHour || '--';
+    if (mPeak) {
+      if (data.metrics?.capacity) {
+        mPeak.textContent = data.metrics.capacity;
+      } else if (data.metrics?.peakCapacity) {
+        mPeak.textContent = data.metrics.peakCapacity;
+      } else if (data.metrics?.peakWeight) {
+        const num = parseFloat(data.metrics.peakWeight);
+        const pct = Math.min(100, Math.max(0, Math.round((num / 10000) * 100)));
+        mPeak.textContent = `${pct}%`;
+      } else {
+        mPeak.textContent = '-- %';
+      }
+    }
+
+    // Status Lingkungan: Jika 7 Hari atau 1 Bulan -> tampilkan tanda "-"
+    if (mEnv) {
+      if (range === '7days' || range === '30days') {
+        mEnv.textContent = '-';
+        mEnv.classList.remove('status-green', 'status-yellow', 'status-red');
+        if (mEnvSub) mEnvSub.textContent = '-';
+      } else {
+        const count = Number(data.metrics?.surroundingTrashCount ?? 0);
+        mEnv.classList.remove('status-green', 'status-yellow', 'status-red');
+        if (count === 0) {
+          mEnv.textContent = 'Bersih';
+          mEnv.classList.add('status-green');
+          if (mEnvSub) mEnvSub.textContent = 'Kamera: 0 Sampah';
+        } else if (count <= 5) {
+          mEnv.textContent = `${count} Sampah`;
+          mEnv.classList.add('status-yellow');
+          if (mEnvSub) mEnvSub.textContent = `Kamera: 1-5 Sampah (${count} objek)`;
+        } else {
+          mEnv.textContent = `${count} Sampah`;
+          mEnv.classList.add('status-red');
+          if (mEnvSub) mEnvSub.textContent = `Kamera: >5 Sampah (${count} objek)`;
+        }
+      }
+    }
 
     if (typeof updateAnalyticsCharts === 'function') {
       updateAnalyticsCharts(data);
@@ -671,11 +1629,11 @@ async function loadReportsData() {
         statusLabel = 'Terkirim';
       } else if (st.includes('expired') || st.includes('kedaluwarsa') || st.includes('dibatalkan')) {
         badgeClass = 'badge-pending';
-        statusLabel = tx.status || 'Kedaluwarsa';
+        statusLabel = 'Kedaluwarsa (ESP32 Offline)';
       }
 
       const txType = tx.type || (tx.commandId ? 'Perintah' : 'Penimbangan');
-      const distDisplay = (tx.distance && tx.distance !== '--') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : '--');
+      const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
 
       return `
         <tr>
@@ -687,7 +1645,7 @@ async function loadReportsData() {
               <span>${escapeHTML(tx.id || '#2024000')}</span>
             </div>
           </td>
-          <td class="tx-date-col">${escapeHTML(tx.date || '--')}</td>
+          <td class="tx-date-col">${escapeHTML(tx.date || 'Tidak ada data')}</td>
           <td><span class="badge-type-label">${escapeHTML(txType)}</span></td>
           <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
           <td>${escapeHTML(distDisplay)}</td>
@@ -760,12 +1718,19 @@ async function fetchDeviceStatus() {
       if (elTrendW) elTrendW.textContent = 'Offline';
 
       const elD = document.getElementById('valDistance');
-      if (elD) elD.innerHTML = `--<span class="hero-unit">cm</span>`;
+      if (elD) elD.innerHTML = `--<span class="hero-unit">%</span>`;
       const elTrendD = document.getElementById('distanceTrend');
       if (elTrendD) elTrendD.textContent = 'Offline';
 
+      const elBanner = document.getElementById('heroMetricBanner');
+      if (elBanner) {
+        elBanner.classList.remove('banner-env-yellow', 'banner-env-red');
+        elBanner.classList.add('banner-env-green');
+      }
       const elS = document.getElementById('valStatus');
-      if (elS) elS.textContent = '--';
+      if (elS) elS.textContent = 'Bersih';
+      const elTrendS = document.getElementById('statusTrend');
+      if (elTrendS) elTrendS.textContent = 'Kamera: 0 Sampah';
 
       const elEarn = document.getElementById('earningAmount');
       if (elEarn) elEarn.textContent = '0.0 g';
@@ -798,6 +1763,9 @@ async function fetchDeviceStatus() {
     }
 
     lastDeviceData = dev;
+    try {
+      localStorage.setItem('ecosort_last_device_cache', JSON.stringify(dev));
+    } catch (_) {}
     emptyDist = dev.emptyDistanceCm || 35;
     fullThresh = dev.fullThresholdCm || 10;
 
@@ -811,7 +1779,7 @@ async function fetchDeviceStatus() {
     const mm = String(dSeen.getMinutes()).padStart(2, '0');
     const lastSeenClockLabel = `Terakhir ${hh}.${mm}`;
 
-    // 1. Kartu 1: Berat Sensor
+    // 1. Kartu 1: Berat Sampah
     const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
     const elWeight = document.getElementById('valWeight');
     if (elWeight) {
@@ -822,37 +1790,77 @@ async function fetchDeviceStatus() {
       elTrendW.textContent = isOnline ? 'Live' : lastSeenClockLabel;
     }
 
-    // 2. Kartu 2: Jarak Sensor (distanceCm)
-    const distVal = dev.distanceCm;
+    // 2. Kartu 2: Kapasitas Sampah (Persentase Isi dihitung berbasis maksimal 10 kg / 10.000 g)
+    const MAX_TRASH_CAPACITY_GRAM = 10000; // Kapasitas maksimal 10 kg
+    const fillPercent = Math.min(100, Math.max(0, Math.round((Number(weightVal) / MAX_TRASH_CAPACITY_GRAM) * 100)));
+
     const elDist = document.getElementById('valDistance');
     if (elDist) {
-      if (distVal !== null && distVal !== undefined) {
-        elDist.innerHTML = `${Number(distVal).toFixed(1)}<span class="hero-unit">cm</span>`;
+      if (!isOnline) {
+        elDist.innerHTML = `--<span class="hero-unit">%</span>`;
       } else {
-        elDist.innerHTML = `Err<span class="hero-unit">cm</span>`;
+        elDist.innerHTML = `${fillPercent}<span class="hero-unit">%</span>`;
       }
     }
     const elTrendD = document.getElementById('distanceTrend');
     if (elTrendD) {
-      elTrendD.textContent = isOnline ? 'HC-SR04' : lastSeenClockLabel;
+      elTrendD.textContent = isOnline ? `${fillPercent}% dari 10 kg` : lastSeenClockLabel;
     }
 
-    // 3. Kartu 3: Status Sampah (PENUH / AMAN / SENSOR ERROR / OFFLINE)
+    // 3. Kartu 3: Status Lingkungan (Deteksi Kamera AI)
+    // 0 sampah: 1 Kotak Banner Utuh Berwarna Hijau (Bersih)
+    // 1-5 sampah: 1 Kotak Banner Utuh Berwarna Kuning (Waspada)
+    // >5 sampah: 1 Kotak Banner Utuh Berwarna Merah (Banyak Sampah / Kritis)
+    const elBanner = document.getElementById('heroMetricBanner');
     const elStatus = document.getElementById('valStatus');
-    let statusText = 'AMAN';
-    if (!isOnline) {
-      statusText = 'OFFLINE';
-    } else if (distVal === null || distVal === undefined) {
-      statusText = 'SENSOR ERROR';
-    } else if (distVal <= fullThresh) {
-      statusText = 'PENUH';
-    } else {
-      statusText = 'AMAN';
-    }
-    if (elStatus) elStatus.textContent = statusText;
+    const elStatusTrend = document.getElementById('statusTrend');
+    const trashCount = Number(dev.surroundingTrashCount ?? 0);
 
-    // 4. Donut Kapasitas Tong (Persentase Isi)
-    // Saat offline: "Kapasitas Tong" di panel profil dan donut menampilkan "--" (cincin abu-abu netral), bukan 0%
+    if (elBanner) {
+      elBanner.classList.remove('banner-env-green', 'banner-env-yellow', 'banner-env-red');
+      if (trashCount === 0) {
+        elBanner.classList.add('banner-env-green');
+        if (elStatus) elStatus.textContent = 'Bersih';
+        if (elStatusTrend) elStatusTrend.textContent = 'Kamera: 0 Sampah';
+      } else if (trashCount >= 1 && trashCount <= 5) {
+        elBanner.classList.add('banner-env-yellow');
+        if (elStatus) elStatus.textContent = `${trashCount} Sampah`;
+        if (elStatusTrend) elStatusTrend.textContent = 'Kamera: 1-5 Sampah';
+      } else {
+        elBanner.classList.add('banner-env-red');
+        if (elStatus) elStatus.textContent = `${trashCount} Sampah`;
+        if (elStatusTrend) elStatusTrend.textContent = 'Kamera: >5 Sampah';
+      }
+    }
+
+    // Update Status Lingkungan di Halaman Analitik jika aktif
+    const mEnv = document.getElementById('metricEnvStatus');
+    const mEnvSub = document.getElementById('metricEnvSub');
+    if (mEnv) {
+      if (typeof currentAnalyticsRange !== 'undefined' && (currentAnalyticsRange === '7days' || currentAnalyticsRange === '30days')) {
+        mEnv.textContent = '-';
+        mEnv.classList.remove('status-green', 'status-yellow', 'status-red');
+        if (mEnvSub) mEnvSub.textContent = '-';
+      } else {
+        mEnv.classList.remove('status-green', 'status-yellow', 'status-red');
+        if (trashCount === 0) {
+          mEnv.textContent = 'Bersih';
+          mEnv.classList.add('status-green');
+          if (mEnvSub) mEnvSub.textContent = 'Kamera: 0 Sampah';
+        } else if (trashCount <= 5) {
+          mEnv.textContent = `${trashCount} Sampah`;
+          mEnv.classList.add('status-yellow');
+          if (mEnvSub) mEnvSub.textContent = `Kamera: 1-5 Sampah (${trashCount} objek)`;
+        } else {
+          mEnv.textContent = `${trashCount} Sampah`;
+          mEnv.classList.add('status-red');
+          if (mEnvSub) mEnvSub.textContent = `Kamera: >5 Sampah (${trashCount} objek)`;
+        }
+      }
+    }
+
+    // 4. Donut Kapasitas Sampah (Persentase Isi)
+    // Saat offline: "Kapasitas Sampah" di panel profil dan donut menampilkan "--" (cincin abu-abu netral), bukan 0%
     const capText = document.getElementById('profileCapacityText');
     const capFill = document.getElementById('profileCapacityFill');
 
@@ -861,12 +1869,6 @@ async function fetchDeviceStatus() {
       if (capText) capText.textContent = '--';
       if (capFill) capFill.style.width = '0%';
     } else {
-      let fillPercent = 0;
-      if (distVal !== null && distVal !== undefined) {
-        const denom = (emptyDist - fullThresh) || 1;
-        const num = emptyDist - distVal;
-        fillPercent = Math.min(100, Math.max(0, Math.round((num / denom) * 100)));
-      }
       if (typeof updateDonutChartData === 'function') {
         updateDonutChartData(fillPercent);
       }
@@ -922,6 +1924,19 @@ async function fetchDeviceStatus() {
       }
     }
 
+    // 7. Nilai Tare Kustom (Berat Tong / Komponen)
+    const elTareDisp = document.getElementById('currentTareOffsetDisplay');
+    if (elTareDisp) {
+      const activeTare = dev.tareOffsetGram !== undefined
+        ? Number(dev.tareOffsetGram)
+        : (parseFloat(localStorage.getItem('ecosort_tare_offset')) || 0);
+      elTareDisp.textContent = `${activeTare.toFixed(1)} g`;
+    }
+
+    if (typeof updateSideSensorChart === 'function') {
+      updateSideSensorChart(dev.history || null, dev.currentWeightGram ?? dev.weightGram, dev.distanceCm);
+    }
+
     updateAIContextPills();
 
   } catch (err) {
@@ -937,6 +1952,10 @@ async function fetchHistory() {
     const data = await res.json();
     if (data.history && typeof updateRevenueChartData === 'function') {
       updateRevenueChartData(data.history);
+    }
+    if (data.history && typeof updateSideSensorChart === 'function') {
+      const dev = currentDevice || {};
+      updateSideSensorChart(data.history, dev.currentWeightGram ?? dev.weightGram, dev.distanceCm);
     }
   } catch (err) {
     console.error('Error fetching history:', err);
@@ -1046,19 +2065,12 @@ function escapeHTML(str) {
 //  KONTROL PERINTAH ESP32 (Tare, Kalibrasi, Interval, Restart)
 // ============================================================
 function openControlModal() {
-  const modal = document.getElementById('controlModal');
-  if (modal) modal.classList.add('open');
+  switchNav('control');
 }
 
 function closeControlModal() {
-  const modal = document.getElementById('controlModal');
-  if (modal) modal.classList.remove('open');
+  // Kontrol sekarang berupa halaman penuh view-control
 }
-
-window.addEventListener('click', (e) => {
-  const modal = document.getElementById('controlModal');
-  if (e.target === modal) closeControlModal();
-});
 
 async function sendCommand(type, params = {}) {
   try {
@@ -1091,16 +2103,115 @@ async function handleTare() {
   const btn = document.getElementById('btnTare');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Memproses Tare...';
+    btn.innerHTML = `<span>Memproses Tare...</span>`;
   }
-  const ok = await sendCommand('tare');
+
+  // Solusi Bug: Langsung nolkan data berat sampah & kapasitas pada tampilan website secara instan
+  // agar pengguna tidak menunggu data ESP32 atau terjebak data lama saat tong sudah kosong
+  const elWeight = document.getElementById('valWeight');
+  if (elWeight) elWeight.innerHTML = `0.0<span class="hero-unit">g</span>`;
+  const elM1 = document.getElementById('profileMetric1');
+  if (elM1) elM1.textContent = '0.0g';
+  const elEarn = document.getElementById('earningAmount');
+  if (elEarn) elEarn.textContent = '0.0 g';
+
+  // Nolkan juga tampilan persentase kapasitas sampah (karena berbasis berat 10 kg)
+  const elDist = document.getElementById('valDistance');
+  if (elDist) elDist.innerHTML = `0<span class="hero-unit">%</span>`;
+  const elTrendD = document.getElementById('distanceTrend');
+  if (elTrendD) elTrendD.textContent = '0% dari 10 kg';
+
+  const capText = document.getElementById('profileCapacityText');
+  if (capText) capText.textContent = '0%';
+  const capFill = document.getElementById('profileCapacityFill');
+  if (capFill) capFill.style.width = '0%';
+
+  const liveW = document.getElementById('sideLiveWeightLabel');
+  if (liveW) liveW.textContent = '0.0 g';
+  const liveC = document.getElementById('sideLiveCapLabel');
+  if (liveC) liveC.textContent = '0%';
+
+  if (typeof updateDonutChartData === 'function') {
+    updateDonutChartData(0);
+  }
+  if (typeof updateSideSensorChart === 'function') {
+    updateSideSensorChart(null, 0, 0);
+  }
+
+  if (lastDeviceData) {
+    lastDeviceData.currentWeightGram = 0;
+    lastDeviceData.weightGram = 0;
+    lastDeviceData.totalWeightGram = 0;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/tare`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ deviceId: DEVICE_ID })
+    });
+    if (res.ok) {
+      const isOnline = lastDeviceData && (Date.now() - new Date(lastDeviceData.lastSeen || 0).getTime() < 10000);
+      if (isOnline) {
+        showToast('Timbangan berhasil dinolkan. Status bak sampah kosong (0.0 g, 0%)', 'success');
+      } else {
+        showToast('Timbangan website dinolkan (0.0 g). ESP32 offline: antrean kalibrasi disimpan di server.', 'info');
+      }
+      fetchTransactions();
+      fetchNotifications();
+      fetchHistory();
+    } else {
+      await sendCommand('tare');
+    }
+  } catch (e) {
+    await sendCommand('tare');
+  }
+
   if (btn) {
     setTimeout(() => {
       btn.disabled = false;
-      btn.textContent = 'Tare / Reset Timbangan';
-    }, 1200);
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+        </svg>
+        <span>Reset Timbangan</span>
+      `;
+    }, 800);
   }
-  if (ok) closeControlModal();
+  closeControlModal();
+}
+
+async function handleTareOffset() {
+  const input = document.getElementById('inputTareOffset');
+  if (!input) return;
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val < 0) {
+    showToast('Masukkan berat tong / komponen yang valid (gram)', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/tare-offset`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ deviceId: DEVICE_ID, tareOffsetGram: val })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const disp = document.getElementById('currentTareOffsetDisplay');
+      if (disp) disp.textContent = `${val.toFixed(1)} g`;
+      localStorage.setItem('ecosort_tare_offset', val);
+      input.value = '';
+      showToast(`Berat tong/komponen disimpan: ${val.toFixed(1)} g. Hitungan sampah riil disesuaikan otomatis.`, 'success');
+      fetchDeviceStatus();
+      fetchTransactions();
+      closeControlModal();
+    } else {
+      showToast(data.error || 'Gagal menyimpan tare offset', 'error');
+    }
+  } catch (err) {
+    showToast('Gagal menghubungi server', 'error');
+  }
 }
 
 async function handleCalibration() {
@@ -1146,11 +2257,99 @@ async function handleRestart() {
 }
 
 // ============================================================
+//  SIMULASI KAMERA DETEKSI SAMPAH SEKITAR (STATUS LINGKUNGAN)
+//  0: Hijau (Bersih)
+//  1-5: Kuning (Waspada)
+//  >5: Merah (Kritis)
+// ============================================================
+window.setSurroundingTrash = async function (count) {
+  const num = Math.max(0, parseInt(count, 10) || 0);
+  try {
+    const res = await fetch(`${API_BASE}/surrounding-trash`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ deviceId: DEVICE_ID, count: num })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const label = num === 0 ? '0 (Bersih - Hijau)' : num <= 5 ? `${num} (Waspada - Kuning)` : `${num} (Banyak Sampah - Merah)`;
+      showToast(`Status kamera lingkungan: ${label}`, 'success');
+
+      // Update UI kotak banner utuh dan teks secara instan
+      const elBanner = document.getElementById('heroMetricBanner');
+      const elStatus = document.getElementById('valStatus');
+      const elStatusTrend = document.getElementById('statusTrend');
+
+      if (elBanner) {
+        elBanner.classList.remove('banner-env-green', 'banner-env-yellow', 'banner-env-red');
+        if (num === 0) {
+          elBanner.classList.add('banner-env-green');
+          if (elStatus) elStatus.textContent = 'Bersih';
+          if (elStatusTrend) elStatusTrend.textContent = 'Kamera: 0 Sampah';
+        } else if (num >= 1 && num <= 5) {
+          elBanner.classList.add('banner-env-yellow');
+          if (elStatus) elStatus.textContent = `${num} Sampah`;
+          if (elStatusTrend) elStatusTrend.textContent = 'Kamera: 1-5 Sampah';
+        } else {
+          elBanner.classList.add('banner-env-red');
+          if (elStatus) elStatus.textContent = `${num} Sampah`;
+          if (elStatusTrend) elStatusTrend.textContent = 'Kamera: >5 Sampah';
+        }
+      }
+    } else {
+      showToast(data.error || 'Gagal mengubah status kamera', 'danger');
+    }
+  } catch (err) {
+    showToast('Koneksi server gagal: ' + err.message, 'danger');
+  }
+};
+
+// Pulihkan data status perangkat dari cache lokal agar kotak profil tidak berkedip kosong saat refresh
+function restoreCachedDeviceStatus() {
+  try {
+    const raw = localStorage.getItem('ecosort_last_device_cache');
+    if (!raw) return;
+    const dev = JSON.parse(raw);
+    if (!dev) return;
+    lastDeviceData = dev;
+
+    const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
+    const curW = Number(weightVal);
+    const fillPercent = Math.min(100, Math.max(0, Math.round((curW / 10000) * 100)));
+
+    const elWeight = document.getElementById('valWeight');
+    if (elWeight) elWeight.innerHTML = `${curW.toFixed(1)}<span class="hero-unit">g</span>`;
+
+    const elDist = document.getElementById('valDistance');
+    if (elDist) elDist.innerHTML = `${fillPercent}<span class="hero-unit">%</span>`;
+
+    const capText = document.getElementById('profileCapacityText');
+    if (capText) capText.textContent = `${fillPercent}%`;
+    const capFill = document.getElementById('profileCapacityFill');
+    if (capFill) capFill.style.width = `${fillPercent}%`;
+
+    const elM1 = document.getElementById('profileMetric1');
+    if (elM1) elM1.textContent = curW >= 1000 ? `${(curW / 1000).toFixed(2)}kg` : `${curW.toFixed(1)}g`;
+
+    const liveW = document.getElementById('sideLiveWeightLabel');
+    if (liveW) liveW.textContent = curW >= 1000 ? `${(curW / 1000).toFixed(2)} kg` : `${curW.toFixed(1)} g`;
+
+    const liveC = document.getElementById('sideLiveCapLabel');
+    if (liveC) liveC.textContent = `${fillPercent}%`;
+  } catch (_) {}
+}
+
+// ============================================================
 //  INISIALISASI SAAT HALAMAN DIMUAT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
 
+  const savedTareOffset = localStorage.getItem('ecosort_tare_offset');
+  if (savedTareOffset) {
+    const dispTare = document.getElementById('currentTareOffsetDisplay');
+    if (dispTare) dispTare.textContent = `${parseFloat(savedTareOffset).toFixed(1)} g`;
+  }
   const savedCal = localStorage.getItem('ecosort_cal');
   if (savedCal) {
     const disp = document.getElementById('currentCalDisplay');
@@ -1162,6 +2361,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (disp) disp.textContent = savedInt + ' detik';
   }
 
+  // 1. Inisialisasi Tampilan Halaman yang Aktif Seketika Mengikuti Route URL (Single Source of Truth)
+  // Mencegah dashboard berkedip/flash saat pengguna merefresh halaman lain
+  const initialRoute = resolveCurrentRoute();
+  switchNav(initialRoute.id, { updateHistory: false, replace: true });
+  if (window.location.hash.replace('#', '').trim() === 'password') {
+    openPasswordChangeCard();
+  }
+
+  // 2. Pulihkan Status Perangkat dari Cache Lokal agar Kotak Profil Perangkat Tidak Berkedip Kosong saat Refresh
+  restoreCachedDeviceStatus();
+
+  // 3. Muat Data Riil dari Backend
   fetchUserProfile();
   fetchDeviceStatus();
   fetchHistory();
@@ -1169,18 +2380,14 @@ document.addEventListener('DOMContentLoaded', () => {
   fetchNotifications();
   checkAIStatus();
 
-  // Buka view sesuai hash jika ada (#ai, #analytics, #reports, #account, #kontrol), default dashboard
-  const initialHash = window.location.hash.replace('#', '').trim();
-  if (initialHash === 'control' || initialHash === 'kontrol') {
-    switchNav('dashboard');
-    setTimeout(openControlModal, 150);
-  } else {
-    switchNav(['dashboard', 'ai', 'analytics', 'reports', 'account'].includes(initialHash) ? initialHash : 'dashboard');
-  }
+  // Posisi awal indikator slider bar setelah DOM selesai render
+  setTimeout(() => updateNavSlider(), 80);
 
   // Notifikasi jika diarahkan untuk wajib ganti password pada login pertama
   if (sessionStorage.getItem('firstLoginMustChange')) {
     sessionStorage.removeItem('firstLoginMustChange');
+    switchNav('account');
+    openPasswordChangeCard();
     setTimeout(() => {
       showToast('Wajib perbarui password Administrator Anda pada login pertama!', 'info');
     }, 450);

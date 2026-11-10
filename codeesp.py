@@ -5,9 +5,7 @@ import time
 import urequests
 
 # --- KONFIGURASI PIN HARDWARE ---
-# Sensor Ultrasonik HC-SR04-RC (Chip RCWL-9616 - Mode GPIO Standar)
-# Setelah power-cycle, sensor beroperasi di mode GPIO (M1=0, M2=0).
-# PENTING: Jika sensor macet/stuck, cabut VCC 5 detik lalu pasang lagi!
+# Sensor Ultrasonik HC-SR04
 TRIG_PIN = 19
 ECHO_PIN = 21
 
@@ -23,7 +21,7 @@ hx = HX711(d_out=4, pd_sck=5)
 
 # --- PENGATURAN SERVO & TUTUP TONG ---
 JARAK_DETEKSI_TANGAN_CM = 20   # Jarak deteksi tangan untuk membuka tutup (cm)
-DURASI_TAHAN_DETIK = 6.0       # Durasi tutup tetap terbuka setelah tangan menjauh (6 detik)
+DURASI_TAHAN_DETIK = 3.0       # Durasi tutup tetap terbuka setelah tangan menjauh (detik)
 SUDUT_TUTUP = 0                # Sudut servo saat tertutup rapat (derajat)
 SUDUT_BUKA = 90                # Sudut servo saat terbuka penuh (derajat)
 
@@ -131,12 +129,12 @@ def connect_wifi(timeout_sec=6):
 
 # --- FUNGSI KONTROL SERVO MG995 ---
 def set_servo_angle(angle):
-    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman standar MG995."""
+    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman."""
     global current_servo_angle
     angle = max(0, min(180, int(angle)))
     current_servo_angle = angle
-    # MG995 standar: 1000us (0 deg) s/d 2000us (180 deg) pada periode 20.000us (50Hz)
-    pulse_us = 1000 + (angle / 180.0) * 1000
+    # MG995: 500us (0 deg) s/d 2500us (180 deg) pada periode 20.000us (50Hz)
+    pulse_us = 500 + (angle / 180.0) * 2000
     duty = int((pulse_us / 20000.0) * 65535)
     servo_pwm.duty_u16(duty)
 
@@ -158,11 +156,6 @@ def release_servo():
 
 
 def get_distance():
-    """Membaca jarak dari sensor RCWL-9616 mode GPIO standar.
-    
-    PENTING: Jika sensor macet (echo selalu HIGH/LOW),
-    cabut kabel VCC sensor 5 detik lalu pasang lagi (power-cycle).
-    """
     trig.value(0)
     time.sleep_us(5)
     trig.value(1)
@@ -170,24 +163,31 @@ def get_distance():
     trig.value(0)
 
     try:
-        duration = time_pulse_us(echo, 1, 50000)
-        if duration > 100:
-            cm = (duration / 2.0) / 29.1
-            if 2 <= cm <= 300:
-                return cm
-        return None
-    except Exception:
+        duration = time_pulse_us(echo, 1, 35000)
+        if duration <= 0:
+            return None
+        return (duration / 2) / 29.1
+    except Exception as e:
+        print("Ultrasonic error:", e)
         return None
 
 
 def read_distance_cm():
-    """Baca jarak dengan 2x percobaan untuk stabilitas."""
-    for _ in range(2):
-        d = get_distance()
-        if d is not None:
-            return d
-        time.sleep_ms(30)
-    return None
+    samples = []
+    for _ in range(ULTRASONIC_SAMPLE_COUNT):
+        jarak = get_distance()
+        if jarak is not None and MIN_VALID_DISTANCE_CM <= jarak <= MAX_VALID_DISTANCE_CM:
+            samples.append(jarak)
+        time.sleep_ms(ULTRASONIC_SAMPLE_DELAY_MS)
+
+    if not samples:
+        return None
+
+    samples.sort()
+    mid = len(samples) // 2
+    if len(samples) % 2:
+        return samples[mid]
+    return (samples[mid - 1] + samples[mid]) / 2
 
 
 def read_hx711_value():
@@ -318,7 +318,7 @@ def poll_and_execute_commands():
     """Ambil perintah dari server dan jalankan."""
     global FAKTOR_KALIBRASI, SEND_INTERVAL_SECONDS, total_weight_gram
     global pending_weight_gram, weight_event_active, weight_clear_count
-    global smoothed_weight_gram, is_lid_open, last_hand_detected_ms
+    global smoothed_weight_gram
 
     if not wifi.isconnected():
         return
@@ -391,48 +391,17 @@ def poll_and_execute_commands():
 # ===== [AKHIR TAMBAHAN] =====
 
 
-print("========================================")
-print("     SISTEM ECOSORT ESP32 DIMULAI")
-print("========================================")
+print("Start system...")
 connect_wifi()
 
-print("\n--- UJI MANDIRI PERANGKAT (SELF-TEST) ---")
+print("Inisialisasi Servo MG995 (Tutup)...")
+set_servo_angle(SUDUT_TUTUP)
+time.sleep_ms(500)
+release_servo()
 
-# 1. Tes Gerakan Servo MG995
-print("[1/3] Menguji Servo MG995 (Buka 45 deg lalu Tutup)...")
-try:
-    move_servo_smooth(45, step_delay_ms=10)
-    time.sleep_ms(300)
-    move_servo_smooth(SUDUT_TUTUP, step_delay_ms=10)
-    time.sleep_ms(300)
-    release_servo()
-    print("      -> Servo MG995 Merespons OK!")
-except Exception as e:
-    print("      -> Gagal uji servo:", e)
-
-# 2. Tes Load Cell HX711
-print("[2/3] Menguji Load Cell + HX711 (Tare bobot nol)...")
-try:
-    hx.tare()
-    print("      -> HX711 Siap & Nilai Nol Ditentukan!")
-except Exception as e:
-    print("      -> Gagal tare HX711:", e)
-
-# 3. Tes Awal Ultrasonik
-print("[3/3] Menguji Sensor Ultrasonik RCWL-9616 (GPIO)...")
-try:
-    test_d = get_distance()
-    if test_d is not None:
-        print(f"      -> Objek terdeteksi pada: {test_d:.1f} cm")
-    else:
-        print("      -> Area di depan sensor KOSONG (Standby / Normal).")
-        print("         Jika selalu gagal, CABUT VCC sensor 5 detik lalu pasang lagi.")
-except Exception as e:
-    print("      -> Cek kabel ultrasonik:", e)
-
-print("----------------------------------------")
-print("Semua modul siap. Dekatkan tangan ke sensor (<= 20 cm) untuk membuka tutup.")
-print("========================================\n")
+print("Tare HX711...")
+hx.tare()
+print("Ready\n")
 
 while True:
     try:
@@ -441,11 +410,11 @@ while True:
 
         # ===== KONTROL OTOMATIS TUTUP TEMPAT SAMPAH (SERVO MG995) =====
         now_ms = time.ticks_ms()
-        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat (<= 20 cm)
+        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat
         if jarak_raw is not None and jarak_raw <= JARAK_DETEKSI_TANGAN_CM:
             last_hand_detected_ms = now_ms
             if not is_lid_open:
-                print(f">>> [TANGAN TERDETEKSI: {jarak_raw:.1f} cm] MEMBUKA TUTUP TONG...")
+                print(">>> [TANGAN TERDETEKSI ({:.1f} cm)] MEMBUKA TUTUP TONG...".format(jarak_raw))
                 move_servo_smooth(SUDUT_BUKA)
                 is_lid_open = True
         else:
@@ -480,10 +449,7 @@ while True:
         print("----------------------")
         print("Berat total:", format_weight_label(berat))
         print("Berat sensor (Load Cell):", format_weight_label(berat_sensor))
-        if jarak_raw is not None:
-            print(f"Jarak Tangan: {jarak_raw:.1f} cm")
-        else:
-            print("Jarak Tangan: Standby (Area Kosong / Tidak Ada Tangan)")
+        print("Jarak Tangan:", "ERROR / OUT" if jarak_raw is None else "{:.1f} cm".format(jarak_raw))
         print("Status Tutup:", "TERBUKA" if is_lid_open else "TERTUTUP")
 
         if jarak is not None and jarak <= AMBANG_PENUH_CM:

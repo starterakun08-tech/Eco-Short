@@ -1,7 +1,7 @@
 // ============================================================
 //  EcoSort IoT Dashboard — Charts Module
 //  1. Revenue Spline: Riwayat Berat Sensor (Dashboard)
-//  2. Customers Donut: Kapasitas Tong (Dashboard) — 2 Bagian Murni
+//  2. Customers Donut: Kapasitas Sampah (Dashboard) — 2 Bagian Murni
 //  3. Analytics Weight Chart: Riwayat Berat per Jam (Analitik)
 //  4. Analytics Capacity Chart: Tingkat Isi dari Waktu ke Waktu (Analitik)
 // ============================================================
@@ -10,11 +10,13 @@ let revenueChartInstance = null;
 let donutChartInstance = null;
 let analyticsWeightChartInstance = null;
 let analyticsCapacityChartInstance = null;
+let sideSensorChartInstance = null;
 
 window.revenueChartInstance = null;
 window.donutChartInstance = null;
 window.analyticsWeightChartInstance = null;
 window.analyticsCapacityChartInstance = null;
+window.sideSensorChartInstance = null;
 
 const COLOR_GREEN = '#74c718';
 const COLOR_ORANGE = '#fbbf24';
@@ -120,7 +122,7 @@ function initRevenueChart() {
   if (bar) bar.style.display = 'none';
 }
 
-// ---- 2. Inisialisasi Donut Chart (Kapasitas Tong — Tepat 2 Segmen) ----
+// ---- 2. Inisialisasi Donut Chart (Kapasitas Sampah — Tepat 2 Segmen) ----
 function initDonutChart() {
   const canvas = document.getElementById('donutChart');
   if (!canvas) return;
@@ -187,8 +189,17 @@ function initAnalyticsWeightChart() {
         legend: { display: false },
         tooltip: {
           backgroundColor: '#1f2d24',
+          usePointStyle: true,
+          boxWidth: 7,
+          boxHeight: 7,
+          boxPadding: 4,
           callbacks: {
-            label: (ctx) => `${ctx.parsed.y} g`
+            labelPointStyle: () => ({ pointStyle: 'circle', rotation: 0 }),
+            labelColor: () => ({ borderColor: COLOR_GREEN, backgroundColor: COLOR_GREEN, borderWidth: 0 }),
+            label: (ctx) => {
+              const val = ctx.parsed.y ?? 0;
+              return val >= 1000 ? ` ${(val / 1000).toFixed(2)} kg` : ` ${val} g`;
+            }
           }
         }
       },
@@ -251,8 +262,14 @@ function initAnalyticsCapacityChart() {
         legend: { display: false },
         tooltip: {
           backgroundColor: '#1f2d24',
+          usePointStyle: true,
+          boxWidth: 7,
+          boxHeight: 7,
+          boxPadding: 4,
           callbacks: {
-            label: (ctx) => `${ctx.parsed.y} %`
+            labelPointStyle: () => ({ pointStyle: 'circle', rotation: 0 }),
+            labelColor: () => ({ borderColor: COLOR_ORANGE, backgroundColor: COLOR_ORANGE, borderWidth: 0 }),
+            label: (ctx) => ` Kapasitas: ${ctx.parsed.y} %`
           }
         }
       },
@@ -485,12 +502,219 @@ function updateAnalyticsCharts(labelsOrObj, todayWeights, todayCapacities, yeste
   }
 }
 
+// ---- 5. Inisialisasi Grafik Sensor Samping: Berat & Kapasitas (Sidebar Kanan) ----
+function initSideSensorChart() {
+  const canvas = document.getElementById('sideSensorChart');
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const gradGreen = ctx.createLinearGradient(0, 0, 0, 140);
+  gradGreen.addColorStop(0, 'rgba(114, 192, 26, 0.35)');
+  gradGreen.addColorStop(1, 'rgba(114, 192, 26, 0.00)');
+
+  window.sideSensorChartInstance = sideSensorChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Berat Sampah',
+          data: [],
+          borderColor: '#72c01a',
+          backgroundColor: gradGreen,
+          pointBackgroundColor: '#72c01a',
+          pointBorderColor: '#72c01a',
+          pointStyle: 'circle',
+          borderWidth: 2,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 0,
+          hoverRadius: 4,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Kapasitas',
+          data: [],
+          borderColor: '#f59e0b',
+          backgroundColor: '#f59e0b',
+          pointBackgroundColor: '#f59e0b',
+          pointBorderColor: '#f59e0b',
+          pointStyle: 'circle',
+          borderWidth: 2,
+          borderDash: [3, 3],
+          tension: 0.35,
+          fill: false,
+          pointRadius: 0,
+          hoverRadius: 4,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          usePointStyle: true,
+          boxWidth: 7,
+          boxHeight: 7,
+          boxPadding: 5,
+          backgroundColor: '#0f172a',
+          titleColor: '#f8fafc',
+          bodyColor: '#f8fafc',
+          borderColor: 'rgba(255, 255, 255, 0.12)',
+          borderWidth: 1,
+          padding: 8,
+          cornerRadius: 6,
+          titleFont: { family: 'Plus Jakarta Sans', size: 11, weight: '700' },
+          bodyFont: { family: 'Plus Jakarta Sans', size: 10, weight: '500' },
+          callbacks: {
+            labelPointStyle: function() {
+              return {
+                pointStyle: 'circle',
+                rotation: 0
+              };
+            },
+            labelColor: function(ctx) {
+              const color = ctx.datasetIndex === 0 ? '#72c01a' : '#f59e0b';
+              return {
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: 0
+              };
+            },
+            label: (ctx) => {
+              if (ctx.datasetIndex === 0) {
+                const val = ctx.parsed.y ?? 0;
+                const labelVal = val >= 1000 ? `${(val / 1000).toFixed(2)} kg` : `${val.toFixed(1)} g`;
+                return ` Berat: ${labelVal}`;
+              }
+              return ` Kapasitas: ${ctx.parsed.y}%`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#64748b', maxTicksLimit: 5, font: { family: 'Plus Jakarta Sans', size: 9 } }
+        },
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          min: 0,
+          suggestedMax: 10000,
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: {
+            color: '#72c01a',
+            font: { family: 'Plus Jakarta Sans', size: 9 },
+            maxTicksLimit: 5,
+            callback: (v) => v >= 1000 ? (v / 1000).toFixed(0) + 'kg' : v + 'g'
+          }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          min: 0,
+          max: 100,
+          grid: { drawOnChartArea: false },
+          ticks: {
+            color: '#f59e0b',
+            font: { family: 'Plus Jakarta Sans', size: 9 },
+            stepSize: 25,
+            maxTicksLimit: 5,
+            callback: (v) => v + '%'
+          }
+        }
+      }
+    }
+  });
+
+  const emptyEl = document.getElementById('sideChartEmptyState');
+  if (emptyEl) emptyEl.style.display = 'flex';
+}
+
+function updateSideSensorChart(historyList, liveWeight, liveDistance) {
+  if (!sideSensorChartInstance) return;
+
+  const emptyEl = document.getElementById('sideChartEmptyState');
+  const liveWLabel = document.getElementById('sideLiveWeightLabel');
+  const liveCLabel = document.getElementById('sideLiveCapLabel');
+
+  const curW = Number(liveWeight ?? 0);
+  // Persentase kapasitas sampah dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
+  const curFill = Math.min(100, Math.max(0, Math.round((curW / 10000) * 100)));
+
+  if (liveWLabel) {
+    liveWLabel.textContent = curW >= 1000 ? `${(curW / 1000).toFixed(2)} kg` : `${curW.toFixed(1)} g`;
+  }
+  if (liveCLabel) {
+    liveCLabel.textContent = `${curFill}%`;
+  }
+
+  if (!historyList || !Array.isArray(historyList) || historyList.length === 0) {
+    if (curW > 0) {
+      const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      sideSensorChartInstance.data.labels = [nowStr];
+      sideSensorChartInstance.data.datasets[0].data = [curW];
+      sideSensorChartInstance.data.datasets[1].data = [curFill];
+      sideSensorChartInstance.update();
+      if (emptyEl) emptyEl.style.display = 'none';
+      return;
+    }
+
+    sideSensorChartInstance.data.labels = [];
+    sideSensorChartInstance.data.datasets[0].data = [];
+    sideSensorChartInstance.data.datasets[1].data = [];
+    sideSensorChartInstance.update();
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  const recent = historyList.slice(-12);
+  const labels = recent.map((item, idx) => {
+    try {
+      const d = new Date(item.t);
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    } catch (_) {
+      return `T${idx + 1}`;
+    }
+  });
+
+  const weights = recent.map(item => Number((item.w || 0).toFixed(1)));
+  // Riwayat persentase kapasitas juga dihitung berdasarkan berat terhadap 10 kg
+  const capacities = recent.map(item => {
+    const w = Number(item.w || 0);
+    return Math.min(100, Math.max(0, Math.round((w / 10000) * 100)));
+  });
+
+  sideSensorChartInstance.data.labels = labels;
+  sideSensorChartInstance.data.datasets[0].data = weights;
+  sideSensorChartInstance.data.datasets[1].data = capacities;
+
+  const maxW = Math.max(...weights, curW, 0);
+  sideSensorChartInstance.options.scales.y.suggestedMax = Math.max(1000, Math.min(10000, Math.ceil(maxW * 1.25)));
+  sideSensorChartInstance.update();
+}
+
 // ---- Resize Semua Grafik Saat Layar Berubah ----
 function resizeAllCharts() {
   if (revenueChartInstance) revenueChartInstance.resize();
   if (donutChartInstance) donutChartInstance.resize();
   if (analyticsWeightChartInstance) analyticsWeightChartInstance.resize();
   if (analyticsCapacityChartInstance) analyticsCapacityChartInstance.resize();
+  if (sideSensorChartInstance) sideSensorChartInstance.resize();
 }
 
 function setupChartResponsiveness() {
@@ -505,5 +729,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initDonutChart();
   initAnalyticsWeightChart();
   initAnalyticsCapacityChart();
+  initSideSensorChart();
   setupChartResponsiveness();
 });

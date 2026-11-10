@@ -104,9 +104,11 @@ function ensureDefaultUser() {
     users.push({
       username: 'admin',
       passwordHash: hash,
+      plainPassword: initialPass,
       displayName: 'Admin EcoSort',
       role: 'Administrator',
-      avatar: '',
+      avatar: '/images/avatar.svg',
+      banner: '',
       mustChangePassword: mustChange
     });
     writeJSON(USERS_FILE, users);
@@ -115,7 +117,8 @@ function ensureDefaultUser() {
     users.forEach(u => {
       if (!u.displayName) { u.displayName = 'Admin EcoSort'; changed = true; }
       if (!u.role) { u.role = 'Administrator'; changed = true; }
-      if (u.avatar === undefined) { u.avatar = ''; changed = true; }
+      if (!u.avatar) { u.avatar = '/images/avatar.svg'; changed = true; }
+      if (u.banner === undefined) { u.banner = ''; changed = true; }
     });
     if (changed) writeJSON(USERS_FILE, users);
   }
@@ -188,14 +191,16 @@ router.get('/me', requireAuth, (req, res) => {
     username: user.username,
     displayName: user.displayName || 'Admin EcoSort',
     role: user.role || 'Administrator',
-    avatar: user.avatar || '',
+    avatar: user.avatar || '/images/avatar.svg',
+    banner: user.banner || '',
+    password: user.plainPassword || (process.env.ADMIN_PASSWORD || 'admin123'),
     mustChangePassword: Boolean(user.mustChangePassword)
   });
 });
 
 // ---- PUT /api/auth/profile ----
 router.put('/profile', requireAuth, (req, res) => {
-  const { displayName, avatar } = req.body || {};
+  const { displayName, avatar, banner } = req.body || {};
   if (!displayName || !displayName.trim()) {
     return res.status(400).json({ error: 'Nama tampilan tidak boleh kosong' });
   }
@@ -206,6 +211,7 @@ router.put('/profile', requireAuth, (req, res) => {
 
   user.displayName = displayName.trim();
   if (avatar !== undefined) user.avatar = avatar;
+  if (banner !== undefined) user.banner = banner;
 
   writeJSON(USERS_FILE, users);
   res.json({
@@ -214,7 +220,8 @@ router.put('/profile', requireAuth, (req, res) => {
       username: user.username,
       displayName: user.displayName,
       role: user.role || 'Administrator',
-      avatar: user.avatar || ''
+      avatar: user.avatar || '/images/avatar.svg',
+      banner: user.banner || ''
     }
   });
 });
@@ -238,6 +245,7 @@ router.put('/password', requireAuth, (req, res) => {
   }
 
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  user.plainPassword = newPassword;
   user.mustChangePassword = false; // Tandai password sudah diganti
   writeJSON(USERS_FILE, users);
 

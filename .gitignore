@@ -13,6 +13,7 @@ take_all_screenshots.py
 test_*.py
 test_*.js
 *.png
+scratch/
 
 # Archives and build artifacts
 *.zip

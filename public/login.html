@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+  <link rel="apple-touch-icon" href="/images/logo-icon.svg">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -107,7 +109,7 @@
     .form-input:focus {
       border-color: #72c01a;
       background: #ffffff;
-      box-shadow: 0 0 0 3.5px rgba(114, 192, 26, 0.16);
+      box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
     }
 
     .btn-submit {
@@ -122,7 +124,7 @@
       font-family: inherit;
       cursor: pointer;
       transition: all 0.2s ease;
-      box-shadow: 0 8px 20px rgba(114, 192, 26, 0.35);
+      box-shadow: none;
       margin-top: 8px;
     }
 
@@ -165,8 +167,10 @@
   <div class="login-container">
     <div class="brand-header">
       <div class="brand-icon-box">
-        <svg viewBox="0 0 24 24">
-          <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 3h2v-3h2v3h3v2h-3v3h-2v-3h-2v-2z"/>
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C7 2 3.5 5.5 3.5 9.5c0 2.2 1 4.1 2.6 5.4l1.6-1.6C6.7 12.3 6 11 6 9.5 6 7 8.5 4.5 12 4.5c2.6 0 4.8 1.4 5.9 3.5l1.9-1C18.2 4.1 15.3 2 12 2z"/>
+          <path d="M12 22c5 0 8.5-3.5 8.5-7.5 0-2.2-1-4.1-2.6-5.4l-1.6 1.6c1 1 1.7 2.3 1.7 3.8 0 2.5-2.5 5-6 5-2.6 0-4.8-1.4-5.9-3.5l-1.9 1C5.8 19.9 8.7 22 12 22z"/>
+          <circle cx="12" cy="12" r="2.2"/>
         </svg>
       </div>
       <h1 class="brand-title">EcoSort</h1>
@@ -188,6 +192,10 @@
 
       <button type="submit" class="btn-submit" id="btnLogin">Masuk</button>
     </form>
+
+    <div class="demo-credentials">
+      Login default: <strong>admin</strong> &bull; Password: <strong>admin123</strong>
+    </div>
   </div>
 
   <script>
