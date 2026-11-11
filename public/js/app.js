@@ -7,11 +7,11 @@ const API_BASE = '/api/iot';
 const TOKEN_KEY = 'ecosort_token';
 const DEVICE_ID = 'esp32-ecosort-1';
 
-// Polling intervals
-const POLL_INTERVAL_MS = 2000;
-const HISTORY_INTERVAL_MS = 5000;
-const TX_INTERVAL_MS = 4000;
-const NOTIF_INTERVAL_MS = 6000;
+// Polling intervals (Real-time responsif sesuai deteksi sensor)
+const POLL_INTERVAL_MS = 1000;
+const HISTORY_INTERVAL_MS = 2000;
+const TX_INTERVAL_MS = 3000;
+const NOTIF_INTERVAL_MS = 5000;
 
 // State
 let lastDeviceData = null;
@@ -20,6 +20,7 @@ let fullThresh = 10;
 let currentView = 'dashboard';
 let currentTxCount = 0;
 let currentAnalyticsRange = 'today';
+let liveSideChartBuffer = [];
 
 // ---- Autentikasi ----
 function getToken() {
@@ -853,20 +854,29 @@ async function fetchNotifications() {
 
     // Render Dropdown di Panel Profil Kanan
     const container = document.getElementById('notifListContainer');
-    if (container && list.length > 0) {
-      container.innerHTML = list.map(n => {
-        const dotColor = n.type === 'danger' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#22c55e';
-        return `
-          <div class="notif-item ${n.unread ? 'unread' : ''}" onclick="openNotificationsPage()">
-            <span class="notif-dot-status" style="background-color: ${dotColor};"></span>
-            <div class="notif-item-body">
-              <strong>${escapeHTML(n.title)}</strong>
-              <p>${escapeHTML(n.message)}</p>
-              <small>${escapeHTML(n.time)}</small>
+    if (container) {
+      if (list.length > 0) {
+        container.innerHTML = list.map(n => {
+          const dotColor = n.type === 'danger' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#22c55e';
+          return `
+            <div class="notif-item ${n.unread ? 'unread' : ''}" style="display: flex; align-items: flex-start; gap: 8px; position: relative;">
+              <span class="notif-dot-status" style="background-color: ${dotColor}; margin-top: 4px;"></span>
+              <div class="notif-item-body" style="flex: 1; min-width: 0; cursor: pointer;" onclick="openNotificationsPage()">
+                <strong>${escapeHTML(n.title)}</strong>
+                <p>${escapeHTML(n.message)}</p>
+                <small>${escapeHTML(n.time)}</small>
+              </div>
+              <button type="button" class="btn-row-delete-flat" onclick="handleDeleteSingleNotif(event, '${escapeHTML(n.id)}')" title="Hapus notifikasi" style="margin-top: 2px;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
             </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        }).join('');
+      } else {
+        container.innerHTML = '<div style="padding: 18px; text-align: center; color: #94a3b8; font-size: 0.8rem;">Tidak ada notifikasi sistem</div>';
+      }
     }
 
     // Jika sedang berada di halaman notifikasi, render juga halaman penuhnya
@@ -951,16 +961,60 @@ function renderFullNotificationsPage() {
               <span class="notif-item-title">${escapeHTML(n.title)}</span>
               ${n.unread ? '<span class="notif-unread-dot" title="Belum dibaca"></span>' : ''}
             </div>
-            <span class="notif-item-time">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-              ${escapeHTML(n.time)}
-            </span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="notif-item-time">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                ${escapeHTML(n.time)}
+              </span>
+              <button type="button" class="btn-row-delete-flat" onclick="handleDeleteSingleNotif(event, '${escapeHTML(n.id)}')" title="Hapus notifikasi ini">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <p class="notif-item-desc">${escapeHTML(n.message)}</p>
         </div>
       </div>
     `;
   }).join('');
+}
+
+// ---- Fungsi Hapus Notifikasi (Gambar 2) ----
+async function handleClearAllNotifs(event) {
+  if (event) event.stopPropagation();
+  if (!confirm('Apakah Anda yakin ingin menghapus SELURUH notifikasi?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/notifications`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Gagal membersihkan notifikasi');
+    allNotifications = [];
+    renderFullNotificationsPage();
+    fetchNotifications();
+    showToast('Seluruh notifikasi berhasil dihapus', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function handleDeleteSingleNotif(event, id) {
+  if (event) event.stopPropagation();
+  if (!id) return;
+  try {
+    const res = await fetch(`${API_BASE}/notifications/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Gagal menghapus notifikasi');
+    allNotifications = allNotifications.filter(n => n.id !== id);
+    renderFullNotificationsPage();
+    fetchNotifications();
+    showToast('Notifikasi dihapus', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 function toggleNotifDropdown(event) {
@@ -1609,7 +1663,7 @@ async function loadReportsData() {
     if (txList.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" class="table-empty-row">
+          <td colspan="7" class="table-empty-row">
             Belum ada catatan log aktivitas tersimpan
           </td>
         </tr>
@@ -1652,12 +1706,52 @@ async function loadReportsData() {
           <td class="tx-status-col">
             <span class="badge-status ${badgeClass}">${statusLabel}</span>
           </td>
+          <td style="text-align: center;">
+            <button type="button" class="btn-row-delete-flat" onclick="handleDeleteSingleLog('${escapeHTML(tx.id)}')" title="Hapus catatan ini">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
+            </button>
+          </td>
         </tr>
       `;
     }).join('');
 
   } catch (err) {
     console.error('Error loading reports:', err);
+  }
+}
+
+// ---- Fungsi Hapus Log Laporan (Gambar 2) ----
+async function handleClearAllLogs() {
+  if (!confirm('Apakah Anda yakin ingin menghapus SELURUH catatan log aktivitas?')) return;
+  try {
+    const res = await fetch(`${API_BASE}/transactions`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Gagal membersihkan log aktivitas');
+    showToast('Seluruh log aktivitas berhasil dibersihkan', 'success');
+    loadReportsData();
+    fetchTransactions();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function handleDeleteSingleLog(id) {
+  if (!id) return;
+  try {
+    const res = await fetch(`${API_BASE}/transactions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Gagal menghapus log');
+    showToast(`Log ${id} berhasil dihapus`, 'success');
+    loadReportsData();
+    fetchTransactions();
+  } catch (err) {
+    showToast(err.message, 'error');
   }
 }
 
@@ -1833,6 +1927,16 @@ async function fetchDeviceStatus() {
       }
     }
 
+    // Update Kotak Analitik secara REAL-TIME saat sensor membaca (Gambar 3)
+    const mAvg = document.getElementById('metricAvgWeight');
+    const mPeak = document.getElementById('metricPeakWeight');
+    if (mAvg) {
+      mAvg.textContent = curW >= 1000 ? `${(curW / 1000).toFixed(2)} kg` : `${curW.toFixed(1)} g`;
+    }
+    if (mPeak) {
+      mPeak.textContent = `${fillPercent}%`;
+    }
+
     // Update Status Lingkungan di Halaman Analitik jika aktif
     const mEnv = document.getElementById('metricEnvStatus');
     const mEnvSub = document.getElementById('metricEnvSub');
@@ -1933,8 +2037,19 @@ async function fetchDeviceStatus() {
       elTareDisp.textContent = `${activeTare.toFixed(1)} g`;
     }
 
+    // Masukkan data live ke buffer grafik samping agar berjalan real-time (Gambar 1)
+    const nowIso = new Date().toISOString();
+    liveSideChartBuffer.push({
+      t: nowIso,
+      w: curW,
+      tw: curW,
+      d: dev.distanceCm
+    });
+    if (liveSideChartBuffer.length > 14) {
+      liveSideChartBuffer.shift();
+    }
     if (typeof updateSideSensorChart === 'function') {
-      updateSideSensorChart(dev.history || null, dev.currentWeightGram ?? dev.weightGram, dev.distanceCm);
+      updateSideSensorChart(liveSideChartBuffer, curW, dev.distanceCm);
     }
 
     updateAIContextPills();
@@ -1953,9 +2068,14 @@ async function fetchHistory() {
     if (data.history && typeof updateRevenueChartData === 'function') {
       updateRevenueChartData(data.history);
     }
-    if (data.history && typeof updateSideSensorChart === 'function') {
-      const dev = currentDevice || {};
-      updateSideSensorChart(data.history, dev.currentWeightGram ?? dev.weightGram, dev.distanceCm);
+    if (data.history && Array.isArray(data.history)) {
+      if (liveSideChartBuffer.length < 5) {
+        liveSideChartBuffer = data.history.slice(-14);
+      }
+      // Jika sedang berada di halaman analitik, perbarui grafik analitik agar berjalan real-time (Gambar 3)
+      if (currentView === 'analytics' && currentAnalyticsRange === 'today') {
+        loadAnalyticsData('today');
+      }
     }
   } catch (err) {
     console.error('Error fetching history:', err);

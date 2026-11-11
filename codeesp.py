@@ -1,16 +1,63 @@
-from hx711 import HX711
+try:
+    from hx711 import HX711
+except ImportError:
+    from machine import Pin
+    class HX711:
+        def __init__(self, d_out, pd_sck, gain=128):
+            self.d_out = Pin(d_out, Pin.IN)
+            self.pd_sck = Pin(pd_sck, Pin.OUT)
+            self.gain = gain
+            self.offset = 0
+            self.pd_sck.value(0)
+        def is_ready(self):
+            return self.d_out.value() == 0
+        def read(self):
+            start = time.ticks_ms()
+            while not self.is_ready():
+                if time.ticks_diff(time.ticks_ms(), start) > 500:
+                    return None
+            raw = 0
+            for _ in range(24):
+                self.pd_sck.value(1)
+                raw = (raw << 1) | self.d_out.value()
+                self.pd_sck.value(0)
+            self.pd_sck.value(1)
+            self.pd_sck.value(0)
+            if raw & 0x800000:
+                raw -= 0x1000000
+            return raw
+        def read_average(self, times=10):
+            total, valid = 0, 0
+            for _ in range(times):
+                v = self.read()
+                if v is not None:
+                    total += v
+                    valid += 1
+                time.sleep_ms(3)
+            return int(total / valid) if valid > 0 else 0
+        def tare(self, times=15):
+            self.offset = self.read_average(times)
+            return self.offset
+        def get_value(self):
+            v = self.read()
+            return (v - self.offset) if v is not None else None
 from machine import Pin, PWM, time_pulse_us, reset
 import network
 import time
 import urequests
 
 # --- KONFIGURASI PIN HARDWARE ---
-# Sensor Ultrasonik HC-SR04
-TRIG_PIN = 19
-ECHO_PIN = 21
+# Sensor Ultrasonik 1 (Deteksi Tangan Depan - Buka Tutup)
+TRIG_TANGAN_PIN = 19
+ECHO_TANGAN_PIN = 21
+trig_tangan = Pin(TRIG_TANGAN_PIN, Pin.OUT)
+echo_tangan = Pin(ECHO_TANGAN_PIN, Pin.IN)
 
-trig = Pin(TRIG_PIN, Pin.OUT)
-echo = Pin(ECHO_PIN, Pin.IN)
+# Sensor Ultrasonik 2 (Volume Sampah Dalam Tong)
+TRIG_VOL_PIN = 23
+ECHO_VOL_PIN = 14
+trig_vol = Pin(TRIG_VOL_PIN, Pin.OUT)
+echo_vol = Pin(ECHO_VOL_PIN, Pin.IN)
 
 # Servo MG995 (Penggerak Tutup Tempat Sampah)
 SERVO_PIN = 18
@@ -21,9 +68,9 @@ hx = HX711(d_out=4, pd_sck=5)
 
 # --- PENGATURAN SERVO & TUTUP TONG ---
 JARAK_DETEKSI_TANGAN_CM = 20   # Jarak deteksi tangan untuk membuka tutup (cm)
-DURASI_TAHAN_DETIK = 3.0       # Durasi tutup tetap terbuka setelah tangan menjauh (detik)
+DURASI_TAHAN_DETIK = 5.0       # Durasi tutup tetap terbuka setelah tangan menjauh (detik)
 SUDUT_TUTUP = 0                # Sudut servo saat tertutup rapat (derajat)
-SUDUT_BUKA = 90                # Sudut servo saat terbuka penuh (derajat)
+SUDUT_BUKA = 180               # Sudut servo saat terbuka penuh (180 derajat)
 
 current_servo_angle = SUDUT_TUTUP
 is_lid_open = False
@@ -34,20 +81,20 @@ FAKTOR_KALIBRASI = 423.5
 AMBANG_PENUH_CM = 10
 JARAK_KOSONG_CM = 35
 
-WIFI_SSID = "NAMA_WIFI_ANDA"
-WIFI_PASSWORD = "PASSWORD_WIFI_ANDA"
+WIFI_SSID = "S26 ULTRA"
+WIFI_PASSWORD = "Bangkoks"
 
 # ===== [DIUBAH] SERVER_URL mengarah ke hosting publik =====
 SERVER_URL = "http://144.79.202.196:40122/api/iot/data"
 # ===== [DITAMBAH] URL endpoint perintah dari dashboard =====
 COMMAND_URL = "http://144.79.202.196:40122/api/iot/commands"
 # ===== [DITAMBAH] Token autentikasi perangkat (Diambil dari Halaman Akun Dashboard) =====
-DEVICE_TOKEN = "ISI_TOKEN_DARI_PANEL"
+DEVICE_TOKEN = "eco_token_12345"
 
 DEVICE_ID = "esp32-ecosort-1"
 SEND_INTERVAL_SECONDS = 1
 HTTP_TIMEOUT_SECONDS = 3
-LOOP_DELAY_MS = 120
+LOOP_DELAY_MS = 250
 
 HX_SAMPLE_COUNT = 1
 HX_SAMPLE_DELAY_MS = 0
@@ -95,46 +142,73 @@ def get_wifi_error_message(st):
     return f"Status kode {st}"
 
 
-def connect_wifi(timeout_sec=6):
-    """Mencoba menghubungkan WiFi secara cepat tanpa memblokir sistem."""
+def connect_wifi(timeout_sec=10):
+    """Mencoba menghubungkan WiFi secara bersih dan tahan Wifi Internal State Error."""
     if wifi.isconnected():
         return True
 
-    wifi.active(True)
-    time.sleep_ms(100)
+    print(f"\n[WIFI] Menghubungkan ke '{WIFI_SSID}'...")
 
-    print(f"Menghubungkan ke WiFi '{WIFI_SSID}'...")
+    # 1. Bersihkan sisa koneksi sebelumnya agar ESP-IDF tidak crash 'Wifi Internal State Error'
+    try:
+        wifi.disconnect()
+    except Exception:
+        pass
+
+    try:
+        wifi.active(False)
+        time.sleep_ms(250)
+        wifi.active(True)
+        time.sleep_ms(350)
+    except Exception:
+        pass
+
+    # 2. Panggil connect dengan proteksi error
     try:
         wifi.connect(WIFI_SSID, WIFI_PASSWORD)
-    except Exception as e:
-        print("Error koneksi WiFi:", e)
-        return False
+    except OSError as e:
+        print(f"[WIFI State] Reset radio WiFi ({e})...")
+        try:
+            wifi.active(False)
+            time.sleep_ms(500)
+            wifi.active(True)
+            time.sleep_ms(500)
+            wifi.connect(WIFI_SSID, WIFI_PASSWORD)
+        except Exception as e2:
+            print("[WIFI Error] Gagal connect:", e2)
+            return False
 
+    # 3. Tunggu hingga tersambung
     start_time = time.time()
     while (time.time() - start_time) < timeout_sec:
         if wifi.isconnected():
-            print("WiFi Terhubung! IP:", wifi.ifconfig()[0])
+            print(f"[WIFI OK] Terhubung ke '{WIFI_SSID}'! IP ESP32: {wifi.ifconfig()[0]}\n")
             return True
-        time.sleep_ms(300)
+        time.sleep_ms(400)
 
-    # Jika gagal, periksa statusnya
+    # 4. Jika gagal, periksa kode statusnya
     try:
         st = wifi.status()
-        print(f"WiFi belum terhubung: {get_wifi_error_message(st)}")
+        print(f"[WIFI GAGAL] {get_wifi_error_message(st)}")
+        print(">>> PERHATIAN HOTSPOT HP SAMSUNG:")
+        print("    1. Pastikan Hotspot 'S26 ULTRA' AKTIF.")
+        print("    2. Buka Pengaturan -> Sambungan -> Hotspot Seluler -> Konfigurasi.")
+        print("    3. Ubah 'Pita Frekuensi' (Band) ke '2.4 GHz' (ESP32 tidak bisa 5 GHz!).")
+        print("    4. Ubah 'Pengaman' (Security) ke 'WPA2-Personal'.\n")
     except Exception:
-        print("WiFi belum terhubung (timeout)")
+        print("[WIFI GAGAL] Timeout menyambung ke WiFi.")
 
     return False
 
 
 # --- FUNGSI KONTROL SERVO MG995 ---
 def set_servo_angle(angle):
-    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman."""
+    """Mengatur sudut servo (0 - 180 derajat) dengan batas aman standar MG995."""
     global current_servo_angle
     angle = max(0, min(180, int(angle)))
     current_servo_angle = angle
-    # MG995: 500us (0 deg) s/d 2500us (180 deg) pada periode 20.000us (50Hz)
-    pulse_us = 500 + (angle / 180.0) * 2000
+    # MG995 standar: 1000us (0 deg) s/d 2000us (180 deg) pada periode 20.000us (50Hz)
+    pulse_us = 1000 + (angle / 180.0) * 1000
     duty = int((pulse_us / 20000.0) * 65535)
     servo_pwm.duty_u16(duty)
 
@@ -155,39 +229,43 @@ def release_servo():
     servo_pwm.duty_u16(0)
 
 
-def get_distance():
-    trig.value(0)
+def get_distance_raw(trig_p, echo_p):
+    trig_p.value(0)
     time.sleep_us(5)
-    trig.value(1)
+    trig_p.value(1)
     time.sleep_us(10)
-    trig.value(0)
+    trig_p.value(0)
 
     try:
-        duration = time_pulse_us(echo, 1, 35000)
+        duration = time_pulse_us(echo_p, 1, 35000)
         if duration <= 0:
             return None
-        return (duration / 2) / 29.1
-    except Exception as e:
-        print("Ultrasonic error:", e)
+        return (duration / 2.0) / 29.1
+    except Exception:
         return None
 
 
-def read_distance_cm():
+def read_distance_filtered(trig_p, echo_p):
     samples = []
-    for _ in range(ULTRASONIC_SAMPLE_COUNT):
-        jarak = get_distance()
+    for _ in range(2):
+        jarak = get_distance_raw(trig_p, echo_p)
         if jarak is not None and MIN_VALID_DISTANCE_CM <= jarak <= MAX_VALID_DISTANCE_CM:
             samples.append(jarak)
-        time.sleep_ms(ULTRASONIC_SAMPLE_DELAY_MS)
+        time.sleep_ms(15)
 
     if not samples:
         return None
 
     samples.sort()
-    mid = len(samples) // 2
-    if len(samples) % 2:
-        return samples[mid]
-    return (samples[mid - 1] + samples[mid]) / 2
+    return samples[len(samples) // 2]
+
+
+def read_distance_tangan():
+    return read_distance_filtered(trig_tangan, echo_tangan)
+
+
+def read_distance_volume():
+    return read_distance_filtered(trig_vol, echo_vol)
 
 
 def read_hx711_value():
@@ -305,11 +383,14 @@ def send_to_dashboard(berat, jarak, berat_sensor, pending, total):
             res = urequests.post(SERVER_URL, json=payload,
                                  headers=headers,
                                  timeout=HTTP_TIMEOUT_SECONDS)
-            print("HTTP:", res.status_code)
+            if res.status_code == 200:
+                print(f"   >>> [HTTP 200 OK] Data terkirim ke Web Dashboard! (Berat: {payload['weightGram']}g, Kapasitas: {payload.get('distanceCm', '--')}cm)")
+            else:
+                print(f"   >>> [HTTP {res.status_code}] Ditolak server: {res.text}")
             res.close()
             return
         except Exception as e:
-            print("HTTP error:", e, "| retry", attempt + 1)
+            print("   >>> [HTTP Error] Gagal kirim:", e, "| coba lagi..." if attempt == 0 else "")
             time.sleep_ms(300)
 
 
@@ -401,20 +482,30 @@ release_servo()
 
 print("Tare HX711...")
 hx.tare()
+
+print("Tare Ketinggian Dasar Tong Sampah...")
+d_dasar = read_distance_volume()
+if d_dasar is not None and d_dasar > 3.0:
+    JARAK_KOSONG_CM = d_dasar
+    print("-> Dasar tong terdeteksi: {:.1f} cm (Tinggi sampah diset = 0.0 cm)".format(JARAK_KOSONG_CM))
+else:
+    print("-> Menggunakan jarak dasar default: {:.1f} cm".format(JARAK_KOSONG_CM))
+
 print("Ready\n")
 
 while True:
     try:
         berat_raw = read_weight_gram()
-        jarak_raw = read_distance_cm()
+        jarak_tangan = read_distance_tangan()
+        jarak_vol_raw = read_distance_volume()
 
         # ===== KONTROL OTOMATIS TUTUP TEMPAT SAMPAH (SERVO MG995) =====
         now_ms = time.ticks_ms()
-        # Jika sensor ultrasonik mendeteksi adanya tangan / benda mendekat
-        if jarak_raw is not None and jarak_raw <= JARAK_DETEKSI_TANGAN_CM:
+        # Jika sensor tangan mendeteksi adanya tangan mendekat
+        if jarak_tangan is not None and jarak_tangan <= JARAK_DETEKSI_TANGAN_CM:
             last_hand_detected_ms = now_ms
             if not is_lid_open:
-                print(">>> [TANGAN TERDETEKSI ({:.1f} cm)] MEMBUKA TUTUP TONG...".format(jarak_raw))
+                print(">>> [TANGAN TERDETEKSI ({:.1f} cm)] MEMBUKA TUTUP TONG 180°...".format(jarak_tangan))
                 move_servo_smooth(SUDUT_BUKA)
                 is_lid_open = True
         else:
@@ -423,12 +514,12 @@ while True:
                 print(">>> [TANGAN MENJAUH] MENUTUP KEMBALI TUTUP TONG...")
                 move_servo_smooth(SUDUT_TUTUP)
                 time.sleep_ms(300)
-                release_servo()  # Rilekskan motor servo agar tidak mendengung & tidak panas
+                release_servo()
                 is_lid_open = False
         # ===============================================================
 
         smoothed_weight_gram = smooth_weight(smoothed_weight_gram, berat_raw)
-        smoothed_distance_cm = apply_ema(smoothed_distance_cm, jarak_raw, DISTANCE_SMOOTHING_ALPHA)
+        smoothed_distance_cm = apply_ema(smoothed_distance_cm, jarak_vol_raw, DISTANCE_SMOOTHING_ALPHA)
 
         berat_sensor = smoothed_weight_gram or 0
         jarak = smoothed_distance_cm
@@ -446,18 +537,14 @@ while True:
             berat_sensor
         )
 
-        print("----------------------")
-        print("Berat total:", format_weight_label(berat))
-        print("Berat sensor (Load Cell):", format_weight_label(berat_sensor))
-        print("Jarak Tangan:", "ERROR / OUT" if jarak_raw is None else "{:.1f} cm".format(jarak_raw))
-        print("Status Tutup:", "TERBUKA" if is_lid_open else "TERTUTUP")
+        # Hitung Tinggi Sampah dari Dasar:
+        tinggi_sampah = max(0.0, round(JARAK_KOSONG_CM - jarak, 1)) if jarak is not None else None
 
-        if jarak is not None and jarak <= AMBANG_PENUH_CM:
-            print("STATUS: PENUH")
-        elif jarak is None:
-            print("STATUS: SENSOR STANDBY")
-        else:
-            print("STATUS: AMAN")
+        vol_status = "🔴 PENUH" if (tinggi_sampah is not None and tinggi_sampah >= AMBANG_PENUH_CM) else ("🟡 TERISI" if (tinggi_sampah is not None and tinggi_sampah > 0.0) else "🟢 KOSONG")
+        tangan_str = f"{jarak_tangan:5.1f} cm" if jarak_tangan is not None else " STANDBY"
+        sampah_str = f"{tinggi_sampah:4.1f} cm" if tinggi_sampah is not None else " ---  "
+        tutup_str = "BUKA 180°" if is_lid_open else "TUTUP 0° "
+        print(f"Tangan: {tangan_str} | Sampah: {sampah_str} [{vol_status}] | Berat: {berat_sensor:5.1f} g | Tutup: {tutup_str}")
 
         now_sec = time.time()
         if "last_send_sec" not in globals():

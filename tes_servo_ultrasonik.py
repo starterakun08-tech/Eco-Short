@@ -1,143 +1,252 @@
 """
-==========================================================
-  KODE ASLI SERVO MG995 + ULTRASONIK (DENGAN SERVO_SMOOTH)
-==========================================================
-- Deteksi tangan <= 20 cm -> Membuka 90 derajat secara halus
-- Menahan terbuka selama 6 detik
-- Menutup kembali ke 0 derajat secara halus
-- Menggunakan step-by-step (step=2) agar arus USB tidak melonjak
-==========================================================
+================================================================================
+          KODE LENGKAP SEMUA SENSOR & SERVO - ECOSORT SMART TRASH CAN
+                      (VERSI PERBAIKAN AKURASI VOLUME)
+================================================================================
+Perbaikan Akurasi:
+  1. Menampilkan 'Jarak Sensor Asli' dan 'Tinggi Sampah' agar mudah dikalibrasi.
+  2. Saat tutup tong membuka (180°), pembacaan sensor volume DI-FREEZE (ditahan),
+     sehingga tidak membaca pantulan langit-langit/tangan saat tutup terbuka.
+  3. Filter median 5 sampel untuk mencegah pantulan dinding tong.
+  4. Pengaturan TINGGI DASAR TONG MANUAL yang bisa disesuaikan dengan penggaris.
+================================================================================
 """
 from machine import Pin, PWM, time_pulse_us
 import time
 
-# ==========================================================
-#  KONFIGURASI PIN RANGKAIAN
-# ==========================================================
-TRIG_PIN = 19
-ECHO_PIN = 21       # Echo dihubungkan ke GPIO 21
-SERVO_PIN = 18      # Sinyal Servo MG995 dihubungkan ke GPIO 18
+# ==============================================================================
+# 1. KONFIGURASI PARAMETER (SESUAIKAN DENGAN TONG ANDA)
+# ==============================================================================
+# Servo MG995
+SERVO_PIN = 18
+DUTY_TUTUP = 3276  # 0 Derajat (Tutup Rapat - 1000 us)
+DUTY_BUKA  = 6553  # 180 Derajat (Buka Maksimal - 2000 us)
+DURASI_BUKA_DETIK = 5
 
-trig = Pin(TRIG_PIN, Pin.OUT)
-echo = Pin(ECHO_PIN, Pin.IN)
-servo_pwm = PWM(Pin(SERVO_PIN), freq=50)  # Frekuensi standar servo 50 Hz
+# Ultrasonik 1 (Tangan Depan)
+TRIG_TANGAN_PIN = 19
+ECHO_TANGAN_PIN = 21
+JARAK_BUKA_TANGAN_CM = 20.0  # Buka jika tangan <= 20 cm
 
-# ==========================================================
-#  PENGATURAN LOGIKA TONG SAMPAH
-# ==========================================================
-JARAK_DETEKSI_CM = 20     # Jarak tangan untuk membuka tutup (cm)
-DURASI_BUKA_DETIK = 6     # Lama tutup tong terbuka (6 detik)
-SUDUT_TUTUP = 0           # Sudut tertutup (0 derajat)
-SUDUT_BUKA = 90           # Sudut terbuka (90 derajat)
+# Ultrasonik 2 (Volume Dalam Tong)
+TRIG_VOLUME_PIN = 23
+ECHO_VOLUME_PIN = 14
 
-current_angle = 0
+# --- PENTING: UKUR DENGAN PENGGARIS DARI SENSOR KE DASAR TONG KOSONG ---
+# Jika Auto-Tare tidak pas, ubah angka di bawah ini sesuai tinggi tong Anda (cm):
+TINGGI_DASAR_TONG_DEFAULT = 30.0  
+BATAS_PENUH_CM            = 10.0  # Jika tinggi sampah >= 10.0 cm -> 🔴 PENUH
 
+jarak_dasar_tong = TINGGI_DASAR_TONG_DEFAULT
 
-# ==========================================================
-#  FUNGSI KONTROL SERVO MG995
-# ==========================================================
-def set_servo_angle(angle):
-    """Atur sudut servo antara 0 s/d 180 derajat."""
-    global current_angle
-    angle = max(0, min(180, int(angle)))
-    current_angle = angle
-    # Konversi sudut ke pulse width (500us - 2500us) pada periode 20.000us
-    pulse_us = 500 + (angle / 180.0) * (2500 - 500)
-    duty = int((pulse_us / 20000.0) * 65535)
-    servo_pwm.duty_u16(duty)
+# Load Cell HX711 (Timbangan)
+HX_DT_PIN  = 4
+HX_SCK_PIN = 5
+FAKTOR_KALIBRASI = 423.5
 
+# ==============================================================================
+# 2. INISIALISASI HARDWARE
+# ==============================================================================
+servo = PWM(Pin(SERVO_PIN), freq=50)
 
-def servo_smooth(target_angle, delay_ms=15, step=2):
-    """Gerakan servo secara bertahap dan halus (mencegah lonjakan arus USB)."""
-    global current_angle
-    target_angle = max(0, min(180, int(target_angle)))
-    if current_angle < target_angle:
-        for a in range(current_angle, target_angle + 1, step):
-            set_servo_angle(a)
-            time.sleep_ms(delay_ms)
-    else:
-        for a in range(current_angle, target_angle - 1, -step):
-            set_servo_angle(a)
-            time.sleep_ms(delay_ms)
-    set_servo_angle(target_angle)
+trig_tangan = Pin(TRIG_TANGAN_PIN, Pin.OUT)
+echo_tangan = Pin(ECHO_TANGAN_PIN, Pin.IN)
 
+trig_vol = Pin(TRIG_VOLUME_PIN, Pin.OUT)
+echo_vol = Pin(ECHO_VOLUME_PIN, Pin.IN)
 
-def release_servo():
-    """Matikan sinyal PWM saat diam agar servo rileks, tidak bergetar & tidak panas."""
-    servo_pwm.duty_u16(0)
+class HX711:
+    def __init__(self, d_out, pd_sck):
+        self.d_out = Pin(d_out, Pin.IN)
+        self.pd_sck = Pin(pd_sck, Pin.OUT)
+        self.pd_sck.value(0)
+        self.offset = 0
 
+    def is_ready(self):
+        return self.d_out.value() == 0
 
-# ==========================================================
-#  FUNGSI BACA JARAK ULTRASONIK (HC-SR04 / RCWL-9616)
-# ==========================================================
-def get_distance_cm():
-    trig.value(0)
+    def read(self):
+        start = time.ticks_ms()
+        while not self.is_ready():
+            if time.ticks_diff(time.ticks_ms(), start) > 500:
+                return None
+        raw = 0
+        for _ in range(24):
+            self.pd_sck.value(1)
+            raw = (raw << 1) | self.d_out.value()
+            self.pd_sck.value(0)
+        self.pd_sck.value(1)
+        self.pd_sck.value(0)
+        if raw & 0x800000:
+            raw -= 0x1000000
+        return raw
+
+    def read_average(self, times=10):
+        total, valid = 0, 0
+        for _ in range(times):
+            val = self.read()
+            if val is not None:
+                total += val
+                valid += 1
+            time.sleep_ms(3)
+        return int(total / valid) if valid > 0 else 0
+
+    def tare(self, times=15):
+        self.offset = self.read_average(times)
+        return self.offset
+
+    def get_value(self):
+        val = self.read()
+        return (val - self.offset) if val is not None else None
+
+hx = HX711(d_out=HX_DT_PIN, pd_sck=HX_SCK_PIN)
+
+# ==============================================================================
+# 3. FUNGSI SENSOR DENGAN FILTER TINGGI
+# ==============================================================================
+def baca_sensor_ultrasonik(trig_pin, echo_pin):
+    trig_pin.value(0)
     time.sleep_us(5)
-    trig.value(1)
+    trig_pin.value(1)
     time.sleep_us(10)
-    trig.value(0)
-
+    trig_pin.value(0)
     try:
-        duration = time_pulse_us(echo, 1, 50000)
+        duration = time_pulse_us(echo_pin, 1, 35000)
         if duration > 100:
             cm = (duration / 2.0) / 29.1
-            if 2 <= cm <= 300:
-                return cm
+            if 2 <= cm <= 400:
+                return round(cm, 1)
         return None
     except Exception:
         return None
 
+def baca_sensor_filter(trig_pin, echo_pin, samples=4):
+    """Filter median multi-sampel untuk akurasi tinggi."""
+    arr = []
+    for _ in range(samples):
+        d = baca_sensor_ultrasonik(trig_pin, echo_pin)
+        if d is not None:
+            arr.append(d)
+        time.sleep_ms(12)
+    if not arr:
+        return None
+    arr.sort()
+    return arr[len(arr) // 2]
 
-# ==========================================================
-#  PROGRAM UTAMA
-# ==========================================================
-print("=" * 55)
-print("  SISTEM ULTRASONIK + SERVO MG995 AKTIF")
-print("=" * 55)
-print("Jarak Deteksi : <= {} cm".format(JARAK_DETEKSI_CM))
-print("Durasi Buka   : {} detik".format(DURASI_BUKA_DETIK))
-print("Pin           : Trig=19, Echo=21, Servo=18")
-print("-" * 55)
+def hitung_tinggi_sampah(jarak_sensor):
+    """
+    Tinggi Sampah = Jarak Dasar Tong Kosong - Jarak Sensor Terbaca
+    Contoh: Dasar 30 cm, sensor baca 20 cm -> Tinggi sampah = 10 cm
+    """
+    global jarak_dasar_tong
+    if jarak_sensor is None:
+        return None
+    tinggi = jarak_dasar_tong - jarak_sensor
+    # Toleransi getaran di dasar tong (jika selisih <= 1.0 cm dianggap 0)
+    if tinggi <= 1.0:
+        tinggi = 0.0
+    return round(tinggi, 1)
 
-# Posisi awal: tutup tong tertutup rapat
-print("Inisialisasi posisi awal (0 derajat)...")
-set_servo_angle(SUDUT_TUTUP)
+def baca_berat_gram():
+    val = hx.get_value()
+    if val is not None:
+        gram = val / FAKTOR_KALIBRASI
+        if abs(gram) < 3.0:
+            gram = 0.0
+        return round(gram, 1)
+    return None
+
+# ==============================================================================
+# 4. INISIALISASI SAAT BOOT
+# ==============================================================================
+print("=" * 65)
+print("     SISTEM TONG SAMPAH PINTAR ECOSORT (AKURASI VOLUME)")
+print("=" * 65)
+
+# A. Kunci Servo ke Tutup Rapat
+print("[1/3] Mengunci Servo ke posisi TUTUP (0 derajat)...")
+servo.duty_u16(DUTY_TUTUP)
+time.sleep(1)
+
+# B. Auto-Tare Dasar Tong Sampah
+print("[2/3] Mengukur jarak dasar tong kosong...")
 time.sleep_ms(500)
-release_servo()
-print("Siap! Dekatkan tangan Anda ke sensor.")
-print("-" * 55)
+d_dasar_test = baca_sensor_filter(trig_vol, echo_vol, samples=6)
 
+if d_dasar_test is not None and d_dasar_test > 5.0:
+    jarak_dasar_tong = d_dasar_test
+    print("      -> Dasar terdeteksi: {:.1f} cm (Diset sebagai titik 0.0 cm)".format(jarak_dasar_tong))
+else:
+    jarak_dasar_tong = TINGGI_DASAR_TONG_DEFAULT
+    print("      -> Menggunakan default dasar tong: {:.1f} cm".format(jarak_dasar_tong))
+
+# C. Tare Timbangan HX711
+print("[3/3] Kalibrasi titik nol timbangan (Tare)...")
+hx.tare(15)
+print("      -> Timbangan siap! Titik 0.0 gram terkunci.")
+print("-" * 65)
+print("Sistem Berjalan! Perhatikan angka 'Sensor' dan 'Tinggi Sampah':\n")
+
+# Variabel penyimpan tinggi sampah terakhir (agar tidak terganggu saat tutup membuka)
+tinggi_sampah_terakhir = 0.0
+jarak_sensor_terakhir  = jarak_dasar_tong
+
+# ==============================================================================
+# 5. LOOP UTAMA
+# ==============================================================================
 try:
     while True:
-        jarak = get_distance_cm()
+        # 1. Baca Sensor Tangan Depan
+        jarak_tangan = baca_sensor_filter(trig_tangan, echo_tangan, samples=2)
 
-        if jarak is not None:
-            print("Jarak: {:5.1f} cm | Status: {}".format(
-                jarak, "TANGAN DEKAT" if jarak <= JARAK_DETEKSI_CM else "Standby"))
+        # 2. Baca Sensor Volume Dalam (Hanya saat tutup tong sedang tertutup)
+        jarak_sensor_vol = baca_sensor_filter(trig_vol, echo_vol, samples=3)
+        if jarak_sensor_vol is not None:
+            jarak_sensor_terakhir = jarak_sensor_vol
+            tinggi_sampah_terakhir = hitung_tinggi_sampah(jarak_sensor_vol)
 
-            # Jika tangan / objek terdeteksi mendekat (<= 20 cm)
-            if jarak <= JARAK_DETEKSI_CM:
-                print("\n>>> TANGAN TERDETEKSI! Membuka tutup tong (90 deg)...")
-                servo_smooth(SUDUT_BUKA, delay_ms=12, step=2)
-                release_servo()  # Rilekskan motor saat terbuka
+        # 3. Baca Berat Timbangan
+        berat = baca_berat_gram()
 
-                # Tunggu 6 detik agar user sempat membuang sampah
-                print(">>> Menunggu {} detik...".format(DURASI_BUKA_DETIK))
-                time.sleep(DURASI_BUKA_DETIK)
+        # Format Teks
+        txt_tangan = "{:5.1f} cm".format(jarak_tangan) if jarak_tangan is not None else "  ---  "
+        txt_sensor = "{:5.1f} cm".format(jarak_sensor_terakhir)
+        txt_tinggi = "{:5.1f} cm".format(tinggi_sampah_terakhir)
+        txt_berat  = "{:6.1f} g".format(berat) if berat is not None else "  ---  "
 
-                print(">>> Menutup kembali (0 deg)...")
-                servo_smooth(SUDUT_TUTUP, delay_ms=15, step=2)
-                release_servo()  # Rilekskan motor saat tertutup
-                
-                # Jeda 1 detik agar tidak langsung terpicu ulang
-                print(">>> Siap kembali.\n")
-                time.sleep(1)
+        # Tentukan Status
+        if tinggi_sampah_terakhir >= BATAS_PENUH_CM:
+            status_vol = "🔴 PENUH"
+        elif tinggi_sampah_terakhir > 0.0:
+            status_vol = "🟡 TERISI"
         else:
-            print("Jarak:  ---   cm | Status: Standby")
+            status_vol = "🟢 KOSONG"
 
-        time.sleep_ms(150)
+        print("Tangan: {} | Sensor: {} -> Tinggi: {} [{}] | Berat: {}".format(
+            txt_tangan, txt_sensor, txt_tinggi, status_vol, txt_berat
+        ))
+
+        # 4. Aksi Jika Tangan Terdeteksi
+        if jarak_tangan is not None and jarak_tangan <= JARAK_BUKA_TANGAN_CM:
+            print("\n" + "=" * 55)
+            print(">>> [1/3] TANGAN TERDETEKSI ({})! BUKA TUTUP 180°...".format(txt_tangan))
+            servo.duty_u16(DUTY_BUKA)
+
+            print(">>> [2/3] TERBUKA SELAMA {} DETIK (MEMASUKKAN SAMPAH)...".format(DURASI_BUKA_DETIK))
+            for s in range(DURASI_BUKA_DETIK, 0, -1):
+                berat_live = baca_berat_gram()
+                b_str = "{:6.1f} g".format(berat_live) if berat_live is not None else "---"
+                print("    Sisa waktu: {} detik... | Berat timbangan: {}".format(s, b_str))
+                time.sleep(1)
+
+            print(">>> [3/3] MENUTUP KEMBALI KE 0 DERAJAT...")
+            servo.duty_u16(DUTY_TUTUP)
+            time.sleep(1)  # Beri waktu tutup merapat stabil
+            print(">>> Tutup rapat. Mengukur ulang volume isi tong...\n" + "=" * 55)
+
+        time.sleep_ms(250)
 
 except KeyboardInterrupt:
     print("\nProgram dihentikan.")
-    release_servo()
-    servo_pwm.deinit()
+    servo.duty_u16(0)
+    servo.deinit()

@@ -178,7 +178,8 @@ function initAnalyticsWeightChart() {
           tension: 0.4,
           fill: true,
           pointRadius: 2,
-          pointBackgroundColor: COLOR_GREEN
+          pointBackgroundColor: COLOR_GREEN,
+          spanGaps: true
         }
       ]
     },
@@ -251,7 +252,8 @@ function initAnalyticsCapacityChart() {
           tension: 0.4,
           fill: true,
           pointRadius: 2,
-          pointBackgroundColor: COLOR_ORANGE
+          pointBackgroundColor: COLOR_ORANGE,
+          spanGaps: true
         }
       ]
     },
@@ -528,8 +530,9 @@ function initSideSensorChart() {
           borderWidth: 2,
           tension: 0.35,
           fill: true,
-          pointRadius: 0,
-          hoverRadius: 4,
+          pointRadius: 2,
+          hoverRadius: 5,
+          spanGaps: true,
           yAxisID: 'y'
         },
         {
@@ -544,8 +547,9 @@ function initSideSensorChart() {
           borderDash: [3, 3],
           tension: 0.35,
           fill: false,
-          pointRadius: 0,
-          hoverRadius: 4,
+          pointRadius: 2,
+          hoverRadius: 5,
+          spanGaps: true,
           yAxisID: 'y1'
         }
       ]
@@ -553,6 +557,10 @@ function initSideSensorChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        duration: 350,
+        easing: 'easeOutQuad'
+      },
       interaction: {
         mode: 'index',
         intersect: false
@@ -575,18 +583,11 @@ function initSideSensorChart() {
           bodyFont: { family: 'Plus Jakarta Sans', size: 10, weight: '500' },
           callbacks: {
             labelPointStyle: function() {
-              return {
-                pointStyle: 'circle',
-                rotation: 0
-              };
+              return { pointStyle: 'circle', rotation: 0 };
             },
             labelColor: function(ctx) {
               const color = ctx.datasetIndex === 0 ? '#72c01a' : '#f59e0b';
-              return {
-                borderColor: color,
-                backgroundColor: color,
-                borderWidth: 0
-              };
+              return { borderColor: color, backgroundColor: color, borderWidth: 0 };
             },
             label: (ctx) => {
               if (ctx.datasetIndex === 0) {
@@ -602,20 +603,20 @@ function initSideSensorChart() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { color: '#64748b', maxTicksLimit: 5, font: { family: 'Plus Jakarta Sans', size: 9 } }
+          ticks: { color: '#64748b', maxTicksLimit: 6, font: { family: 'Plus Jakarta Sans', size: 9 } }
         },
         y: {
           type: 'linear',
           display: true,
           position: 'left',
           min: 0,
-          suggestedMax: 10000,
+          suggestedMax: 50,
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
           ticks: {
             color: '#72c01a',
             font: { family: 'Plus Jakarta Sans', size: 9 },
             maxTicksLimit: 5,
-            callback: (v) => v >= 1000 ? (v / 1000).toFixed(0) + 'kg' : v + 'g'
+            callback: (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'kg' : v + 'g'
           }
         },
         y1: {
@@ -649,7 +650,6 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
   const liveCLabel = document.getElementById('sideLiveCapLabel');
 
   const curW = Number(liveWeight ?? 0);
-  // Persentase kapasitas sampah dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
   const curFill = Math.min(100, Math.max(0, Math.round((curW / 10000) * 100)));
 
   if (liveWLabel) {
@@ -661,10 +661,11 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
 
   if (!historyList || !Array.isArray(historyList) || historyList.length === 0) {
     if (curW > 0) {
-      const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       sideSensorChartInstance.data.labels = [nowStr];
       sideSensorChartInstance.data.datasets[0].data = [curW];
       sideSensorChartInstance.data.datasets[1].data = [curFill];
+      sideSensorChartInstance.options.scales.y.suggestedMax = Math.max(30, Math.ceil(curW * 1.25));
       sideSensorChartInstance.update();
       if (emptyEl) emptyEl.style.display = 'none';
       return;
@@ -680,22 +681,21 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
 
   if (emptyEl) emptyEl.style.display = 'none';
 
-  const recent = historyList.slice(-12);
+  const recent = historyList.slice(-14);
   const labels = recent.map((item, idx) => {
     try {
       const d = new Date(item.t);
-      const h = String(d.getHours()).padStart(2, '0');
       const m = String(d.getMinutes()).padStart(2, '0');
-      return `${h}:${m}`;
+      const s = String(d.getSeconds()).padStart(2, '0');
+      return `${m}:${s}`;
     } catch (_) {
       return `T${idx + 1}`;
     }
   });
 
-  const weights = recent.map(item => Number((item.w || 0).toFixed(1)));
-  // Riwayat persentase kapasitas juga dihitung berdasarkan berat terhadap 10 kg
+  const weights = recent.map(item => Number((item.w ?? item.tw ?? 0).toFixed(1)));
   const capacities = recent.map(item => {
-    const w = Number(item.w || 0);
+    const w = Number(item.w ?? item.tw ?? 0);
     return Math.min(100, Math.max(0, Math.round((w / 10000) * 100)));
   });
 
@@ -703,8 +703,9 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
   sideSensorChartInstance.data.datasets[0].data = weights;
   sideSensorChartInstance.data.datasets[1].data = capacities;
 
-  const maxW = Math.max(...weights, curW, 0);
-  sideSensorChartInstance.options.scales.y.suggestedMax = Math.max(1000, Math.min(10000, Math.ceil(maxW * 1.25)));
+  // Skala dinamis: Sesuaikan skala tinggi dengan beban sensor saat ini (bukan 10.000g statis)
+  const maxW = Math.max(...weights, curW, 30);
+  sideSensorChartInstance.options.scales.y.suggestedMax = Math.ceil(maxW * 1.25);
   sideSensorChartInstance.update();
 }
 
