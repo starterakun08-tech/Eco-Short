@@ -19,6 +19,7 @@ const COMMANDS_FILE = path.join(DATA_DIR, 'commands.json');
 const COMMAND_LOG_FILE = path.join(DATA_DIR, 'command_log.json');
 const TRANSACTIONS_FILE = path.join(DATA_DIR, 'transactions.json');
 const READ_NOTIFS_FILE = path.join(DATA_DIR, 'read_notifs.json');
+const DISMISSED_NOTIFS_FILE = path.join(DATA_DIR, 'dismissed_notifs.json');
 
 const MAX_HISTORY_PER_DEVICE = 1000;
 const ONLINE_TIMEOUT_MS = 10000; // 10 detik
@@ -599,6 +600,33 @@ router.get('/transactions', requireAuth, (req, res) => {
 });
 
 // =================================================================
+//  DELETE /api/iot/transactions — Hapus seluruh log kejadian
+// =================================================================
+router.delete('/transactions', requireAuth, (req, res) => {
+  try {
+    writeJSON(TRANSACTIONS_FILE, []);
+    res.json({ ok: true, message: 'Seluruh riwayat log berhasil dibersihkan' });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal membersihkan log' });
+  }
+});
+
+// =================================================================
+//  DELETE /api/iot/transactions/:id — Hapus satu catatan log kejadian
+// =================================================================
+router.delete('/transactions/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const txs = readJSON(TRANSACTIONS_FILE, []);
+    const filtered = txs.filter(t => String(t.id) !== String(id));
+    writeJSON(TRANSACTIONS_FILE, filtered);
+    res.json({ ok: true, count: filtered.length });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal menghapus log' });
+  }
+});
+
+// =================================================================
 //  GET /api/iot/command-log — Log perintah kontrol
 // =================================================================
 router.get('/command-log', requireAuth, (req, res) => {
@@ -1139,8 +1167,12 @@ router.get('/notifications', requireAuth, (req, res) => {
       }
     });
 
-    const unreadCount = notifs.filter(n => n.unread).length;
-    res.json({ notifications: notifs, unreadCount });
+    // Filter notifikasi yang telah dihapus pengguna
+    const dismissedIds = readJSON(DISMISSED_NOTIFS_FILE, []);
+    const activeNotifs = notifs.filter(n => !dismissedIds.includes(n.id));
+
+    const unreadCount = activeNotifs.filter(n => n.unread).length;
+    res.json({ notifications: activeNotifs, unreadCount });
   } catch (err) {
     res.json({ notifications: [], unreadCount: 0 });
   }
@@ -1177,6 +1209,42 @@ router.post('/notifications/read', requireAuth, (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Gagal memperbarui notifikasi' });
+  }
+});
+
+// =================================================================
+//  DELETE /api/iot/notifications — Hapus seluruh notifikasi
+// =================================================================
+router.delete('/notifications', requireAuth, (req, res) => {
+  try {
+    const log = readJSON(COMMAND_LOG_FILE, []);
+    const allIds = ['notif-offline', 'notif-full', 'notif-sensor', 'notif-trash-high', 'notif-trash-warn', 'notif-sys'];
+    if (Array.isArray(log)) log.forEach(l => allIds.push('notif-cmd-' + l.id));
+    const existing = readJSON(DISMISSED_NOTIFS_FILE, []);
+    const merged = Array.from(new Set([...existing, ...allIds]));
+    writeJSON(DISMISSED_NOTIFS_FILE, merged);
+    res.json({ ok: true, message: 'Seluruh notifikasi dibersihkan' });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal menghapus notifikasi' });
+  }
+});
+
+// =================================================================
+//  DELETE /api/iot/notifications/:id — Hapus satu notifikasi
+// =================================================================
+router.delete('/notifications/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    if (id) {
+      const existing = readJSON(DISMISSED_NOTIFS_FILE, []);
+      if (!existing.includes(id)) {
+        existing.push(id);
+        writeJSON(DISMISSED_NOTIFS_FILE, existing);
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal menghapus notifikasi' });
   }
 });
 

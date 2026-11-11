@@ -3152,6 +3152,66 @@ body {
   background: #dc2626;
 }
 
+/* ---- Tombol Hapus Flat Tanpa Bayangan Sesuai Request ---- */
+.btn-clear-all-flat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  outline: none !important;
+  transition: all 0.15s ease;
+}
+
+.btn-clear-all-flat:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.4);
+  box-shadow: none !important;
+}
+
+.btn-clear-all-flat:active {
+  transform: translateY(1px);
+}
+
+.btn-row-delete-flat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  cursor: pointer;
+  box-shadow: none !important;
+  filter: none !important;
+  outline: none !important;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.btn-row-delete-flat:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  box-shadow: none !important;
+}
+
+.btn-row-delete-flat svg {
+  pointer-events: none;
+}
+
 /* ============================================================
    HALAMAN NOTIFIKASI SISTEM (Halaman Penuh)
    ============================================================ */

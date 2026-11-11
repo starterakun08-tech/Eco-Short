@@ -579,7 +579,15 @@
         <div class="reports-table-card">
           <div class="card-header-row">
             <h3 class="card-title">Log Aktivitas &amp; Kejadian Lengkap</h3>
-            <span class="badge-status badge-completed" id="repLogCountBadge">0 Data</span>
+            <div class="card-header-actions" style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge-status badge-completed" id="repLogCountBadge">0 Data</span>
+              <button type="button" class="btn-clear-all-flat" id="btnClearAllLogs" onclick="handleClearAllLogs()" title="Hapus seluruh catatan log aktivitas">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+                <span>Hapus Seluruh</span>
+              </button>
+            </div>
           </div>
           <div class="reports-table-scroll">
             <table class="transaction-table" id="reportsFullTable">
@@ -591,11 +599,12 @@
                   <th>Nilai Berat</th>
                   <th>Jarak Sensor</th>
                   <th>Status</th>
+                  <th style="text-align: center; width: 60px;">Aksi</th>
                 </tr>
               </thead>
               <tbody id="reportsTableBody">
                 <tr>
-                  <td colspan="6" class="table-empty-row">Belum ada riwayat aktivitas yang tercatat.</td>
+                  <td colspan="7" class="table-empty-row">Belum ada riwayat aktivitas yang tercatat.</td>
                 </tr>
               </tbody>
             </table>
@@ -926,6 +935,12 @@
                 <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
               </svg>
               <span>Tandai Semua Dibaca</span>
+            </button>
+            <button type="button" class="btn-clear-all-flat" id="btnClearAllNotifs" onclick="handleClearAllNotifs()" title="Hapus seluruh notifikasi sistem">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+              </svg>
+              <span>Hapus Seluruh</span>
             </button>
           </div>
         </header>
