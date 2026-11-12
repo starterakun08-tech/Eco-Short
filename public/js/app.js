@@ -1667,6 +1667,7 @@ async function loadReportsData() {
     }
 
     tbody.innerHTML = txList.map(tx => {
+      const cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
       const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
 
       return `
@@ -1676,7 +1677,7 @@ async function loadReportsData() {
               <div class="tx-icon-circle">
                 <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
               </div>
-              <span>${escapeHTML(tx.id || '#2024000')}</span>
+              <span>${escapeHTML(cleanId)}</span>
             </div>
           </td>
           <td class="tx-date-col">${escapeHTML(tx.date || 'Tidak ada data')}</td>
@@ -1704,6 +1705,7 @@ function openReportDetailModal(txId) {
   if (!tx) return;
   activeReportTx = tx;
 
+  const cleanId = String(tx.id || txId || '').replace(/^#+/, '') || '1';
   const elSub = document.getElementById('repModalSub');
   const elId = document.getElementById('repModalId');
   const elDate = document.getElementById('repModalDate');
@@ -1711,13 +1713,12 @@ function openReportDetailModal(txId) {
   const elType = document.getElementById('repModalType');
   const elWeight = document.getElementById('repModalWeight');
   const elVolume = document.getElementById('repModalVolume');
-  const elStatus = document.getElementById('repModalStatus');
   const elCmdRow = document.getElementById('repModalCommandRow');
   const elCmdId = document.getElementById('repModalCommandId');
-  const elBadge = document.getElementById('repModalBadge');
+  const elLocation = document.getElementById('repModalLocation');
 
-  if (elSub) elSub.textContent = `ID Transaksi: ${tx.id || '#2024000'}`;
-  if (elId) elId.textContent = tx.id || '#2024000';
+  if (elSub) elSub.textContent = `Kode Laporan: ${cleanId}`;
+  if (elId) elId.textContent = cleanId;
   if (elDate) elDate.textContent = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleString('id-ID') : '-');
   if (elDevice) elDevice.textContent = tx.deviceId || 'esp32-ecosort-1';
   
@@ -1731,8 +1732,6 @@ function openReportDetailModal(txId) {
     : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
   if (elVolume) elVolume.textContent = distDisplay;
 
-  if (elStatus) elStatus.textContent = tx.status || 'Selesai';
-
   if (elCmdRow && elCmdId) {
     if (tx.commandId) {
       elCmdRow.style.display = 'flex';
@@ -1742,8 +1741,8 @@ function openReportDetailModal(txId) {
     }
   }
 
-  if (elBadge) {
-    elBadge.textContent = tx.status === 'Petugas Diberitahu' ? 'Peringatan CCTV' : 'Terverifikasi IoT';
+  if (elLocation) {
+    elLocation.textContent = 'Taman Kota';
   }
 
   const modal = document.getElementById('reportDetailModal');
@@ -1773,6 +1772,7 @@ function printCurrentReport() {
   }
 
   const tx = activeReportTx;
+  const cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
   const printWindow = window.open('', '_blank', 'width=780,height=850');
   if (!printWindow) {
     window.print();
@@ -1788,7 +1788,7 @@ function printCurrentReport() {
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Laporan_EcoSort_${tx.id || 'Detail'}</title>
+  <title>Laporan_EcoSort_${cleanId}</title>
   <style>
     @page { size: A4 portrait; margin: 20mm 15mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1823,16 +1823,6 @@ function printCurrentReport() {
       font-size: 12px;
       color: #64748b;
       margin-top: 2px;
-    }
-    .badge {
-      background: #ecfdf5;
-      color: #059669;
-      border: 1px solid #a7f3d0;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      text-transform: uppercase;
     }
     .info-grid {
       display: grid;
@@ -1922,13 +1912,12 @@ function printCurrentReport() {
     <div class="header">
       <div>
         <h1>EcoSort IoT — Laporan Pemantauan Sampah</h1>
-        <p>Dokumen Digital Resmi Sistem Penimbangan & Sensor IoT</p>
+        <p>Dokumen Digital Resmi Sistem Penimbangan &amp; Sensor IoT</p>
       </div>
-      <span class="badge">TERVERIFIKASI IOT</span>
     </div>
 
     <div class="info-grid">
-      <div class="info-item"><label>ID Kejadian</label><strong>${escapeHTML(tx.id || '#2024000')}</strong></div>
+      <div class="info-item"><label>ID Kejadian</label><strong>${escapeHTML(cleanId)}</strong></div>
       <div class="info-item"><label>Waktu Pencatatan</label><strong>${escapeHTML(tx.date || '-')}</strong></div>
       <div class="info-item"><label>ID Perangkat</label><strong>${escapeHTML(tx.deviceId || 'esp32-ecosort-1')}</strong></div>
       <div class="info-item"><label>Tipe Aktivitas</label><strong>${escapeHTML(tx.type || 'Penimbangan Sampah')}</strong></div>
@@ -1949,7 +1938,8 @@ function printCurrentReport() {
 
     <table>
       <tr><th>Parameter Sistem</th><th style="text-align:right;">Nilai / Keterangan</th></tr>
-      <tr><td>Status Transaksi</td><td>${escapeHTML(tx.status || 'Selesai')}</td></tr>
+      <tr><td>Lokasi</td><td>Taman Kota</td></tr>
+      <tr><td>Kode Laporan</td><td>${escapeHTML(tx.commandId || cleanId)}</td></tr>
       <tr><td>Metode Integrasi</td><td>MicroPython ESP32 Telemetry REST API</td></tr>
       <tr><td>Waktu Cetak Dokumen</td><td>${new Date().toLocaleString('id-ID')}</td></tr>
     </table>
@@ -1957,7 +1947,7 @@ function printCurrentReport() {
     <div class="signatures">
       <div class="sig-col">
         <div class="sig-title">Sistem Pemantauan</div>
-        <div class="sig-name">EcoSort Controller</div>
+        <div class="sig-name">EcoSort Controller (Taman Kota)</div>
       </div>
       <div class="sig-col">
         <div class="sig-title">Petugas Pengawas</div>
@@ -1966,7 +1956,7 @@ function printCurrentReport() {
     </div>
 
     <div class="footer-note">
-      Dokumen ini sah dan diterbitkan secara otomatis oleh server IoT EcoSort. Data bersumber langsung dari pembacaan sensor fisik.
+      Dokumen ini sah dan diterbitkan secara otomatis oleh server IoT EcoSort Taman Kota. Data bersumber langsung dari pembacaan sensor fisik.
     </div>
   </div>
 
@@ -2419,6 +2409,8 @@ function renderTransactions(list, isFiltered = false) {
       statusLabel = 'Terkirim';
     }
 
+    const cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
+
     return `
       <tr>
         <td>
@@ -2426,7 +2418,7 @@ function renderTransactions(list, isFiltered = false) {
             <div class="tx-icon-circle">
               <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7z"/></svg>
             </div>
-            <span>${escapeHTML(tx.id)}</span>
+            <span>${escapeHTML(cleanId)}</span>
           </div>
         </td>
         <td class="tx-date-col">${escapeHTML(tx.date)}</td>

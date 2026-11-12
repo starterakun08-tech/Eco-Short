@@ -454,8 +454,19 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
       const nowObj = new Date();
       const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                      nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+      
+      let maxId = 0;
+      if (Array.isArray(txs) && txs.length > 0) {
+        for (const t of txs) {
+          if (t && t.id !== undefined && t.id !== null) {
+            const num = parseInt(String(t.id).replace(/\D/g, ''), 10);
+            if (!isNaN(num) && num > maxId) maxId = num;
+          }
+        }
+      }
+
       txs.unshift({
-        id: '#' + Math.floor(2024000 + Math.random() * 1000),
+        id: String(maxId + 1),
         date: nowStr,
         timestamp: new Date().toISOString(),
         type: 'Peringatan CCTV',

@@ -179,7 +179,14 @@
         <!-- Header: Title -->
         <header class="content-header">
           <div class="header-titles">
-            <h1>Dashboard</h1>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h1>Dashboard</h1>
+              <span class="badge-status badge-completed" style="font-size: 0.75rem; padding: 3px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px;">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                Taman Kota
+              </span>
+            </div>
+            <p style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">Pemantauan Tong Sampah Pintar IoT — Area Taman Kota</p>
           </div>
         </header>
 
@@ -1093,7 +1100,7 @@
       <div class="modal-header">
         <div class="report-modal-title-wrap">
           <h2>Detail Laporan Kejadian</h2>
-          <span class="report-modal-subtitle" id="repModalSub">ID: #2024000</span>
+          <span class="report-modal-subtitle" id="repModalSub">Kode Laporan: 1</span>
         </div>
         <button type="button" class="btn-modal-close" onclick="closeReportDetailModal()" title="Tutup">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -1114,7 +1121,6 @@
               <p class="report-doc-desc">Laporan Resmi Pemantauan Tong Sampah Pintar</p>
             </div>
           </div>
-          <div class="report-doc-badge" id="repModalBadge">Terverifikasi IoT</div>
         </div>
 
         <div class="report-doc-divider"></div>
@@ -1123,7 +1129,7 @@
         <div class="report-info-grid">
           <div class="report-info-item">
             <span class="report-info-label">ID Kejadian</span>
-            <strong class="report-info-value" id="repModalId">#2024000</strong>
+            <strong class="report-info-value" id="repModalId">1</strong>
           </div>
           <div class="report-info-item">
             <span class="report-info-label">Waktu Pencatatan</span>
@@ -1156,12 +1162,8 @@
 
         <!-- Detail Tambahan / Status Teknis -->
         <div class="report-tech-table">
-          <div class="report-tech-row">
-            <span>Status Transaksi</span>
-            <strong id="repModalStatus">Selesai</strong>
-          </div>
           <div class="report-tech-row" id="repModalCommandRow" style="display: none;">
-            <span>ID Perintah</span>
+            <span>Kode Laporan</span>
             <strong id="repModalCommandId">-</strong>
           </div>
           <div class="report-tech-row">
@@ -1169,13 +1171,13 @@
             <span>MicroPython ESP32 + Web Telemetry</span>
           </div>
           <div class="report-tech-row">
-            <span>Lokasi Penampungan</span>
-            <span>Tong Sampah Utama (Area 1)</span>
+            <span>Lokasi</span>
+            <span id="repModalLocation">Taman Kota</span>
           </div>
         </div>
 
         <div class="report-doc-footer-note">
-          <p>Catatan: Dokumen digital ini dihasilkan otomatis secara aman oleh sistem cerdas EcoSort IoT Dashboard. Sah untuk keperluan audit kebersihan dan rekapitulasi data sampah.</p>
+          <p>Catatan: Dokumen digital ini dihasilkan otomatis secara aman oleh sistem cerdas EcoSort IoT Dashboard. Sah untuk keperluan audit kebersihan dan rekapitulasi data sampah di Taman Kota.</p>
         </div>
       </div>
 

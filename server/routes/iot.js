@@ -41,12 +41,12 @@ function writeJSON(file, data) {
   fs.renameSync(tmp, file);
 }
 
-// ---- Helper Generate ID Transaksi Sekuensial Runtut (Bukan Acak) ----
+// ---- Helper Generate ID Transaksi Sekuensial Runtut (Mulai dari 1 Tanpa #) ----
 function getNextTransactionId(txs) {
-  let maxId = 2024000;
-  if (Array.isArray(txs)) {
+  let maxId = 0;
+  if (Array.isArray(txs) && txs.length > 0) {
     for (const t of txs) {
-      if (t && t.id) {
+      if (t && t.id !== undefined && t.id !== null) {
         const num = parseInt(String(t.id).replace(/\D/g, ''), 10);
         if (!isNaN(num) && num > maxId) {
           maxId = num;
@@ -54,7 +54,7 @@ function getNextTransactionId(txs) {
       }
     }
   }
-  return '#' + (maxId + 1);
+  return String(maxId + 1);
 }
 
 // ---- Bersihkan Perintah Kedaluwarsa (> 2 Menit Belum Diambil ESP) ----
@@ -923,7 +923,7 @@ router.get('/export/csv', requireAuth, (_req, res) => {
     const txs = readJSON(TRANSACTIONS_FILE, []);
     const header = 'ID,Waktu_Lengkap,Jenis_Aksi,Nilai_Berat,Jarak_Sensor,Status\n';
     const rows = txs.map(t => {
-      const id = (t.id || '').replace(/"/g, '""');
+      const id = String(t.id || '').replace(/^#+/, '').replace(/"/g, '""');
       const date = (t.date || '').replace(/"/g, '""');
       const type = (t.type || (t.commandId ? 'Perintah' : 'Penimbangan')).replace(/"/g, '""');
       const amount = (t.rawAmount || t.amount || '--').replace(/"/g, '""');
@@ -1009,10 +1009,10 @@ router.post('/demo-seed', requireAuth, (_req, res) => {
     }
     writeJSON(HISTORY_FILE, history);
 
-    // 4 Transaksi demo (kejadian nyata)
+    // 4 Transaksi demo (kejadian nyata dengan ID numerik urut tanpa #)
     const txs = [
       {
-        id: '#2024528',
+        id: '4',
         date: 'Hari ini, 14.05',
         timestamp: new Date(now - 1200000).toISOString(),
         type: 'Penimbangan',
@@ -1022,7 +1022,7 @@ router.post('/demo-seed', requireAuth, (_req, res) => {
         status: 'Selesai'
       },
       {
-        id: '#2024527',
+        id: '3',
         date: 'Hari ini, 13.50',
         timestamp: new Date(now - 2100000).toISOString(),
         type: 'Perintah',
@@ -1032,7 +1032,7 @@ router.post('/demo-seed', requireAuth, (_req, res) => {
         status: 'Selesai'
       },
       {
-        id: '#2024526',
+        id: '2',
         date: 'Hari ini, 13.15',
         timestamp: new Date(now - 4200000).toISOString(),
         type: 'Penimbangan',
@@ -1042,7 +1042,7 @@ router.post('/demo-seed', requireAuth, (_req, res) => {
         status: 'Selesai'
       },
       {
-        id: '#2024525',
+        id: '1',
         date: 'Hari ini, 12.40',
         timestamp: new Date(now - 6300000).toISOString(),
         type: 'Penimbangan',
