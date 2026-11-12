@@ -32,3 +32,5 @@ npm-debug.log*
 .env.local
 
 *.apk
+__pycache__/
+*.pyc

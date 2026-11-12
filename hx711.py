@@ -1,8 +1,23 @@
 """
 MicroPython driver for HX711 24-bit ADC / Load Cell amplifier.
 """
-from machine import Pin
+try:
+    from machine import Pin  # type: ignore
+except ImportError:
+    class Pin:
+        IN = 0
+        OUT = 1
+        def __init__(self, *args, **kwargs): pass
+        def value(self, *args, **kwargs): return 0
+
 import time
+
+if not hasattr(time, 'ticks_ms'):
+    time.ticks_ms = lambda: int(time.time() * 1000)
+if not hasattr(time, 'ticks_diff'):
+    time.ticks_diff = lambda a, b: a - b
+if not hasattr(time, 'sleep_ms'):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
 
 class HX711:
     def __init__(self, d_out, pd_sck, gain=128):
@@ -20,6 +35,7 @@ class HX711:
         while not self.is_ready():
             if time.ticks_diff(time.ticks_ms(), start) > 500:
                 return None
+            time.sleep_ms(1)
 
         raw = 0
         for _ in range(24):

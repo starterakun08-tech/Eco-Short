@@ -1,7 +1,14 @@
 try:
     from hx711 import HX711
 except ImportError:
-    from machine import Pin
+    try:
+        from machine import Pin  # type: ignore
+    except ImportError:
+        class Pin:  # type: ignore
+            IN = 0
+            OUT = 1
+            def __init__(self, *args, **kwargs): pass
+            def value(self, *args, **kwargs): return 0
     class HX711:
         def __init__(self, d_out, pd_sck, gain=128):
             self.d_out = Pin(d_out, Pin.IN)
@@ -42,10 +49,45 @@ except ImportError:
         def get_value(self):
             v = self.read()
             return (v - self.offset) if v is not None else None
-from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
-import network  # type: ignore
+
+try:
+    from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
+except ImportError:
+    class Pin:  # type: ignore
+        IN = 0
+        OUT = 1
+        def __init__(self, *args, **kwargs): pass
+        def value(self, *args, **kwargs): return 0
+    class PWM:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+        def duty_u16(self, *args, **kwargs): pass
+        def deinit(self): pass
+    def time_pulse_us(pin, val, timeout): return 0
+    def reset(): pass
+
+try:
+    import network  # type: ignore
+except ImportError:
+    class network:  # type: ignore
+        STA_IF = 0
+        @staticmethod
+        def WLAN(*args, **kwargs):
+            class _WLAN:
+                def isconnected(self): return False
+                def active(self, *args): pass
+                def connect(self, *args): pass
+                def disconnect(self): pass
+                def ifconfig(self): return ('127.0.0.1', '255.255.255.0', '127.0.0.1', '8.8.8.8')
+                def status(self): return 0
+            return _WLAN()
+
 import time
-import urequests  # type: ignore
+import gc
+
+try:
+    import urequests  # type: ignore
+except ImportError:
+    urequests = None  # type: ignore
 
 # Mock untuk Desktop Python agar tidak ada garis merah di VS Code
 if not hasattr(time, 'ticks_ms'):
@@ -103,7 +145,7 @@ COMMAND_URL = "http://144.79.202.196:40122/api/iot/commands"
 DEVICE_TOKEN = "eco_token_12345"
 
 DEVICE_ID = "esp32-ecosort-1"
-SEND_INTERVAL_SECONDS = 1
+SEND_INTERVAL_SECONDS = 2
 HTTP_TIMEOUT_SECONDS = 3
 LOOP_DELAY_MS = 250
 
@@ -386,23 +428,28 @@ def send_to_dashboard(berat, jarak, berat_sensor, pending, total):
     if jarak is not None:
         payload["distanceCm"] = round(jarak, 1)
 
-    # ===== [DIUBAH] Tambah header autentikasi perangkat =====
+    # ===== [DIUBAH] Tambah header autentikasi perangkat & cleanup socket aman =====
     headers = {"X-Device-Token": DEVICE_TOKEN}
-
-    for attempt in range(2):
-        try:
-            res = urequests.post(SERVER_URL, json=payload,
-                                 headers=headers,
-                                 timeout=HTTP_TIMEOUT_SECONDS)
-            if res.status_code == 200:
-                print(f"   >>> [HTTP 200 OK] Data terkirim ke Web Dashboard! (Berat: {payload['weightGram']}g, Kapasitas: {payload.get('distanceCm', '--')}cm)")
-            else:
-                print(f"   >>> [HTTP {res.status_code}] Ditolak server: {res.text}")
-            res.close()
+    res = None
+    try:
+        if urequests is None:
             return
-        except Exception as e:
-            print("   >>> [HTTP Error] Gagal kirim:", e, "| coba lagi..." if attempt == 0 else "")
-            time.sleep_ms(300)
+        res = urequests.post(SERVER_URL, json=payload,
+                             headers=headers,
+                             timeout=HTTP_TIMEOUT_SECONDS)
+        if res.status_code == 200:
+            print(f"   >>> [HTTP 200 OK] Data terkirim ke Web Dashboard! (Berat: {payload['weightGram']}g, Kapasitas: {payload.get('distanceCm', '--')}cm)")
+        else:
+            print(f"   >>> [HTTP {res.status_code}] Ditolak server: {res.text}")
+    except Exception as e:
+        print("   >>> [HTTP Error] Gagal kirim:", e)
+    finally:
+        if res is not None:
+            try:
+                res.close()
+            except Exception:
+                pass
+        gc.collect()
 
 
 # ===== [DITAMBAH] Fungsi untuk mengambil & menjalankan perintah dari dashboard =====
@@ -417,8 +464,11 @@ def poll_and_execute_commands():
 
     url = COMMAND_URL + "?deviceId=" + DEVICE_ID
     headers = {"X-Device-Token": DEVICE_TOKEN}
+    res = None
 
     try:
+        if urequests is None:
+            return
         res = urequests.get(url, headers=headers, timeout=HTTP_TIMEOUT_SECONDS)
         if res.status_code == 200:
             data = res.json()
@@ -476,10 +526,15 @@ def poll_and_execute_commands():
 
                 else:
                     print("[CMD] Perintah tidak dikenal:", cmd_type)
-
-        res.close()
     except Exception as e:
         print("CMD poll error:", e)
+    finally:
+        if res is not None:
+            try:
+                res.close()
+            except Exception:
+                pass
+        gc.collect()
 # ===== [AKHIR TAMBAHAN] =====
 
 
