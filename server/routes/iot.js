@@ -731,6 +731,9 @@ router.get('/analytics', requireAuth, (req, res) => {
           const curW = dev.currentWeightGram ?? dev.weightGram ?? 0;
           hourlyWeights.push(Number(curW.toFixed(1)));
           hourlyCapacities.push(Math.min(100, Math.max(0, Math.round((curW / 10000) * 100))));
+        } else if (i === 6 && (dev.currentWeightGram > 0 || dev.weightGram > 0 || list.length > 0 || weighingTxs.length > 0)) {
+          hourlyWeights.push(0.0);
+          hourlyCapacities.push(0);
         } else {
           hourlyWeights.push(null);
           hourlyCapacities.push(null);
@@ -774,6 +777,9 @@ router.get('/analytics', requireAuth, (req, res) => {
           const curW = dev.currentWeightGram ?? dev.weightGram ?? 0;
           hourlyWeights.push(Number(curW.toFixed(1)));
           hourlyCapacities.push(Math.min(100, Math.max(0, Math.round((curW / 10000) * 100))));
+        } else if (i === 29 && (dev.currentWeightGram > 0 || dev.weightGram > 0 || list.length > 0 || weighingTxs.length > 0)) {
+          hourlyWeights.push(0.0);
+          hourlyCapacities.push(0);
         } else {
           hourlyWeights.push(null);
           hourlyCapacities.push(null);
@@ -791,6 +797,7 @@ router.get('/analytics', requireAuth, (req, res) => {
         return t >= startOfYesterday && t < startOfToday;
       });
 
+      const curLiveWeight = Number(dev.currentWeightGram ?? dev.weightGram ?? 0);
       for (let h = 0; h < 24; h += 2) {
         const hStr = String(h).padStart(2, '0') + ':00';
         hourlyLabels.push(hStr);
@@ -803,6 +810,14 @@ router.get('/analytics', requireAuth, (req, res) => {
           return t >= hStart && t < hEnd;
         });
 
+        const hTxs = weighingTxs.filter(t => {
+          if (!t.timestamp) return false;
+          const time = new Date(t.timestamp).getTime();
+          return time >= hStart && time < hEnd;
+        });
+
+        const isCurrentSlot = now.getTime() >= hStart && now.getTime() < hEnd;
+
         if (matches.length > 0) {
           const avgW = matches.reduce((acc, c) => acc + (c.w || 0), 0) / matches.length;
           hourlyWeights.push(Number(avgW.toFixed(1)));
@@ -810,6 +825,22 @@ router.get('/analytics', requireAuth, (req, res) => {
           // Kapasitas dihitung proporsional terhadap kapasitas maksimal 10 kg (10.000 g)
           const fillPct = Math.min(100, Math.max(0, Math.round((avgW / 10000) * 100)));
           hourlyCapacities.push(fillPct);
+        } else if (hTxs.length > 0) {
+          const txWeights = hTxs.map(t => {
+            const m = String(t.amount || t.rawAmount || '').match(/([0-9.]+)/);
+            return m ? parseFloat(m[1]) : 0;
+          }).filter(w => w > 0);
+          const avgW = txWeights.length > 0 ? txWeights.reduce((a, b) => a + b, 0) / txWeights.length : 0;
+          hourlyWeights.push(Number(avgW.toFixed(1)));
+          hourlyCapacities.push(Math.min(100, Math.round((avgW / 10000) * 100)));
+        } else if (isCurrentSlot && (curLiveWeight > 0 || dev.lastSeen)) {
+          hourlyWeights.push(Number(curLiveWeight.toFixed(1)));
+          const fillPct = Math.min(100, Math.max(0, Math.round((curLiveWeight / 10000) * 100)));
+          hourlyCapacities.push(fillPct);
+        } else if (h === 0 && (curLiveWeight > 0 || todayData.length > 0 || weighingTxs.length > 0 || dev.lastSeen)) {
+          // Titik baseline awal hari (00:00) agar grafik membentuk garis yang terhubung
+          hourlyWeights.push(0.0);
+          hourlyCapacities.push(0);
         } else {
           hourlyWeights.push(null);
           hourlyCapacities.push(null);

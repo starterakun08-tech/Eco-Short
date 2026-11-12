@@ -16,6 +16,7 @@ except ImportError:
             while not self.is_ready():
                 if time.ticks_diff(time.ticks_ms(), start) > 500:
                     return None
+                time.sleep_ms(1)
             raw = 0
             for _ in range(24):
                 self.pd_sck.value(1)

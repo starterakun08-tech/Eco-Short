@@ -11,7 +11,29 @@ Perbaikan Akurasi:
   4. Pengaturan TINGGI DASAR TONG MANUAL yang bisa disesuaikan dengan penggaris.
 ================================================================================
 """
-from machine import Pin, PWM, time_pulse_us
+try:
+    from machine import Pin, PWM, time_pulse_us
+except ImportError:
+    # Mock / Fallback untuk VS Code / Desktop Python agar tidak muncul garis merah / error
+    class Pin:
+        IN = 0
+        OUT = 1
+        def __init__(self, pin, mode=None):
+            self.pin = pin
+            self.mode = mode
+        def value(self, val=None):
+            return 0
+    class PWM:
+        def __init__(self, pin, freq=50):
+            self.pin = pin
+            self.freq = freq
+        def duty_u16(self, duty):
+            pass
+        def deinit(self):
+            pass
+    def time_pulse_us(pin, val, timeout):
+        return 0
+
 import time
 
 # ==============================================================================
@@ -70,6 +92,7 @@ class HX711:
         while not self.is_ready():
             if time.ticks_diff(time.ticks_ms(), start) > 500:
                 return None
+            time.sleep_ms(1)
         raw = 0
         for _ in range(24):
             self.pd_sck.value(1)
