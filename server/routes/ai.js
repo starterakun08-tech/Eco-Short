@@ -460,13 +460,17 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
         for (const t of txs) {
           if (t && t.id !== undefined && t.id !== null) {
             const num = parseInt(String(t.id).replace(/\D/g, ''), 10);
-            if (!isNaN(num) && num > maxId) maxId = num;
+            if (!isNaN(num) && num < 10000 && num > maxId) maxId = num;
           }
         }
       }
 
+      const nextId = String(maxId + 1);
+      const reportCode = `LP-${nextId.padStart(4, '0')}`;
       txs.unshift({
-        id: String(maxId + 1),
+        id: nextId,
+        commandId: reportCode,
+        reportCode: reportCode,
         date: nowStr,
         timestamp: new Date().toISOString(),
         type: 'Peringatan CCTV',

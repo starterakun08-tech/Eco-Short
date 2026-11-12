@@ -1667,7 +1667,10 @@ async function loadReportsData() {
     }
 
     tbody.innerHTML = txList.map(tx => {
-      const cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
+      let cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
+      if (parseInt(cleanId, 10) > 2024000) {
+        cleanId = String(parseInt(cleanId, 10) - 2024000 + 1);
+      }
       const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
 
       return `
@@ -1705,7 +1708,14 @@ function openReportDetailModal(txId) {
   if (!tx) return;
   activeReportTx = tx;
 
-  const cleanId = String(tx.id || txId || '').replace(/^#+/, '') || '1';
+  let cleanId = String(tx.id || txId || '').replace(/^#+/, '') || '1';
+  if (parseInt(cleanId, 10) > 2024000) {
+    cleanId = String(parseInt(cleanId, 10) - 2024000 + 1);
+  }
+
+  // Kode Laporan selalu ada dan tampil untuk SEMUA laporan
+  const reportCode = tx.reportCode || tx.commandId || `LP-${String(cleanId).padStart(4, '0')}`;
+
   const elSub = document.getElementById('repModalSub');
   const elId = document.getElementById('repModalId');
   const elDate = document.getElementById('repModalDate');
@@ -1717,7 +1727,7 @@ function openReportDetailModal(txId) {
   const elCmdId = document.getElementById('repModalCommandId');
   const elLocation = document.getElementById('repModalLocation');
 
-  if (elSub) elSub.textContent = `Kode Laporan: ${cleanId}`;
+  if (elSub) elSub.textContent = `Kode Laporan: ${reportCode}`;
   if (elId) elId.textContent = cleanId;
   if (elDate) elDate.textContent = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleString('id-ID') : '-');
   if (elDevice) elDevice.textContent = tx.deviceId || 'esp32-ecosort-1';
@@ -1732,13 +1742,10 @@ function openReportDetailModal(txId) {
     : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
   if (elVolume) elVolume.textContent = distDisplay;
 
+  // Kode Laporan WAJIB selalu tampil di tabel untuk semua laporan
   if (elCmdRow && elCmdId) {
-    if (tx.commandId) {
-      elCmdRow.style.display = 'flex';
-      elCmdId.textContent = tx.commandId;
-    } else {
-      elCmdRow.style.display = 'none';
-    }
+    elCmdRow.style.display = 'flex';
+    elCmdId.textContent = reportCode;
   }
 
   if (elLocation) {
@@ -1776,7 +1783,11 @@ function printCurrentReport() {
   }
 
   const tx = activeReportTx;
-  const cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
+  let cleanId = String(tx.id || '').replace(/^#+/, '') || '1';
+  if (parseInt(cleanId, 10) > 2024000) {
+    cleanId = String(parseInt(cleanId, 10) - 2024000 + 1);
+  }
+  const reportCode = tx.reportCode || tx.commandId || `LP-${String(cleanId).padStart(4, '0')}`;
   const printWindow = window.open('', '_blank', 'width=780,height=850');
   if (!printWindow) {
     window.print();
@@ -1933,7 +1944,7 @@ function printCurrentReport() {
     <table>
       <tr><th>Parameter Sistem</th><th style="text-align:right;">Nilai / Keterangan</th></tr>
       <tr><td>Lokasi</td><td>Taman Kota</td></tr>
-      <tr><td>Kode Laporan</td><td>${escapeHTML(tx.commandId || cleanId)}</td></tr>
+      <tr><td>Kode Laporan</td><td>${escapeHTML(reportCode)}</td></tr>
       <tr><td>Metode Integrasi</td><td>MicroPython ESP32 Telemetry REST API</td></tr>
       <tr><td>Waktu Cetak Dokumen</td><td>${new Date().toLocaleString('id-ID')}</td></tr>
     </table>

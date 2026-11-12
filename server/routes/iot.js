@@ -48,7 +48,8 @@ function getNextTransactionId(txs) {
     for (const t of txs) {
       if (t && t.id !== undefined && t.id !== null) {
         const num = parseInt(String(t.id).replace(/\D/g, ''), 10);
-        if (!isNaN(num) && num > maxId) {
+        // Abaikan ID warisan lama jika ada format 2024xxx (> 10000) agar nomor berlanjut runtut setelah 1 (2, 3, 4, dst.)
+        if (!isNaN(num) && num < 10000 && num > maxId) {
           maxId = num;
         }
       }
@@ -192,8 +193,12 @@ router.post('/data', requireDeviceToken, (req, res) => {
       const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                      nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
       const addedWeight = realWeight;
+      const nextId = getNextTransactionId(txs);
+      const reportCode = `LP-${String(nextId).padStart(4, '0')}`;
       txs.unshift({
-        id: getNextTransactionId(txs),
+        id: nextId,
+        commandId: reportCode,
+        reportCode: reportCode,
         date: nowStr,
         timestamp: now,
         type: 'Penimbangan',
@@ -363,9 +368,12 @@ router.post('/command', requireAuth, (req, res) => {
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
     const cmdLabel = cmd.type === 'tare' ? 'Tare Nol Timbangan' : cmd.type === 'set_tare_offset' ? `Tare Kustom: ${cmd.params?.value || 0} g` : cmd.type === 'restart' ? 'Restart ESP32' : `${cmd.type}: ${cmd.params?.value || ''}`;
 
+    const nextId = getNextTransactionId(txs);
+    const reportCode = cmd.id || `LP-${String(nextId).padStart(4, '0')}`;
     txs.unshift({
-      id: getNextTransactionId(txs),
-      commandId: cmd.id,
+      id: nextId,
+      commandId: reportCode,
+      reportCode: reportCode,
       date: nowStr,
       timestamp: cmd.createdAt,
       type: 'Perintah',
@@ -419,8 +427,12 @@ router.post('/tare-offset', requireAuth, (req, res) => {
     const nowObj = new Date();
     const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const nextId = getNextTransactionId(txs);
+    const reportCode = `LP-${String(nextId).padStart(4, '0')}`;
     txs.unshift({
-      id: getNextTransactionId(txs),
+      id: nextId,
+      commandId: reportCode,
+      reportCode: reportCode,
       date: nowStr,
       timestamp: new Date().toISOString(),
       type: 'Perintah',
@@ -484,8 +496,12 @@ router.post('/tare', requireAuth, (req, res) => {
     const nowObj = new Date();
     const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const nextId = getNextTransactionId(txs);
+    const reportCode = `LP-${String(nextId).padStart(4, '0')}`;
     txs.unshift({
-      id: getNextTransactionId(txs),
+      id: nextId,
+      commandId: reportCode,
+      reportCode: reportCode,
       date: nowStr,
       timestamp: new Date().toISOString(),
       type: 'Perintah',
@@ -585,6 +601,22 @@ router.get('/transactions', requireAuth, (req, res) => {
   try {
     cleanupExpiredCommands();
     const txs = readJSON(TRANSACTIONS_FILE, []);
+    let changed = false;
+    for (let i = 0; i < txs.length; i++) {
+      const t = txs[i];
+      if (t.id && String(t.id).startsWith('#')) {
+        t.id = String(t.id).replace(/^#+/, '');
+        changed = true;
+      }
+      if (!t.commandId && !t.reportCode) {
+        t.reportCode = `LP-${String(t.id).padStart(4, '0')}`;
+        t.commandId = t.reportCode;
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeJSON(TRANSACTIONS_FILE, txs);
+    }
     txs.sort((a, b) => {
       const tA = new Date(a.timestamp || 0).getTime();
       const tB = new Date(b.timestamp || 0).getTime();
