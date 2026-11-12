@@ -396,6 +396,33 @@ body {
   margin-top: 2px;
 }
 
+.header-right-location {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.location-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(116, 199, 24, 0.12);
+  color: #1e7e34;
+  border: 1px solid rgba(116, 199, 24, 0.32);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.location-badge-pill svg {
+  color: #55a210;
+  flex-shrink: 0;
+}
+
 .search-pill {
   display: flex;
   align-items: center;
