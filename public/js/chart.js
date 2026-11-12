@@ -655,7 +655,13 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
   const liveCLabel = document.getElementById('sideLiveCapLabel');
 
   const curW = Number(liveWeight ?? 0);
-  const curFill = Math.min(100, Math.max(0, Math.round((curW / 10000) * 100)));
+  const curDist = liveDistance !== null && liveDistance !== undefined ? Number(liveDistance) : null;
+  let curVolP = 0;
+  if (curDist !== null && curDist > 0 && curDist < 35) {
+    curVolP = Math.min(100, Math.max(0, Math.round(((35 - curDist) / 25) * 100)));
+  }
+  const curWeightP = Math.min(100, Math.max(0, Math.round((curW / 1000) * 100)));
+  const curFill = Math.max(curVolP, curWeightP);
 
   if (liveWLabel) {
     liveWLabel.textContent = curW >= 1000 ? `${(curW / 1000).toFixed(2)} kg` : `${curW.toFixed(1)} g`;
@@ -701,7 +707,13 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
   const weights = recent.map(item => Number((item.w ?? item.tw ?? 0).toFixed(1)));
   const capacities = recent.map(item => {
     const w = Number(item.w ?? item.tw ?? 0);
-    return Math.min(100, Math.max(0, Math.round((w / 10000) * 100)));
+    const d = item.d != null ? Number(item.d) : null;
+    let vP = 0;
+    if (d !== null && d > 0 && d < 35) {
+      vP = Math.min(100, Math.max(0, Math.round(((35 - d) / 25) * 100)));
+    }
+    const wP = Math.min(100, Math.max(0, Math.round((w / 1000) * 100)));
+    return Math.max(vP, wP);
   });
 
   sideSensorChartInstance.data.labels = labels;

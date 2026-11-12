@@ -157,6 +157,29 @@ router.post('/data', requireDeviceToken, (req, res) => {
     let realWeight = Math.max(0, Math.round((rawWeight - tareOffset) * 10) / 10);
     if (realWeight < 1.0) realWeight = 0; // Filter toleransi noise nol saat bak kosong
 
+    // --- Kolaborasi Sensor Ultrasonik & Load Cell untuk Kapasitas Sampah ---
+    const emptyDist = Number(body.emptyDistanceCm ?? existing.emptyDistanceCm ?? 35);
+    const fullThresh = Number(body.fullThresholdCm ?? existing.fullThresholdCm ?? 10);
+    const distCm = body.distanceCm !== null && body.distanceCm !== undefined ? Number(body.distanceCm) : (existing.distanceCm ?? null);
+
+    let volPercent = 0;
+    if (distCm !== null && distCm > 0 && emptyDist > fullThresh) {
+      const usableHeight = emptyDist - fullThresh; // Rentang tinggi sampah
+      const trashHeight = Math.max(0, emptyDist - distCm);
+      volPercent = Math.min(100, Math.max(0, Math.round((trashHeight / usableHeight) * 100)));
+    }
+
+    // Persentase berat berbasis kapasitas beban tong cerdas (1000g nominal prototype)
+    const weightPercent = Math.min(100, Math.max(0, Math.round((realWeight / 1000) * 100)));
+
+    // Kolaborasi cerdas: gabungkan deteksi volume (ultrasonik) & bobot (load cell)
+    let calculatedFillPercent = 0;
+    if (body.fillPercent !== undefined && body.fillPercent !== null) {
+      calculatedFillPercent = Math.min(100, Math.max(0, Math.round(Number(body.fillPercent))));
+    } else {
+      calculatedFillPercent = Math.max(volPercent, weightPercent);
+    }
+
     devices[deviceId] = {
       deviceId,
       lastSeen: now,
@@ -165,9 +188,10 @@ router.post('/data', requireDeviceToken, (req, res) => {
       weightGram: realWeight,
       totalWeightGram: body.totalWeightGram ?? existing.totalWeightGram ?? 0,
       currentWeightGram: realWeight,
-      distanceCm: body.distanceCm ?? existing.distanceCm ?? null,
-      fullThresholdCm: body.fullThresholdCm ?? existing.fullThresholdCm ?? 10,
-      emptyDistanceCm: body.emptyDistanceCm ?? existing.emptyDistanceCm ?? 35,
+      distanceCm: distCm,
+      fullThresholdCm: fullThresh,
+      emptyDistanceCm: emptyDist,
+      fillPercent: calculatedFillPercent,
       surroundingTrashCount: body.surroundingTrashCount !== undefined ? Number(body.surroundingTrashCount) : (existing.surroundingTrashCount ?? 0)
     };
     writeJSON(DEVICES_FILE, devices);

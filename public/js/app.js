@@ -2163,9 +2163,23 @@ async function fetchDeviceStatus() {
       elTrendW.textContent = isOnline ? 'Live' : lastSeenClockLabel;
     }
 
-    // 2. Kartu 2: Kapasitas Sampah (Persentase Isi dihitung berbasis maksimal 10 kg / 10.000 g)
-    const MAX_TRASH_CAPACITY_GRAM = 10000; // Kapasitas maksimal 10 kg
-    const fillPercent = Math.min(100, Math.max(0, Math.round((Number(weightVal) / MAX_TRASH_CAPACITY_GRAM) * 100)));
+    // 2. Kartu 2: Kapasitas Sampah (Kolaborasi Cerdas Sensor Ultrasonik & Load Cell)
+    let fillPercent = 0;
+    if (dev.fillPercent !== undefined && dev.fillPercent !== null) {
+      fillPercent = Math.min(100, Math.max(0, Math.round(Number(dev.fillPercent))));
+    } else {
+      const dist = dev.distanceCm != null ? Number(dev.distanceCm) : null;
+      const emptyD = Number(dev.emptyDistanceCm || 35);
+      const fullT = Number(dev.fullThresholdCm || 10);
+      let vP = 0;
+      if (dist !== null && dist > 0 && emptyD > fullT) {
+        const uH = emptyD - fullT;
+        const tH = Math.max(0, emptyD - dist);
+        vP = Math.min(100, Math.max(0, Math.round((tH / uH) * 100)));
+      }
+      const wP = Math.min(100, Math.max(0, Math.round((curW / 1000) * 100)));
+      fillPercent = Math.max(vP, wP);
+    }
 
     const elDist = document.getElementById('valDistance');
     if (elDist) {
@@ -2177,7 +2191,7 @@ async function fetchDeviceStatus() {
     }
     const elTrendD = document.getElementById('distanceTrend');
     if (elTrendD) {
-      elTrendD.textContent = isOnline ? `${fillPercent}% dari 10 kg` : lastSeenClockLabel;
+      elTrendD.textContent = isOnline ? `${fillPercent}% Terisi (Sensor Fusion)` : lastSeenClockLabel;
     }
 
     // 3. Kartu 3: Status Lingkungan (Deteksi Kamera AI)
@@ -2719,7 +2733,7 @@ function restoreCachedDeviceStatus() {
 
     const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
     const curW = Number(weightVal);
-    const fillPercent = Math.min(100, Math.max(0, Math.round((curW / 10000) * 100)));
+    const fillPercent = dev.fillPercent != null ? Number(dev.fillPercent) : Math.min(100, Math.max(0, Math.round((curW / 1000) * 100)));
 
     const elWeight = document.getElementById('valWeight');
     if (elWeight) elWeight.innerHTML = `${curW.toFixed(1)}<span class="hero-unit">g</span>`;
