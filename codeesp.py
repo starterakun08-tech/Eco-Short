@@ -42,10 +42,20 @@ except ImportError:
         def get_value(self):
             v = self.read()
             return (v - self.offset) if v is not None else None
-from machine import Pin, PWM, time_pulse_us, reset
-import network
+from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
+import network  # type: ignore
 import time
-import urequests
+import urequests  # type: ignore
+
+# Mock untuk Desktop Python agar tidak ada garis merah di VS Code
+if not hasattr(time, 'ticks_ms'):
+    time.ticks_ms = lambda: int(time.time() * 1000)
+if not hasattr(time, 'ticks_diff'):
+    time.ticks_diff = lambda a, b: a - b
+if not hasattr(time, 'sleep_ms'):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
+if not hasattr(time, 'sleep_us'):
+    time.sleep_us = lambda us: time.sleep(us / 1000000.0)
 
 # --- KONFIGURASI PIN HARDWARE ---
 # Sensor Ultrasonik 1 (Deteksi Tangan Depan - Buka Tutup)

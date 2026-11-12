@@ -12,7 +12,7 @@ Perbaikan Akurasi:
 ================================================================================
 """
 try:
-    from machine import Pin, PWM, time_pulse_us
+    from machine import Pin, PWM, time_pulse_us  # type: ignore
 except ImportError:
     # Mock / Fallback untuk VS Code / Desktop Python agar tidak muncul garis merah / error
     class Pin:
@@ -35,6 +35,16 @@ except ImportError:
         return 0
 
 import time
+
+# Mock untuk Desktop Python agar fungsi waktu MicroPython tidak garis merah di VS Code
+if not hasattr(time, 'ticks_ms'):
+    time.ticks_ms = lambda: int(time.time() * 1000)
+if not hasattr(time, 'ticks_diff'):
+    time.ticks_diff = lambda a, b: a - b
+if not hasattr(time, 'sleep_ms'):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
+if not hasattr(time, 'sleep_us'):
+    time.sleep_us = lambda us: time.sleep(us / 1000000.0)
 
 # ==============================================================================
 # 1. KONFIGURASI PARAMETER (SESUAIKAN DENGAN TONG ANDA)
