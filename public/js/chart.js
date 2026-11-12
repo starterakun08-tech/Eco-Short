@@ -532,8 +532,8 @@ function initSideSensorChart() {
           pointBorderColor: '#72c01a',
           pointStyle: 'circle',
           borderWidth: 2,
-          tension: 0.2,
-          cubicInterpolationMode: 'monotone',
+          tension: 0,
+          cubicInterpolationMode: 'default',
           fill: true,
           pointRadius: 0,
           pointHoverRadius: 5,
@@ -551,8 +551,8 @@ function initSideSensorChart() {
           pointStyle: 'circle',
           borderWidth: 2,
           borderDash: [3, 3],
-          tension: 0.2,
-          cubicInterpolationMode: 'monotone',
+          tension: 0,
+          cubicInterpolationMode: 'default',
           fill: false,
           pointRadius: 0,
           pointHoverRadius: 5,
@@ -565,10 +565,7 @@ function initSideSensorChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: {
-        duration: 350,
-        easing: 'easeOutQuad'
-      },
+      animation: false,
       interaction: {
         mode: 'index',
         intersect: false
@@ -673,8 +670,8 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
       sideSensorChartInstance.data.labels = [nowStr];
       sideSensorChartInstance.data.datasets[0].data = [curW];
       sideSensorChartInstance.data.datasets[1].data = [curFill];
-      sideSensorChartInstance.options.scales.y.suggestedMax = Math.max(30, Math.ceil(curW * 1.25));
-      sideSensorChartInstance.update();
+      sideSensorChartInstance.options.scales.y.suggestedMax = Math.max(50, Math.ceil(curW * 1.25));
+      sideSensorChartInstance.update('none');
       if (emptyEl) emptyEl.style.display = 'none';
       return;
     }
@@ -682,7 +679,7 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
     sideSensorChartInstance.data.labels = [];
     sideSensorChartInstance.data.datasets[0].data = [];
     sideSensorChartInstance.data.datasets[1].data = [];
-    sideSensorChartInstance.update();
+    sideSensorChartInstance.update('none');
     if (emptyEl) emptyEl.style.display = 'flex';
     return;
   }
@@ -711,10 +708,10 @@ function updateSideSensorChart(historyList, liveWeight, liveDistance) {
   sideSensorChartInstance.data.datasets[0].data = weights;
   sideSensorChartInstance.data.datasets[1].data = capacities;
 
-  // Skala dinamis: Sesuaikan skala tinggi dengan beban sensor saat ini (bukan 10.000g statis)
-  const maxW = Math.max(...weights, curW, 30);
-  sideSensorChartInstance.options.scales.y.suggestedMax = Math.ceil(maxW * 1.25);
-  sideSensorChartInstance.update();
+  // Skala stabil: Pertahankan minimum 50g agar sumbu Y tidak melompat-lompat setiap 2 detik
+  const maxW = Math.max(...weights, curW, 50);
+  sideSensorChartInstance.options.scales.y.suggestedMax = Math.ceil(maxW / 25) * 25;
+  sideSensorChartInstance.update('none');
 }
 
 // ---- Resize Semua Grafik Saat Layar Berubah ----
