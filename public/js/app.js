@@ -1748,6 +1748,10 @@ function openReportDetailModal(txId) {
   const modal = document.getElementById('reportDetailModal');
   if (modal) {
     modal.classList.add('open');
+    const modalBody = document.getElementById('reportModalBody');
+    if (modalBody) modalBody.scrollTop = 0;
+    const modalCard = modal.querySelector('.report-detail-card');
+    if (modalCard) modalCard.scrollTop = 0;
   }
 }
 
@@ -1887,16 +1891,6 @@ function printCurrentReport() {
       font-weight: 600;
       color: #0f172a;
     }
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 36px;
-      margin-bottom: 24px;
-      padding: 0 16px;
-    }
-    .sig-col { text-align: center; }
-    .sig-title { font-size: 12px; color: #64748b; margin-bottom: 50px; }
-    .sig-name { font-size: 13px; font-weight: 700; border-top: 1px solid #94a3b8; padding-top: 4px; min-width: 140px; display: inline-block; }
     .footer-note {
       font-size: 10px;
       color: #94a3b8;
@@ -1943,17 +1937,6 @@ function printCurrentReport() {
       <tr><td>Metode Integrasi</td><td>MicroPython ESP32 Telemetry REST API</td></tr>
       <tr><td>Waktu Cetak Dokumen</td><td>${new Date().toLocaleString('id-ID')}</td></tr>
     </table>
-
-    <div class="signatures">
-      <div class="sig-col">
-        <div class="sig-title">Sistem Pemantauan</div>
-        <div class="sig-name">EcoSort Controller (Taman Kota)</div>
-      </div>
-      <div class="sig-col">
-        <div class="sig-title">Petugas Pengawas</div>
-        <div class="sig-name">Admin EcoSort</div>
-      </div>
-    </div>
 
     <div class="footer-note">
       Dokumen ini sah dan diterbitkan secara otomatis oleh server IoT EcoSort Taman Kota. Data bersumber langsung dari pembacaan sensor fisik.

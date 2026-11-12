@@ -1109,75 +1109,78 @@
         </button>
       </div>
 
-      <!-- Area Dokumen Laporan / Cetak -->
-      <div class="report-printable-area" id="reportPrintableArea">
-        <div class="report-doc-header">
-          <div class="report-doc-brand">
-            <div class="report-doc-logo-circle">
-              <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+      <!-- Area Scrollable Modal Body (Scrollbar Tersembunyi Rapi) -->
+      <div class="report-modal-body" id="reportModalBody">
+        <!-- Area Dokumen Laporan / Cetak -->
+        <div class="report-printable-area" id="reportPrintableArea">
+          <div class="report-doc-header">
+            <div class="report-doc-brand">
+              <div class="report-doc-logo-circle">
+                <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
+              </div>
+              <div>
+                <h3 class="report-doc-title">EcoSort IoT System</h3>
+                <p class="report-doc-desc">Laporan Resmi Pemantauan Tong Sampah Pintar</p>
+              </div>
             </div>
-            <div>
-              <h3 class="report-doc-title">EcoSort IoT System</h3>
-              <p class="report-doc-desc">Laporan Resmi Pemantauan Tong Sampah Pintar</p>
+          </div>
+
+          <div class="report-doc-divider"></div>
+
+          <!-- Info Grid Utama -->
+          <div class="report-info-grid">
+            <div class="report-info-item">
+              <span class="report-info-label">ID Kejadian</span>
+              <strong class="report-info-value" id="repModalId">1</strong>
+            </div>
+            <div class="report-info-item">
+              <span class="report-info-label">Waktu Pencatatan</span>
+              <strong class="report-info-value" id="repModalDate">-</strong>
+            </div>
+            <div class="report-info-item">
+              <span class="report-info-label">Perangkat Sumber</span>
+              <strong class="report-info-value" id="repModalDevice">esp32-ecosort-1</strong>
+            </div>
+            <div class="report-info-item">
+              <span class="report-info-label">Jenis Aktivitas</span>
+              <strong class="report-info-value" id="repModalType">Penimbangan</strong>
             </div>
           </div>
-        </div>
 
-        <div class="report-doc-divider"></div>
+          <!-- Highlight Kartu Metrik Sensor -->
+          <div class="report-metrics-box">
+            <div class="report-metric-col">
+              <span class="report-metric-caption">Status / Nilai Berat</span>
+              <div class="report-metric-number highlight-green" id="repModalWeight">0.0 g</div>
+              <small class="report-metric-sub">Sensor Load Cell HX711</small>
+            </div>
+            <div class="report-metric-divider"></div>
+            <div class="report-metric-col">
+              <span class="report-metric-caption">Volume Sampah</span>
+              <div class="report-metric-number highlight-orange" id="repModalVolume">-- cm</div>
+              <small class="report-metric-sub">Sensor Ultrasonik HC-SR04</small>
+            </div>
+          </div>
 
-        <!-- Info Grid Utama -->
-        <div class="report-info-grid">
-          <div class="report-info-item">
-            <span class="report-info-label">ID Kejadian</span>
-            <strong class="report-info-value" id="repModalId">1</strong>
+          <!-- Detail Tambahan / Status Teknis -->
+          <div class="report-tech-table">
+            <div class="report-tech-row" id="repModalCommandRow" style="display: none;">
+              <span>Kode Laporan</span>
+              <strong id="repModalCommandId">-</strong>
+            </div>
+            <div class="report-tech-row">
+              <span>Sistem Otomasi</span>
+              <span>MicroPython ESP32 + Web Telemetry</span>
+            </div>
+            <div class="report-tech-row">
+              <span>Lokasi</span>
+              <span id="repModalLocation">Taman Kota</span>
+            </div>
           </div>
-          <div class="report-info-item">
-            <span class="report-info-label">Waktu Pencatatan</span>
-            <strong class="report-info-value" id="repModalDate">-</strong>
-          </div>
-          <div class="report-info-item">
-            <span class="report-info-label">Perangkat Sumber</span>
-            <strong class="report-info-value" id="repModalDevice">esp32-ecosort-1</strong>
-          </div>
-          <div class="report-info-item">
-            <span class="report-info-label">Jenis Aktivitas</span>
-            <strong class="report-info-value" id="repModalType">Penimbangan</strong>
-          </div>
-        </div>
 
-        <!-- Highlight Kartu Metrik Sensor -->
-        <div class="report-metrics-box">
-          <div class="report-metric-col">
-            <span class="report-metric-caption">Status / Nilai Berat</span>
-            <div class="report-metric-number highlight-green" id="repModalWeight">0.0 g</div>
-            <small class="report-metric-sub">Sensor Load Cell HX711</small>
+          <div class="report-doc-footer-note">
+            <p>Catatan: Dokumen digital ini dihasilkan otomatis secara aman oleh sistem cerdas EcoSort IoT Dashboard. Sah untuk keperluan audit kebersihan dan rekapitulasi data sampah di Taman Kota.</p>
           </div>
-          <div class="report-metric-divider"></div>
-          <div class="report-metric-col">
-            <span class="report-metric-caption">Volume Sampah</span>
-            <div class="report-metric-number highlight-orange" id="repModalVolume">-- cm</div>
-            <small class="report-metric-sub">Sensor Ultrasonik HC-SR04</small>
-          </div>
-        </div>
-
-        <!-- Detail Tambahan / Status Teknis -->
-        <div class="report-tech-table">
-          <div class="report-tech-row" id="repModalCommandRow" style="display: none;">
-            <span>Kode Laporan</span>
-            <strong id="repModalCommandId">-</strong>
-          </div>
-          <div class="report-tech-row">
-            <span>Sistem Otomasi</span>
-            <span>MicroPython ESP32 + Web Telemetry</span>
-          </div>
-          <div class="report-tech-row">
-            <span>Lokasi</span>
-            <span id="repModalLocation">Taman Kota</span>
-          </div>
-        </div>
-
-        <div class="report-doc-footer-note">
-          <p>Catatan: Dokumen digital ini dihasilkan otomatis secara aman oleh sistem cerdas EcoSort IoT Dashboard. Sah untuk keperluan audit kebersihan dan rekapitulasi data sampah di Taman Kota.</p>
         </div>
       </div>
 
