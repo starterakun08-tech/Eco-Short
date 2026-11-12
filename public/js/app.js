@@ -1875,6 +1875,7 @@ async function fetchDeviceStatus() {
 
     // 1. Kartu 1: Berat Sampah
     const weightVal = dev.currentWeightGram ?? dev.weightGram ?? 0;
+    const curW = Number(weightVal) || 0;
     const elWeight = document.getElementById('valWeight');
     if (elWeight) {
       elWeight.innerHTML = `${Number(weightVal).toFixed(1)}<span class="hero-unit">g</span>`;
@@ -2053,6 +2054,9 @@ async function fetchDeviceStatus() {
     }
 
     updateAIContextPills();
+    if (typeof currentView !== 'undefined' && currentView === 'ai' && typeof loadLatestCctv === 'function') {
+      loadLatestCctv();
+    }
 
   } catch (err) {
     console.error('Error fetching devices:', err);

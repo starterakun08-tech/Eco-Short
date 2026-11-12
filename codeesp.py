@@ -11,17 +11,34 @@ Optimalisasi:
 """
 try:
     from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
-    import network  # type: ignore
-    import urequests  # type: ignore
 except ImportError:
-    try:
-        from machine import Pin  # type: ignore
-    except ImportError:
-        class Pin:  # type: ignore
-            IN = 0
-            OUT = 1
-            def __init__(self, *args, **kwargs): pass
-            def value(self, *args, **kwargs): return 0
+    class Pin:  # type: ignore
+        IN = 0
+        OUT = 1
+        def __init__(self, *args, **kwargs): pass
+        def value(self, *args, **kwargs): return 0
+    class PWM:  # type: ignore
+        def __init__(self, *args, **kwargs): pass
+        def duty_u16(self, *args, **kwargs): pass
+        def deinit(self): pass
+    def time_pulse_us(pin, val, timeout): return 0
+    def reset(): pass
+
+import time
+import gc
+
+if not hasattr(time, 'ticks_ms'):
+    time.ticks_ms = lambda: int(time.time() * 1000)
+if not hasattr(time, 'ticks_diff'):
+    time.ticks_diff = lambda a, b: a - b
+if not hasattr(time, 'sleep_ms'):
+    time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
+if not hasattr(time, 'sleep_us'):
+    time.sleep_us = lambda us: time.sleep(us / 1000000.0)
+
+try:
+    from hx711 import HX711
+except ImportError:
     class HX711:
         def __init__(self, d_out, pd_sck, gain=128):
             self.d_out = Pin(d_out, Pin.IN)
@@ -64,21 +81,6 @@ except ImportError:
             return (v - self.offset) if v is not None else None
 
 try:
-    from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
-except ImportError:
-    class Pin:  # type: ignore
-        IN = 0
-        OUT = 1
-        def __init__(self, *args, **kwargs): pass
-        def value(self, *args, **kwargs): return 0
-    class PWM:  # type: ignore
-        def __init__(self, *args, **kwargs): pass
-        def duty_u16(self, *args, **kwargs): pass
-        def deinit(self): pass
-    def time_pulse_us(pin, val, timeout): return 0
-    def reset(): pass
-
-try:
     import network  # type: ignore
 except ImportError:
     class network:  # type: ignore
@@ -93,9 +95,6 @@ except ImportError:
                 def ifconfig(self): return ('127.0.0.1', '255.255.255.0', '127.0.0.1', '8.8.8.8')
                 def status(self): return 0
             return _WLAN()
-
-import time
-import gc
 
 try:
     import urequests  # type: ignore
