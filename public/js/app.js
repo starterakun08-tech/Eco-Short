@@ -1604,8 +1604,11 @@ async function loadAnalyticsData(range = 'today') {
 }
 
 // ============================================================
-//  HALAMAN LAPORAN (RINGKASAN & TABEL LOG LENGKAP 6 KOLOM)
+//  HALAMAN LAPORAN (RINGKASAN & TABEL LOG LENGKAP)
 // ============================================================
+let cachedReportsTransactions = [];
+let activeReportTx = null;
+
 async function loadReportsData() {
   try {
     const [resDev, resTx] = await Promise.all([
@@ -1618,6 +1621,7 @@ async function loadReportsData() {
 
     const dev = (devData.devices || []).find(d => d.deviceId === DEVICE_ID) || devData.devices?.[0];
     const txList = txData.transactions || [];
+    cachedReportsTransactions = txList;
 
     const weighingCount = txList.filter(t => t.type === 'Penimbangan' || (!t.commandId && t.type !== 'Perintah')).length;
     const commandCount = txList.filter(t => t.type === 'Perintah' || Boolean(t.commandId)).length;
@@ -1647,7 +1651,7 @@ async function loadReportsData() {
     const badgeCount = document.getElementById('repLogCountBadge');
     if (badgeCount) badgeCount.textContent = `${txList.length} Data`;
 
-    // Render tabel laporan dengan 6 kolom terurut persis sama dengan header
+    // Render tabel laporan dengan 5 kolom (ID, Waktu, Status Berat, Volume Sampah, Hapus)
     const tbody = document.getElementById('reportsTableBody');
     if (!tbody) return;
 
@@ -1666,7 +1670,7 @@ async function loadReportsData() {
       const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
 
       return `
-        <tr>
+        <tr class="report-row-clickable" onclick="openReportDetailModal('${escapeHTML(tx.id)}')" title="Klik untuk melihat detail & cetak laporan">
           <td>
             <div class="tx-id-col">
               <div class="tx-icon-circle">
@@ -1678,7 +1682,7 @@ async function loadReportsData() {
           <td class="tx-date-col">${escapeHTML(tx.date || 'Tidak ada data')}</td>
           <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
           <td>${escapeHTML(distDisplay)}</td>
-          <td style="text-align: center;">
+          <td style="text-align: center;" onclick="event.stopPropagation();">
             <button type="button" class="btn-row-delete-flat" onclick="handleDeleteSingleLog('${escapeHTML(tx.id)}')" title="Hapus catatan ini">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -1692,6 +1696,292 @@ async function loadReportsData() {
   } catch (err) {
     console.error('Error loading reports:', err);
   }
+}
+
+// ---- Modal Detail Laporan & Cetak ----
+function openReportDetailModal(txId) {
+  const tx = cachedReportsTransactions.find(t => String(t.id) === String(txId));
+  if (!tx) return;
+  activeReportTx = tx;
+
+  const elSub = document.getElementById('repModalSub');
+  const elId = document.getElementById('repModalId');
+  const elDate = document.getElementById('repModalDate');
+  const elDevice = document.getElementById('repModalDevice');
+  const elType = document.getElementById('repModalType');
+  const elWeight = document.getElementById('repModalWeight');
+  const elVolume = document.getElementById('repModalVolume');
+  const elStatus = document.getElementById('repModalStatus');
+  const elCmdRow = document.getElementById('repModalCommandRow');
+  const elCmdId = document.getElementById('repModalCommandId');
+  const elBadge = document.getElementById('repModalBadge');
+
+  if (elSub) elSub.textContent = `ID Transaksi: ${tx.id || '#2024000'}`;
+  if (elId) elId.textContent = tx.id || '#2024000';
+  if (elDate) elDate.textContent = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleString('id-ID') : '-');
+  if (elDevice) elDevice.textContent = tx.deviceId || 'esp32-ecosort-1';
+  
+  const txType = tx.type || (tx.commandId ? 'Perintah Sistem' : 'Penimbangan Sampah');
+  if (elType) elType.textContent = txType;
+
+  if (elWeight) elWeight.textContent = tx.rawAmount || tx.amount || '0.0 g';
+
+  const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data')
+    ? tx.distance
+    : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
+  if (elVolume) elVolume.textContent = distDisplay;
+
+  if (elStatus) elStatus.textContent = tx.status || 'Selesai';
+
+  if (elCmdRow && elCmdId) {
+    if (tx.commandId) {
+      elCmdRow.style.display = 'flex';
+      elCmdId.textContent = tx.commandId;
+    } else {
+      elCmdRow.style.display = 'none';
+    }
+  }
+
+  if (elBadge) {
+    elBadge.textContent = tx.status === 'Petugas Diberitahu' ? 'Peringatan CCTV' : 'Terverifikasi IoT';
+  }
+
+  const modal = document.getElementById('reportDetailModal');
+  if (modal) {
+    modal.classList.add('open');
+  }
+}
+
+function closeReportDetailModal() {
+  const modal = document.getElementById('reportDetailModal');
+  if (modal) {
+    modal.classList.remove('open');
+  }
+  activeReportTx = null;
+}
+
+function handleReportModalBackdropClick(e) {
+  if (e.target && e.target.id === 'reportDetailModal') {
+    closeReportDetailModal();
+  }
+}
+
+function printCurrentReport() {
+  if (!activeReportTx) {
+    window.print();
+    return;
+  }
+
+  const tx = activeReportTx;
+  const printWindow = window.open('', '_blank', 'width=780,height=850');
+  if (!printWindow) {
+    window.print();
+    return;
+  }
+
+  const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data')
+    ? tx.distance
+    : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
+
+  const printHtml = `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Laporan_EcoSort_${tx.id || 'Detail'}</title>
+  <style>
+    @page { size: A4 portrait; margin: 20mm 15mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .print-card {
+      max-width: 680px;
+      margin: 0 auto;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #74c718;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+    .header p {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+    .badge {
+      background: #ecfdf5;
+      color: #059669;
+      border: 1px solid #a7f3d0;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #f1f5f9;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .info-item label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .info-item strong {
+      font-size: 14px;
+      color: #0f172a;
+    }
+    .metric-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .metric-box {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .metric-box.green { background: #f0fdf4; border-color: #bbf7d0; }
+    .metric-box.orange { background: #fffbeb; border-color: #fde68a; }
+    .metric-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; }
+    .metric-val { font-size: 24px; font-weight: 800; margin: 4px 0; }
+    .metric-box.green .metric-val { color: #16a34a; }
+    .metric-box.orange .metric-val { color: #d97706; }
+    .metric-sub { font-size: 10px; color: #64748b; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th {
+      background: #f8fafc;
+      text-align: left;
+      font-weight: 700;
+      color: #475569;
+    }
+    td:last-child {
+      text-align: right;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 36px;
+      margin-bottom: 24px;
+      padding: 0 16px;
+    }
+    .sig-col { text-align: center; }
+    .sig-title { font-size: 12px; color: #64748b; margin-bottom: 50px; }
+    .sig-name { font-size: 13px; font-weight: 700; border-top: 1px solid #94a3b8; padding-top: 4px; min-width: 140px; display: inline-block; }
+    .footer-note {
+      font-size: 10px;
+      color: #94a3b8;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 12px;
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-card">
+    <div class="header">
+      <div>
+        <h1>EcoSort IoT — Laporan Pemantauan Sampah</h1>
+        <p>Dokumen Digital Resmi Sistem Penimbangan & Sensor IoT</p>
+      </div>
+      <span class="badge">TERVERIFIKASI IOT</span>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item"><label>ID Kejadian</label><strong>${escapeHTML(tx.id || '#2024000')}</strong></div>
+      <div class="info-item"><label>Waktu Pencatatan</label><strong>${escapeHTML(tx.date || '-')}</strong></div>
+      <div class="info-item"><label>ID Perangkat</label><strong>${escapeHTML(tx.deviceId || 'esp32-ecosort-1')}</strong></div>
+      <div class="info-item"><label>Tipe Aktivitas</label><strong>${escapeHTML(tx.type || 'Penimbangan Sampah')}</strong></div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric-box green">
+        <div class="metric-label">STATUS / NILAI BERAT</div>
+        <div class="metric-val">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</div>
+        <div class="metric-sub">Sensor Load Cell HX711</div>
+      </div>
+      <div class="metric-box orange">
+        <div class="metric-label">VOLUME SAMPAH</div>
+        <div class="metric-val">${escapeHTML(distDisplay)}</div>
+        <div class="metric-sub">Sensor Ultrasonik HC-SR04</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Parameter Sistem</th><th style="text-align:right;">Nilai / Keterangan</th></tr>
+      <tr><td>Status Transaksi</td><td>${escapeHTML(tx.status || 'Selesai')}</td></tr>
+      <tr><td>Metode Integrasi</td><td>MicroPython ESP32 Telemetry REST API</td></tr>
+      <tr><td>Waktu Cetak Dokumen</td><td>${new Date().toLocaleString('id-ID')}</td></tr>
+    </table>
+
+    <div class="signatures">
+      <div class="sig-col">
+        <div class="sig-title">Sistem Pemantauan</div>
+        <div class="sig-name">EcoSort Controller</div>
+      </div>
+      <div class="sig-col">
+        <div class="sig-title">Petugas Pengawas</div>
+        <div class="sig-name">Admin EcoSort</div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Dokumen ini sah dan diterbitkan secara otomatis oleh server IoT EcoSort. Data bersumber langsung dari pembacaan sensor fisik.
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      window.print();
+    };
+  <\/script>
+</body>
+</html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(printHtml);
+  printWindow.document.close();
 }
 
 // ---- Fungsi Hapus Log Laporan (Gambar 2) ----
@@ -2494,4 +2784,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(fetchHistory, HISTORY_INTERVAL_MS);
   setInterval(fetchTransactions, TX_INTERVAL_MS);
   setInterval(fetchNotifications, NOTIF_INTERVAL_MS);
+
+  // Keyboard shortcut ESC untuk menutup modal pop-up laporan
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeReportDetailModal();
+    }
+  });
 });
