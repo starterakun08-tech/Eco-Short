@@ -27,7 +27,8 @@ WIFI_PASSWORD   = "Bangkoks"
 
 # PILIHAN ALAMAT SERVER:
 # A. Jika dashboard berjalan di laptop Anda (dalam WiFi/Hotspot yang sama):
-SERVER_HOST     = "http://192.168.100.16:40122"
+# Catatan: IP laptop saat ini terhubung ke WiFi adalah 192.168.110.254
+SERVER_HOST     = "http://192.168.110.254:40122"
 
 # B. Jika dashboard berjalan di server VPS publik (uncomment jika pakai VPS):
 # SERVER_HOST   = "http://144.79.202.196:40122"
