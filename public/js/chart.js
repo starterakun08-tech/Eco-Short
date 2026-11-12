@@ -177,8 +177,7 @@ function initAnalyticsWeightChart() {
           borderWidth: 3,
           tension: 0.4,
           fill: true,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          pointRadius: 2,
           pointBackgroundColor: COLOR_GREEN,
           spanGaps: true
         }
@@ -252,8 +251,7 @@ function initAnalyticsCapacityChart() {
           borderWidth: 3,
           tension: 0.4,
           fill: true,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          pointRadius: 2,
           pointBackgroundColor: COLOR_ORANGE,
           spanGaps: true
         }
@@ -532,8 +530,8 @@ function initSideSensorChart() {
           borderWidth: 2,
           tension: 0.35,
           fill: true,
-          pointRadius: 3.5,
-          hoverRadius: 6,
+          pointRadius: 2,
+          hoverRadius: 5,
           spanGaps: true,
           yAxisID: 'y'
         },
@@ -549,8 +547,8 @@ function initSideSensorChart() {
           borderDash: [3, 3],
           tension: 0.35,
           fill: false,
-          pointRadius: 3.5,
-          hoverRadius: 6,
+          pointRadius: 2,
+          hoverRadius: 5,
           spanGaps: true,
           yAxisID: 'y1'
         }
