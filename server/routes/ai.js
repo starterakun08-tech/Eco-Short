@@ -245,12 +245,15 @@ Jawab pertanyaan pengguna berikut secara ringkas, ramah, akurat, dan dalam Bahas
   }
 });
 
-// ---- GET /api/ai/status ----
-router.get('/status', requireAuth, (req, res) => {
+// ---- GET /api/ai/status (Ping status & ketersediaan AI) ----
+router.get('/status', (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
   res.json({
+    online: true,
+    service: 'EcoSort AI CCTV Service',
     configured: Boolean(apiKey && apiKey.length > 5),
-    model: 'gemini-1.5-flash'
+    model: 'gemini-1.5-flash',
+    time: new Date().toISOString()
   });
 });
 

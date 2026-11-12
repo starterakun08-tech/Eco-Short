@@ -116,7 +116,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 10),
                     const Text(
-                      'Tips: Di Android Emulator gunakan http://10.0.2.2:40122. Di HP fisik gunakan IP Wi-Fi komputer Anda.',
+                      'Pilihan Cepat Alamat Server:',
+                      style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        ActionChip(
+                          backgroundColor: Colors.white12,
+                          label: const Text('IP Laptop (192.168.100.16:40122)', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          onPressed: () {
+                            setState(() {
+                              _serverUrlCtrl.text = 'http://192.168.100.16:40122';
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: Colors.white12,
+                          label: const Text('Emulator (10.0.2.2:40122)', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          onPressed: () {
+                            setState(() {
+                              _serverUrlCtrl.text = 'http://10.0.2.2:40122';
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Tips: Jika menggunakan HP fisik, pastikan HP dan laptop terhubung ke WiFi yang sama.',
                       style: TextStyle(color: Colors.white54, fontSize: 11),
                     ),
                     const SizedBox(height: 14),
