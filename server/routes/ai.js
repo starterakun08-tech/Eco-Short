@@ -105,9 +105,9 @@ function getLiveContext() {
   };
 }
 
-// Jawaban cerdas otomatis yang memahami konteks prompt pengguna secara alami
+// Jawaban aturan cerdas otomatis (berfungsi jika API key belum diisi atau fallback)
 function generateSmartReply(userMessage, ctx) {
-  const q = (userMessage || '').trim().toLowerCase();
+  const q = (userMessage || '').toLowerCase();
 
   const weightStr = `${Number(ctx.currentWeightGram).toFixed(1)} gram`;
   const totalWeightStr = ctx.totalWeightGram >= 1000 
@@ -116,46 +116,26 @@ function generateSmartReply(userMessage, ctx) {
   const distStr = ctx.distanceCm !== null ? `${Number(ctx.distanceCm).toFixed(1)} cm` : 'Error (tidak terbaca)';
   const onlineStr = ctx.isOnline ? 'Online (Terhubung)' : 'Offline (Terputus)';
 
-  // 1. Sapaan & Salam (hi, halo, hello, p, pp, tes, dll)
-  if (/^(hi|hai|halo|hello|hey|hei|p|pp|tes|test|pagi|siang|sore|malam)[\s!.?]*$/i.test(q) || q.startsWith('halo') || q.startsWith('hai ')) {
-    return `Halo! 👋 Ada yang bisa saya bantu terkait sistem **EcoSort IoT** hari ini?\n\nAnda dapat menanyakan:\n- **Kapasitas & status isi** tong sampah saat ini\n- **Berat timbangan terkini** & total sampah terkumpul\n- **Status kebersihan sekitar** dari kamera CCTV AI\n- **Kontrol & perintah** mikrokontroler ESP32`;
-  }
-
-  // 2. Pertanyaan tentang Foto Profil / PP / Banner Akun
-  if (q.includes('pp') || q.includes('foto profil') || q.includes('avatar') || q.includes('banner') || q.includes('background')) {
-    return `Untuk mengganti **Foto Profil (PP)** atau **Banner Latar Belakang** akun:\n1. Klik menu **Akun** di bilah navigasi samping kiri, ATAU\n2. Klik ikon kamera kecil 📷 di sudut banner panel profil sebelah kanan.\nAnda dapat mengunggah file foto kustom (JPG, PNG) atau memilih tema warna gradasi yang tersedia!`;
-  }
-
-  // 3. Pertanyaan tentang CCTV & Kamera AI Lingkungan
-  if (q.includes('cctv') || q.includes('kamera') || q.includes('radius') || q.includes('deteksi') || q.includes('lingkungan')) {
-    return `📹 **Sistem Kamera CCTV Cerdas EcoSort:**\n- Memantau kebersihan area sekitar tong sampah khusus dalam **radius maksimal 2 meter** (sampah jauh di jalan raya diabaikan otomatis).\n- **3 Status Cerdas:**\n  🟢 **Bersih:** 0 sampah di sekitar tong.\n  🟡 **Waspada:** 1 - 5 sampah berserakan.\n  🔴 **Kotor:** > 5 sampah (otomatis kirim peringatan ke Petugas Kebersihan).\nAnda bisa memantau langsung dari menu **AI** di dashboard web atau memasang aplikasi Android CCTV EcoSort.`;
-  }
-
-  // 4. Pertanyaan tentang Kapasitas / Penuh / Level Isi
-  if (q.includes('penuh') || q.includes('kapasitas') || q.includes('level') || q.includes('isi') || q.includes('volume') || q.includes('tinggi')) {
-    if (ctx.statusText === 'PENUH' || ctx.fillPercent >= 80) {
-      return `🚨 **Status: Tong Sampah Penuh (${ctx.fillPercent}%)!**\nJarak sensor volume saat ini **${distStr}** (batas penuh: ${ctx.fullThresholdCm} cm). Segera kosongkan penampungan untuk mencegah tumpahan sampah.`;
+  if (q.includes('penuh') || q.includes('kapasitas') || q.includes('level') || q.includes('isi')) {
+    if (ctx.statusText === 'PENUH') {
+      return `🚨 **Status: Tong Sampah Penuh!**\nTingkat isi saat ini sudah **${ctx.fillPercent}%** dengan jarak sensor **${distStr}** (batas penuh: ${ctx.fullThresholdCm} cm). Segera kosongkan penampungan untuk mencegah tumpahan sampah.`;
     }
-    return `✅ **Status Kapasitas: Masih Aman**\nTingkat keterisian tong saat ini **${ctx.fillPercent}%** (jarak sensor: **${distStr}**, batas penuh: ${ctx.fullThresholdCm} cm). Tong sampah masih dapat menampung sampah baru.`;
+    return `✅ **Status: Masih Aman**\nTingkat kepenuhan tong saat ini **${ctx.fillPercent}%** (jarak sensor: **${distStr}**, batas penuh: ${ctx.fullThresholdCm} cm). Tong sampah masih bisa menampung sampah baru.`;
   }
 
-  // 5. Pertanyaan tentang Berat & Timbangan
-  if (q.includes('berat') || q.includes('timbangan') || q.includes('gram') || q.includes('kg') || q.includes('tare') || q.includes('load cell')) {
-    return `⚖️ **Data Penimbangan Terkini:**\n- Beban sensor saat ini: **${weightStr}**\n- Total akumulasi sampah: **${totalWeightStr}**\n- Status kalibrasi: Sensor load cell HX711 aktif.\n\n*Tip: Jika timbangan bergeser saat bak kosong, gunakan tombol **Reset Timbangan** di panel profil kanan untuk menolkan kembali.*`;
+  if (q.includes('berat') || q.includes('timbangan') || q.includes('gram') || q.includes('kg')) {
+    return `⚖️ **Data Penimbangan Terkini:**\n- Berat sensor saat ini: **${weightStr}**\n- Total akumulasi berat: **${totalWeightStr}**\nSensor load cell HX711 membaca secara live dengan titik kalibrasi aktif.`;
   }
 
-  // 6. Ringkasan / Rekapitulasi / Laporan
-  if (q.includes('ringkas') || q.includes('rekap') || q.includes('rangkum') || q.includes('laporan') || q.includes('analitik')) {
-    return `📊 **Ringkasan Data EcoSort IoT Terkini:**\n- **Status Alat:** ${onlineStr}\n- **Kondisi Tong:** ${ctx.statusText} (${ctx.fillPercent}% terisi)\n- **Berat Sampah Sekarang:** ${weightStr}\n- **Total Akumulasi:** ${totalWeightStr}\n- **Jarak Sensor:** ${distStr}\n- **Kejadian Tercatat:** ${ctx.recentEvents.length} transaksi di riwayat sistem.`;
+  if (q.includes('ringkas') || q.includes('rekap') || q.includes('rangkum') || q.includes('laporan')) {
+    return `📊 **Ringkasan Data EcoSort IoT Hari Ini:**\n- **Status Alat:** ${onlineStr}\n- **Kondisi Tong:** ${ctx.statusText} (${ctx.fillPercent}% terisi)\n- **Berat Sampah Sekarang:** ${weightStr}\n- **Total Berat Terkumpul:** ${totalWeightStr}\n- **Jarak Sensor Ultrasonik:** ${distStr}\n- **Jumlah Kejadian Riwayat:** ${ctx.recentEvents.length} transaksi tercatat.`;
   }
 
-  // 7. Status Perangkat & ESP32
-  if (q.includes('status') || q.includes('perangkat') || q.includes('alat') || q.includes('esp32') || q.includes('online') || q.includes('koneksi')) {
-    return `📡 **Status Perangkat ESP32 (${ctx.deviceId}):**\n- Status Koneksi: **${onlineStr}**\n- Terakhir Terlihat: ${ctx.lastSeen ? new Date(ctx.lastSeen).toLocaleTimeString('id-ID') : 'Belum ada data'}\n- Sensor Ultrasonik: ${distStr}\n- Timbangan Berat: ${weightStr} (Kapasitas: ${ctx.fillPercent}%).`;
+  if (q.includes('status') || q.includes('perangkat') || q.includes('alat') || q.includes('esp32') || q.includes('online')) {
+    return `📡 **Status Perangkat ESP32:**\n- ID Perangkat: **${ctx.deviceId}**\n- Status Koneksi: **${onlineStr}**\n- Terakhir Terlihat: ${ctx.lastSeen ? new Date(ctx.lastSeen).toLocaleTimeString('id-ID') : '-'}\n- Keadaan Sensor: Jarak ${distStr}, Berat ${weightStr}.`;
   }
 
-  // 8. Default Respons Cerdas Berbasis Prompt Pengguna
-  return `Halo! Menanggapi pesan Anda mengenai "*${userMessage}*":\n\nSistem EcoSort IoT saat ini berstatus **${onlineStr}** dengan kapasitas isi **${ctx.fillPercent}%** dan berat sampah tercatat **${weightStr}**.\n\nJika ada yang ingin Anda pantau secara khusus, silakan tanyakan seperti:\n- *"Apakah tong sampah sudah penuh?"*\n- *"Berapa berat sampah saat ini?"*\n- *"Bagaimana status kamera CCTV lingkungan?"*`;
+  return `🤖 **Asisten EcoSort IoT:**\nBerdasarkan data sensor terkini dari **${ctx.deviceId}**:\n- Status: **${ctx.statusText}** (${ctx.fillPercent}% terisi)\n- Berat: **${weightStr}** (Total: **${totalWeightStr}**)\n- Koneksi: **${onlineStr}**\n\nSilakan tanyakan pertanyaan lain seputar kapasitas sampah, berat, atau perintah perangkat!`;
 }
 
 // ---- POST /api/ai/chat ----
