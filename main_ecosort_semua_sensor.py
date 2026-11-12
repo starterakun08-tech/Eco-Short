@@ -14,7 +14,7 @@ Perbaikan Akurasi:
 try:
     from machine import Pin, PWM, time_pulse_us  # type: ignore
 except ImportError:
-    # Mock / Fallback untuk VS Code / Desktop Python agar tidak muncul garis merah
+    # Mock / Fallback untuk VS Code / Desktop Python agar tidak muncul garis merah / error
     class Pin:
         IN = 0
         OUT = 1
@@ -102,6 +102,7 @@ class HX711:
         while not self.is_ready():
             if time.ticks_diff(time.ticks_ms(), start) > 500:
                 return None
+            time.sleep_ms(1)
         raw = 0
         for _ in range(24):
             self.pd_sck.value(1)

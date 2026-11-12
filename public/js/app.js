@@ -138,14 +138,7 @@ const APP_ROUTES = [
     title: 'Laporan',
     paths: ['/reports', '/laporan'],
     hash: '#reports',
-    aliases: ['reports', 'laporan']
-  },
-  {
-    id: 'control',
-    title: 'Kontrol & Pengaturan ESP32',
-    paths: ['/control', '/kontrol'],
-    hash: '#control',
-    aliases: ['control', 'kontrol']
+    aliases: ['reports', 'laporan', 'control', 'kontrol']
   },
   {
     id: 'account',
@@ -307,8 +300,6 @@ function switchNav(target, options = {}) {
     }, 60);
   } else if (viewName === 'reports') {
     loadReportsData();
-  } else if (viewName === 'control') {
-    // View kontrol aktif
   } else if (viewName === 'account') {
     openProfileCard(); // Pastikan default membuka kartu profil pengguna
     fetchUserProfile();
@@ -1663,7 +1654,7 @@ async function loadReportsData() {
     if (txList.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="7" class="table-empty-row">
+          <td colspan="5" class="table-empty-row">
             Belum ada catatan log aktivitas tersimpan
           </td>
         </tr>
@@ -1672,21 +1663,6 @@ async function loadReportsData() {
     }
 
     tbody.innerHTML = txList.map(tx => {
-      let badgeClass = 'badge-completed';
-      let statusLabel = 'Selesai';
-      const st = (tx.status || '').toLowerCase();
-      if (st.includes('pending') || st.includes('menunggu')) {
-        badgeClass = 'badge-pending';
-        statusLabel = 'Menunggu';
-      } else if (st.includes('scheduled') || st.includes('terkirim')) {
-        badgeClass = 'badge-scheduled';
-        statusLabel = 'Terkirim';
-      } else if (st.includes('expired') || st.includes('kedaluwarsa') || st.includes('dibatalkan')) {
-        badgeClass = 'badge-pending';
-        statusLabel = 'Kedaluwarsa (ESP32 Offline)';
-      }
-
-      const txType = tx.type || (tx.commandId ? 'Perintah' : 'Penimbangan');
       const distDisplay = (tx.distance && tx.distance !== '--' && tx.distance !== 'Tidak ada data') ? tx.distance : (tx.distanceCm ? `${tx.distanceCm} cm` : 'Tidak ada data');
 
       return `
@@ -1700,12 +1676,8 @@ async function loadReportsData() {
             </div>
           </td>
           <td class="tx-date-col">${escapeHTML(tx.date || 'Tidak ada data')}</td>
-          <td><span class="badge-type-label">${escapeHTML(txType)}</span></td>
           <td class="tx-amount-col">${escapeHTML(tx.rawAmount || tx.amount || '0.0 g')}</td>
           <td>${escapeHTML(distDisplay)}</td>
-          <td class="tx-status-col">
-            <span class="badge-status ${badgeClass}">${statusLabel}</span>
-          </td>
           <td style="text-align: center;">
             <button type="button" class="btn-row-delete-flat" onclick="handleDeleteSingleLog('${escapeHTML(tx.id)}')" title="Hapus catatan ini">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">

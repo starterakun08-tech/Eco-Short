@@ -32,8 +32,8 @@
           'analitik': 'analytics',
           'reports': 'reports',
           'laporan': 'reports',
-          'control': 'control',
-          'kontrol': 'control',
+          'control': 'reports',
+          'kontrol': 'reports',
           'account': 'account',
           'akun': 'account',
           'password': 'account',
@@ -149,19 +149,7 @@
               </span>
             </button>
           </li>
-          <!-- 5. Kontrol (Halaman Penuh) -->
-          <li>
-            <button class="nav-item" id="nav-control" data-view="control" onclick="switchNav('control')">
-              <span class="nav-left">
-                <svg viewBox="0 0 24 24">
-                  <path
-                    d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
-                </svg>
-                <span>Kontrol</span>
-              </span>
-            </button>
-          </li>
-          <!-- 6. Akun -->
+          <!-- 5. Akun -->
           <li>
             <button class="nav-item" id="nav-account" data-view="account" onclick="switchNav('account')">
               <span class="nav-left">
@@ -309,7 +297,7 @@
         <section class="transaction-card">
           <div class="card-header-row">
             <h3 class="card-title">Riwayat Penimbangan &amp; Perintah</h3>
-            <a href="#" class="view-all-link" onclick="switchNav('control'); return false;">Lihat Semua</a>
+            <a href="#" class="view-all-link" onclick="switchNav('reports'); return false;">Lihat Semua</a>
           </div>
           <div class="table-responsive">
             <table class="transaction-table">
@@ -595,16 +583,14 @@
                 <tr>
                   <th>ID Kejadian</th>
                   <th>Waktu Lengkap</th>
-                  <th>Jenis / Aksi</th>
-                  <th>Nilai Berat</th>
-                  <th>Jarak Sensor</th>
-                  <th>Status</th>
-                  <th style="text-align: center; width: 60px;">Aksi</th>
+                  <th>Status Berat</th>
+                  <th>Volume Sampah</th>
+                  <th style="text-align: center; width: 48px;"></th>
                 </tr>
               </thead>
               <tbody id="reportsTableBody">
                 <tr>
-                  <td colspan="7" class="table-empty-row">Belum ada riwayat aktivitas yang tercatat.</td>
+                  <td colspan="5" class="table-empty-row">Belum ada riwayat aktivitas yang tercatat.</td>
                 </tr>
               </tbody>
             </table>
@@ -613,57 +599,7 @@
       </div>
 
       <!-- ========================================================
-           VIEW 5: KONTROL & PENGATURAN ESP32 (Halaman Penuh)
-           ======================================================== -->
-      <div id="view-control" class="dashboard-view" style="display: none;">
-        <header class="content-header">
-          <div class="header-titles">
-            <h1>Kontrol &amp; Pengaturan ESP32</h1>
-          </div>
-        </header>
-
-        <div class="control-page-container">
-          <div class="control-full-card">
-            <div class="control-items-list">
-              <!-- Item 1: Tare Timbangan -->
-              <div class="control-item-row">
-                <div class="control-item-info">
-                  <h4>Tare / Nol Timbangan</h4>
-                  <p>Atur titik nol timbangan HX711 saat bak penampungan kosong</p>
-                </div>
-                <button class="btn-ctrl" onclick="handleTare()">Tare Sekarang</button>
-              </div>
-
-              <!-- Item 2: Berat Tong / Komponen Sensor (Tare Kustom) -->
-              <div class="control-item-row">
-                <div class="control-item-info">
-                  <h4>Berat Tong &amp; Komponen Sensor (Tare Kustom)</h4>
-                  <p>Abaikan berat tong/komponen dari hitungan sampah riil. Aktif: <strong id="currentTareOffsetDisplay">0.0 g</strong></p>
-                </div>
-                <div class="control-input-group">
-                  <input type="number" id="inputTareOffset" step="0.1" min="0" placeholder="Berat tong (gram)">
-                  <button class="btn-ctrl" onclick="handleTareOffset()">Simpan</button>
-                </div>
-              </div>
-
-              <!-- Item 3: Interval Pengiriman -->
-              <div class="control-item-row">
-                <div class="control-item-info">
-                  <h4>Interval Kirim Data IoT</h4>
-                  <p>Aktif: <strong id="currentIntervalDisplay">1 detik</strong></p>
-                </div>
-                <div class="control-input-group">
-                  <input type="number" id="inputInterval" min="1" max="60" step="1" placeholder="1-60s">
-                  <button class="btn-ctrl" onclick="handleInterval()">Simpan</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ========================================================
-           VIEW 6: HALAMAN AKUN (PROFIL PENGGUNA & UBAH SANDI TUKAR TEMPAT)
+           VIEW 5: HALAMAN AKUN (PROFIL PENGGUNA & UBAH SANDI TUKAR TEMPAT)
            ======================================================== -->
       <div id="view-account" class="dashboard-view" style="display: none;">
         <header class="content-header">
