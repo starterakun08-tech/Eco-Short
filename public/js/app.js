@@ -1494,22 +1494,54 @@ function simulateCctvDetection(count) {
   analyzeCctvImage(null, count);
 }
 
+let lastRenderedCctvTimestamp = null;
+
 async function loadLatestCctv() {
   try {
     const res = await fetch(`/api/ai/latest-cctv`, { headers: authHeaders() });
     if (!res.ok) return;
     const data = await res.json();
-    if (data.latest?.result) {
-      renderCctvResult(data.latest.result);
-    }
-    if (data.hasImage) {
-      const imgPreview = document.getElementById('cctvImagePreview');
-      const placeholder = document.getElementById('cctvPlaceholderScreen');
-      if (imgPreview) {
-        imgPreview.src = `/api/ai/latest-cctv-image?t=${Date.now()}`;
-        imgPreview.style.display = 'block';
+    const latest = data.latest;
+
+    if (latest && latest.result) {
+      // Perbarui tampilan jika ada frame baru atau baru pertama kali dimuat
+      if (!lastRenderedCctvTimestamp || lastRenderedCctvTimestamp !== latest.timestamp) {
+        lastRenderedCctvTimestamp = latest.timestamp;
+        renderCctvResult(latest.result);
+
+        const reportTime = document.getElementById('cctvReportTime');
+        if (reportTime && latest.timestamp) {
+          try {
+            const d = new Date(latest.timestamp);
+            reportTime.textContent = `${d.getHours().toString().padStart(2, '0')}.${d.getMinutes().toString().padStart(2, '0')}.${d.getSeconds().toString().padStart(2, '0')}`;
+          } catch (_) {
+            reportTime.textContent = 'Terbaru';
+          }
+        }
+
+        if (data.hasImage) {
+          const imgPreview = document.getElementById('cctvImagePreview');
+          const placeholder = document.getElementById('cctvPlaceholderScreen');
+          if (imgPreview) {
+            imgPreview.src = `/api/ai/latest-cctv-image?t=${encodeURIComponent(latest.timestamp)}`;
+            imgPreview.style.display = 'block';
+          }
+          if (placeholder) placeholder.style.display = 'none';
+        }
       }
-      if (placeholder) placeholder.style.display = 'none';
+    }
+
+    // Perbarui indikator koneksi aplikasi CCTV
+    const connBadge = document.getElementById('cctvLiveConnStatus');
+    if (connBadge && latest?.timestamp) {
+      const diffMs = Date.now() - new Date(latest.timestamp).getTime();
+      if (diffMs < 45000) {
+        connBadge.textContent = '🟢 Aplikasi CCTV Terhubung';
+        connBadge.style.color = '#4ade80';
+      } else {
+        connBadge.textContent = '⚪ Menunggu Frame CCTV';
+        connBadge.style.color = '#94a3b8';
+      }
     }
   } catch (err) {
     console.error('loadLatestCctv error:', err);

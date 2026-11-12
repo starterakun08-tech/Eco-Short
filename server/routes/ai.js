@@ -534,8 +534,9 @@ router.get('/latest-cctv', requireAuth, (req, res) => {
 // =================================================================
 //  GET /api/ai/latest-cctv-image — Unduh/tampilkan foto CCTV terakhir
 // =================================================================
-router.get('/latest-cctv-image', requireAuth, (req, res) => {
+router.get('/latest-cctv-image', (req, res) => {
   if (fs.existsSync(LATEST_CCTV_IMG)) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Content-Type', 'image/jpeg');
     res.sendFile(LATEST_CCTV_IMG);
   } else {
