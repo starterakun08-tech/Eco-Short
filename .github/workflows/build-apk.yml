@@ -31,9 +31,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
+      - name: Recreate Android platform scaffold
         working-directory: cctv_app
-        run: flutter pub get
+        run: |
+          flutter create . --platforms=android --org com.ecosort
+          flutter pub get
 
       - name: Build Release APK
         working-directory: cctv_app
@@ -41,7 +43,7 @@ jobs:
 
       - name: Copy Built APK to Root
         run: |
-          cp -v build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || cp -v cctv_app/build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || find . -name "*.apk" -exec cp -v {} ./app-release.apk \;
+          cp -v cctv_app/build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || cp -v build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || find . -name "*.apk" -exec cp -v {} ./app-release.apk \;
           ls -lh ./app-release.apk
 
       - name: Upload APK to Artifacts
