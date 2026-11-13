@@ -59,36 +59,49 @@ function getLiveContext() {
     weightGram: 0,
     totalWeightGram: 0,
     currentWeightGram: 0,
-    distanceCm: 25,
+    distanceCm: 35.0,
     fullThresholdCm: 10,
     emptyDistanceCm: 35,
     lastSeen: new Date().toISOString(),
+    fillPercent: 0,
     surroundingTrashCount: 0,
     surroundingTrashStatus: 'Bersih',
-    surroundingTrashSummary: 'Lingkungan bersih'
+    surroundingTrashSummary: 'Lingkungan sekitar bersih dan rapi.'
   };
 
   const now = Date.now();
   const lastSeenMs = new Date(dev.lastSeen || 0).getTime();
-  const isOnline = (now - lastSeenMs) < 15000;
+  const isOnline = (now - lastSeenMs) < 20000;
 
-  const dist = dev.distanceCm;
-  const fullThresh = dev.fullThresholdCm || 10;
-  const emptyDist = dev.emptyDistanceCm || 35;
+  const curWeight = Math.max(0, Number(dev.currentWeightGram ?? dev.weightGram ?? 0));
+  const totalWeight = Math.max(0, Number(dev.totalWeightGram ?? curWeight));
+  const dist = dev.distanceCm !== undefined && dev.distanceCm !== null ? Number(dev.distanceCm) : null;
+  const fullThresh = Number(dev.fullThresholdCm || 10);
+  const emptyDist = Number(dev.emptyDistanceCm || 35);
 
+  // Ambil persentase kolaborasi riil dari ESP32 jika tersedia
   let fillPercent = 0;
-  let statusText = 'AMAN';
-  if (dist === null || dist === undefined) {
-    statusText = 'SENSOR ERROR';
+  if (dev.fillPercent !== undefined && dev.fillPercent !== null) {
+    fillPercent = Math.min(100, Math.max(0, Math.round(Number(dev.fillPercent))));
+  } else if (dist !== null && emptyDist > fullThresh) {
+    const usable = emptyDist - fullThresh;
+    const filled = Math.max(0, emptyDist - dist);
+    fillPercent = Math.min(100, Math.max(0, Math.round((filled / usable) * 100)));
+  }
+
+  // JIKA BERAT RIIL <= 1.5g (TONG KOSONG):
+  // Pastikan kapasitas 0% (tidak pernah salah menampilkan 94% atau 100% palsu saat tong kosong!)
+  if (curWeight <= 1.5) {
     fillPercent = 0;
-  } else if (dist <= fullThresh) {
+  }
+
+  let statusText = 'KOSONG / AMAN';
+  if (fillPercent >= 80) {
     statusText = 'PENUH';
-    fillPercent = 100;
+  } else if (fillPercent > 0) {
+    statusText = 'TERISI';
   } else {
-    statusText = 'AMAN';
-    const denom = (emptyDist - fullThresh) || 1;
-    const num = emptyDist - dist;
-    fillPercent = Math.min(100, Math.max(0, Math.round((num / denom) * 100)));
+    statusText = 'KOSONG / AMAN';
   }
 
   const txs = readJSON(TRANSACTIONS_FILE, []).slice(0, 5);
@@ -97,8 +110,8 @@ function getLiveContext() {
     deviceId: dev.deviceId || 'esp32-ecosort-1',
     isOnline,
     lastSeen: dev.lastSeen,
-    currentWeightGram: dev.currentWeightGram ?? dev.weightGram ?? 0,
-    totalWeightGram: dev.totalWeightGram ?? 0,
+    currentWeightGram: curWeight,
+    totalWeightGram: totalWeight,
     distanceCm: dist,
     fullThresholdCm: fullThresh,
     emptyDistanceCm: emptyDist,
@@ -106,7 +119,7 @@ function getLiveContext() {
     statusText,
     surroundingTrashCount: dev.surroundingTrashCount || 0,
     surroundingTrashStatus: dev.surroundingTrashStatus || 'Bersih',
-    surroundingTrashSummary: dev.surroundingTrashSummary || 'Lingkungan sekitar bersih',
+    surroundingTrashSummary: dev.surroundingTrashSummary || 'Lingkungan sekitar bersih dan rapi.',
     recentEvents: txs
   };
 }
@@ -163,20 +176,40 @@ function generateNaturalConversation(userMessage, ctx, history = []) {
     return `Siap, ini aku langsung jawab intinya secara santai dan to-the-point tanpa template kaku. Mau cek kapasitas tong, berat sampah, atau info apa yang kamu butuhkan?`;
   }
 
-  // 3. Sapaan & Salam Santai (hi, hiii, halo, hai, oi, p, pagi, siang, malam, dll)
-  if (/^(h+i+|h+a+i+|h+a+l+o+|h+e+l+l+o+|h+e+y+|o+i+|o+y+|p+|tes+|test+|pagi|siang|sore|malam|assalamualaikum|ass|bro|min)\b/i.test(norm) ||
-    ['hi', 'hai', 'halo', 'hello', 'hey', 'oi', 'p'].includes(norm.replace(/[^a-z]/g, ''))) {
+  // 3. Sapaan & Salam Santai (hi, hiii, haiiiiii, halo, hai, oi, p, pagi, siang, malam, dll)
+  const cleanLetters = norm.replace(/[^a-z]/g, '');
+  const collapsedLetters = cleanLetters.replace(/(.)\1+/g, '$1');
+  const isGreetingWord = ['hi', 'hai', 'halo', 'helo', 'hey', 'hei', 'oi', 'oy', 'p', 'tes', 'test', 'bro', 'min', 'salam'].includes(collapsedLetters) ||
+    /^(hai|halo|hello|hey|hei|pagi|siang|sore|malam|assalamualaikum)\b/i.test(norm);
+
+  if (isGreetingWord) {
     if (norm.includes('assalamualaikum')) {
       return `Wa'alaikumsalam warahmatullahi wabarakatuh! 🙏 Ada yang bisa aku bantu seputar tong sampah EcoSort hari ini?`;
     }
     return pickOne([
-      `Halo! Ada yang bisa aku bantu seputar tong sampah EcoSort hari ini? Kamu bisa cek kapasitas, berat timbangan, atau minta dibuatkan laporan harian.`,
+      `Halo! Ada yang bisa aku bantu seputar tong sampah EcoSort hari ini? Kamu bisa cek kapasitas, berat timbangan, atau status CCTV.`,
       `Hai! Senang bisa menyapa kamu. Mau cek data sensor sampah terkini atau ada laporan yang ingin kamu lihat?`,
       `Halo juga! Aku siap bantu. Ada informasi seputar EcoSort yang mau kamu tanyakan?`
     ]);
   }
 
-  // 4. Tanya Kabar & Small Talk (Apa kabar, lagi apa, sibuk apa)
+  // 4. Tanya Kondisi / Keadaan Saat Ini (Data Real-Time)
+  if (norm.includes('kondisi') || norm.includes('keadaan') || norm.includes('status sekarang') ||
+    norm.includes('gimana sekarang') || norm.includes('kondisi sekarang') || norm.includes('saat ini')) {
+    const statusKet = ctx.fillPercent >= 80
+      ? `🚨 **Hampir Penuh (${ctx.fillPercent}%)** — perlu segera dikosongkan.`
+      : (ctx.fillPercent > 0
+        ? `🟡 **Terisi Sebagian (${ctx.fillPercent}%)** — masih aman menampung sampah.`
+        : `🟢 **Kosong & Siap Pakai (0%)** — belum ada sampah di dalam tong.`);
+    return `Kondisi tempat sampah EcoSort saat ini:\n\n` +
+      `• **Status Kapasitas:** ${statusKet}\n` +
+      `• **Beban Timbangan:** ${curWeight} gram (Total terkumpul: ${totalWeight})\n` +
+      `• **Jarak Sensor Ultrasonik:** ${distText} (Batas penuh: ${ctx.fullThresholdCm} cm)\n` +
+      `• **Pantauan CCTV Sekitar:** ${ctx.surroundingTrashStatus} (${ctx.surroundingTrashCount} sampah terdeteksi kamera)\n` +
+      `• **Koneksi Alat ESP32:** ${ctx.isOnline ? '🟢 Online (Aktif Terhubung)' : '⚪ Offline / Standby'}`;
+  }
+
+  // 5. Tanya Kabar & Small Talk (Apa kabar, lagi apa, sibuk apa)
   if (norm.includes('apa kabar') || norm.includes('gimana kabar') || norm.includes('kabar') || norm.includes('sehat')) {
     return `Kabar baik dan selalu siap siaga! Sensor-sensor EcoSort juga sedang aktif memantau. Ada yang bisa kubantu untuk pengecekan hari ini?`;
   }
@@ -185,7 +218,7 @@ function generateNaturalConversation(userMessage, ctx, history = []) {
     return `Lagi standby mengamati data timbangan dan sensor jarak tong sampah biar tidak ada sampah yang meluber. Kapasitas saat ini berada di angka ${ctx.fillPercent}% dengan berat ${curWeight} gram.`;
   }
 
-  // 5. Permintaan Bertanya / Konfirmasi ("iya aku mau tanya", "mau nanya dong", "boleh tanya")
+  // 6. Permintaan Bertanya / Konfirmasi ("iya aku mau tanya", "mau nanya dong", "boleh tanya")
   if (norm.includes('mau tanya') || norm.includes('mau nanya') || norm.includes('bisa tanya') ||
     norm.includes('bisa nanya') || norm.includes('tanya dong') || norm.includes('nanya dong') ||
     norm.includes('tanya itu') || norm.includes('nanya itu') || norm === 'iya' || norm === 'ya') {
@@ -196,8 +229,9 @@ function generateNaturalConversation(userMessage, ctx, history = []) {
     ]);
   }
 
-  // 6. Kapasitas / Status Penuh Tong Sampah
-  if (norm.includes('penuh') || norm.includes('kapasitas') || norm.includes('volume') || norm.includes('level') || norm.includes('isi')) {
+  // 7. Kapasitas / Status Penuh Tong Sampah (Gunakan Word Boundary agar kata 'kondisi' tidak terpancing ke sini)
+  if (norm.includes('penuh') || norm.includes('kapasitas') || norm.includes('volume') ||
+    norm.includes('level') || /\b(isi|terisi|muatan)\b/i.test(norm)) {
     if (ctx.fillPercent >= 80 || ctx.statusText === 'PENUH') {
       return `🚨 Tong sampah saat ini sudah **hampir penuh (${ctx.fillPercent}%)** dengan sisa jarak sensor ke tumpukan sampah **${distText}** (batas penuh: ${ctx.fullThresholdCm} cm). Sebaiknya segera dikosongkan agar tidak meluber.`;
     }
@@ -291,17 +325,18 @@ router.post('/chat', requireAuth, async (req, res) => {
 PANDUAN KOMUNIKASI PENTING:
 1. Berbicaralah secara ALAMI, LUWES, dan AKRAB dalam Bahasa Indonesia (seperti teman bicara yang cerdas, asik, dan solutif).
 2. HINDARI bahasa robot kaku, JANGAN gunakan template formulir yang berulang-ulang, dan JANGAN menjejalkan daftar poin data sensor jika pengguna hanya menyapa atau bertanya hal santai.
-3. JAWAB NYAMBUNG sesuai maksud pengguna:
+3. ATURAN MUTLAK: JANGAN PERNAH MENGULANG, MENGUTIP, ATAU MEMBEO PERTANYAAN/KATA-KATA AUDIENS (dilarang keras mengatakan 'Wah pertanyaan tentang...', 'Soal...', atau mengulang teks yang diketik pengguna). Berikan HANYA intisari jawabannya saja secara langsung dan ramah!
+4. JAWAB NYAMBUNG sesuai maksud pengguna:
    - Jika pengguna menyapa ("halo", "oi", "apa kabar"), bercanda, curhat, atau mengajak ngobrol santai: balas dengan ramah, hangat, dan ajak berdialog secara asik.
    - Jika pengguna bertanya hal umum (sains, kehidupan, teknologi, lingkungan, cara daur ulang sampah): jelaskan secara menarik dan mudah dipahami.
    - Jika pengguna bertanya tentang tempat sampah, kapasitas, berat, sensor, atau status alat: jelaskan secara santai dan informatif berdasarkan data sensor terkini berikut.
-4. DATA TELEMETRI SENSOR SAAT INI (gunakan secara cerdas jika relevan dengan pertanyaan):
+5. DATA TELEMETRI SENSOR SAAT INI (gunakan secara cerdas jika relevan dengan pertanyaan):
    - ID Perangkat: ${ctx.deviceId}
    - Status Koneksi: ${ctx.isOnline ? 'Online (Terhubung)' : 'Offline (Standby)'}
    - Berat Sampah Saat Ini: ${Number(ctx.currentWeightGram).toFixed(1)} gram (Total Terkumpul: ${ctx.totalWeightGram} gram)
    - Kapasitas Terisi: ${ctx.fillPercent}% (Jarak Sensor: ${ctx.distanceCm} cm, Batas Penuh: ${ctx.fullThresholdCm} cm, Status: ${ctx.statusText})
    - Pantauan CCTV Lingkungan: Status ${ctx.surroundingTrashStatus}, ${ctx.surroundingTrashCount} sampah di sekitar tong.
-5. Pertahankan percakapan agar mengalir lancar dan menyenangkan.`;
+6. Pertahankan percakapan agar mengalir lancar dan menyenangkan.`;
 
     // Bentuk riwayat obrolan untuk Gemini multi-turn
     const contents = [];

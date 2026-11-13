@@ -47,8 +47,8 @@ const aiRoutes = require('./routes/ai');
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: false, limit: '25mb' }));
 
-// ---- Static files ----
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// ---- Static files (Anti-cache agar antarmuka web selalu memuat versi terbaru) ----
+app.use(express.static(path.join(__dirname, '..', 'public'), { etag: false, maxAge: 0 }));
 
 // ---- API routes ----
 app.use('/api/iot', iotRoutes);
