@@ -4,18 +4,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cctv_result.dart';
 
 class ApiService {
-  static const String _defaultServerUrl = 'http://192.168.109.46:40122'; // IP Server Dashboard EcoSort (Jaringan LAB RPL)
+  // Preset URL Server
+  static const String vpsServerUrl = 'http://144.79.202.196:40122';     // Server Cloud VPS Publik (Untuk Teman & Pengujian Luar)
+  static const String localServerUrl = 'http://192.168.109.46:40122';   // Server Lokal Laptop (Jaringan LAB RPL / Hotspot)
   static const String _defaultDeviceId = 'esp32-ecosort-1';
   static const String _defaultDeviceToken = 'eco_token_12345';
 
+  static String normalizeUrl(String input) {
+    String url = input.trim();
+    if (url.isEmpty) return vpsServerUrl;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'http://$url';
+    }
+    while (url.endsWith('/')) {
+      url = url.substring(0, url.length - 1);
+    }
+    return url;
+  }
+
   static Future<String> getServerUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('server_url') ?? _defaultServerUrl;
+    final saved = prefs.getString('server_url');
+    if (saved != null && saved.trim().isNotEmpty) {
+      return normalizeUrl(saved);
+    }
+    return vpsServerUrl;
   }
 
   static Future<void> setServerUrl(String url) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('server_url', url.trim());
+    final clean = normalizeUrl(url);
+    await prefs.setString('server_url', clean);
   }
 
   static Future<String> getDeviceId() async {
@@ -48,7 +67,7 @@ class ApiService {
     await prefs.setInt('auto_interval', sec);
   }
 
-  /// Kirim foto CCTV base64 ke endpoint /api/ai/analyze-cctv
+  /// Kirim snapshot CCTV base64 ke endpoint /api/ai/analyze-cctv
   static Future<CctvAnalysisResult> sendCctvFrame(String base64Image) async {
     final baseUrl = await getServerUrl();
     final deviceId = await getDeviceId();
@@ -80,20 +99,19 @@ class ApiService {
       final data = jsonDecode(response.body);
       return CctvAnalysisResult.fromJson(data);
     } else {
-      throw Exception('Server error ${response.statusCode}: ${response.body}');
+      throw Exception('Server ${response.statusCode}: ${response.body}');
     }
   }
 
-  /// Ping koneksi server
-  static Future<bool> pingServer() async {
+  /// Ping koneksi server (cek apakah URL aktif dan bisa dijangkau)
+  static Future<bool> pingServer([String? testUrl]) async {
     try {
-      final baseUrl = await getServerUrl();
+      final baseUrl = testUrl != null ? normalizeUrl(testUrl) : await getServerUrl();
       final uri = Uri.parse('$baseUrl/api/ai/status');
       final res = await http.get(uri).timeout(const Duration(seconds: 4));
-      return res.statusCode == 200 || res.statusCode == 401; // Reachable
+      return res.statusCode == 200 || res.statusCode == 401;
     } catch (_) {
       return false;
     }
   }
 }
-

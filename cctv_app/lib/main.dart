@@ -7,10 +7,18 @@ List<CameraDescription> cameras = [];
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.black,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   try {
     cameras = await availableCameras();
@@ -43,4 +51,3 @@ class EcoSortCctvApp extends StatelessWidget {
     );
   }
 }
-
