@@ -38,16 +38,24 @@ jobs:
       - name: Build Release APK
         working-directory: cctv_app
         run: |
-          flutter build apk --release --no-tree-shake-icons
-          mkdir -p /tmp/apk_output
-          find /home/runner/work -name "*.apk" -exec cp -v {} /tmp/apk_output/app-release.apk \;
-          ls -la /tmp/apk_output/
+          flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log || {
+            echo "::error::Gradle build failed"
+            tail -n 80 ../build.log
+            exit 1
+          }
+
+      - name: Collect Output APK
+        run: |
+          echo "=== Mencari file APK yang berhasil di-build ==="
+          find . -name "*.apk" -ls
+          find . -name "*.apk" -exec cp -v {} ./app-release.apk \;
+          ls -lh ./app-release.apk
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: EcoSort-CCTV-Release-APK
-          path: /tmp/apk_output/app-release.apk
+          path: app-release.apk
           if-no-files-found: error
 
       - name: Publish Release APK
@@ -63,4 +71,4 @@ jobs:
             **Cara Pasang di HP Android:**
             1. Unduh file **`app-release.apk`** di bawah ini.
             2. Buka file APK di HP Android dan izinkan instalasi dari sumber ini.
-          files: /tmp/apk_output/app-release.apk
+          files: app-release.apk
