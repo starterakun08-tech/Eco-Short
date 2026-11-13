@@ -1,8 +1,11 @@
 {
+  "python.analysis.stubPath": "typings",
+  "python.analysis.typeCheckingMode": "off",
   "python.analysis.diagnosticSeverityOverrides": {
     "reportMissingImports": "none",
     "reportMissingModuleSource": "none",
-    "reportGeneralTypeIssues": "none"
+    "reportGeneralTypeIssues": "none",
+    "reportUndefinedVariable": "none",
+    "reportUnusedImport": "none"
   }
 }
-

@@ -16,10 +16,10 @@ Tersinkronisasi Penuh dengan Web Dashboard EcoSort IoT:
 """
 
 try:
-    from machine import Pin, PWM, time_pulse_us, reset
-    import network
+    from machine import Pin, PWM, time_pulse_us, reset  # type: ignore
+    import network  # type: ignore
     import time
-    import urequests
+    import urequests  # type: ignore
     import gc
 except ImportError:
     # Fallback Mock untuk menghilangkan garis merah di editor VS Code laptop
