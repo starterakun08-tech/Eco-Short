@@ -394,6 +394,7 @@ router.post('/command', requireAuth, (req, res) => {
 
     const nextId = getNextTransactionId(txs);
     const reportCode = cmd.id || `LP-${String(nextId).padStart(4, '0')}`;
+    const curDist = (dev && dev.distanceCm !== null && dev.distanceCm !== undefined) ? `${dev.distanceCm} cm` : '35.0 cm';
     txs.unshift({
       id: nextId,
       commandId: reportCode,
@@ -403,7 +404,7 @@ router.post('/command', requireAuth, (req, res) => {
       type: 'Perintah',
       amount: cmdLabel,
       rawAmount: cmdLabel,
-      distance: '--',
+      distance: curDist,
       status: cmd.type === 'tare' || cmd.type === 'set_tare_offset' ? 'Selesai' : 'Menunggu'
     });
     if (txs.length > 100) txs.pop();
@@ -453,6 +454,7 @@ router.post('/tare-offset', requireAuth, (req, res) => {
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
     const nextId = getNextTransactionId(txs);
     const reportCode = `LP-${String(nextId).padStart(4, '0')}`;
+    const curDist = (existing && existing.distanceCm !== null && existing.distanceCm !== undefined) ? `${existing.distanceCm} cm` : '35.0 cm';
     txs.unshift({
       id: nextId,
       commandId: reportCode,
@@ -462,7 +464,7 @@ router.post('/tare-offset', requireAuth, (req, res) => {
       type: 'Perintah',
       amount: `Tare Kustom: ${offset.toFixed(1)} g`,
       rawAmount: `Tare Wadah: ${offset.toFixed(1)} g`,
-      distance: '--',
+      distance: curDist,
       status: 'Selesai'
     });
     if (txs.length > 100) txs.pop();
@@ -522,6 +524,7 @@ router.post('/tare', requireAuth, (req, res) => {
                    nowObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
     const nextId = getNextTransactionId(txs);
     const reportCode = `LP-${String(nextId).padStart(4, '0')}`;
+    const curDist = (existing && existing.distanceCm !== null && existing.distanceCm !== undefined) ? `${existing.distanceCm} cm` : '35.0 cm';
     txs.unshift({
       id: nextId,
       commandId: reportCode,
@@ -531,7 +534,7 @@ router.post('/tare', requireAuth, (req, res) => {
       type: 'Perintah',
       amount: 'Tare Nol Timbangan',
       rawAmount: 'Tare Nol Timbangan',
-      distance: '--',
+      distance: curDist,
       status: 'Selesai'
     });
     if (txs.length > 100) txs.pop();

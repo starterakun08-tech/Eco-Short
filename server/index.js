@@ -83,7 +83,7 @@ app.use((err, req, res, _next) => {
 });
 
 // ---- Start ----
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('====================================================');
   console.log('  ECOSORT IoT Dashboard & NEXA CCTV RELAY AKTIF');
@@ -94,4 +94,21 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  - Akun Login: admin / admin123');
   console.log('====================================================');
   console.log('');
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error('');
+    console.error('====================================================');
+    console.error(`  [PERINGATAN] Port ${PORT} sudah digunakan!`);
+    console.error('  Server EcoSort sudah berjalan di proses background lain.');
+    console.error('  Untuk menutup proses lama dan memulai ulang, jalankan:');
+    console.error(`  Stop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force`);
+    console.error('====================================================');
+    console.error('');
+    process.exit(1);
+  } else {
+    console.error('[SERVER ERROR]', err);
+    process.exit(1);
+  }
 });
