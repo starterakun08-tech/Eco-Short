@@ -37,12 +37,18 @@ jobs:
 
       - name: Build Release APK
         working-directory: cctv_app
-        run: flutter build apk --release --no-tree-shake-icons
-
-      - name: Copy Built APK to Root
         run: |
-          cp -v build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || cp -v cctv_app/build/app/outputs/flutter-apk/app-release.apk ./app-release.apk || find . -name "*.apk" -exec cp -v {} ./app-release.apk \;
-          ls -lh ./app-release.apk
+          set -o pipefail
+          flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log || {
+            ERR=$(tail -n 25 ../build.log | tr '\n' ' ' | sed 's/"//g')
+            echo "::error title=GRADLE_ERROR::$ERR"
+            exit 1
+          }
+
+          echo "=== PENCARIAN FILE APK ==="
+          find /home/runner/work -name "*.apk" -ls
+          find /home/runner/work -name "*.apk" -exec cp -v {} ../app-release.apk \;
+          ls -lh ../app-release.apk
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
