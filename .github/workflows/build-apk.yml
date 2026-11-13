@@ -38,32 +38,9 @@ jobs:
       - name: Build Release APK
         working-directory: cctv_app
         run: |
-          flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log || {
-            echo "::error::Gradle build failed"
-            tail -n 80 ../build.log
-            exit 1
-          }
-
-      - name: Collect Output APK
-        run: |
-          echo "=== LOG TERAKHIR FLUTTER BUILD ==="
-          tail -n 30 build.log
-
-          # Ambil path file APK yang dicetak langsung oleh Flutter
-          APK_PATH=$(grep -oE "[^ ]*build/[^ ]*\.apk" build.log | tail -n 1 || true)
-          echo "Path terdeteksi dari log: '$APK_PATH'"
-
-          if [ -n "$APK_PATH" ] && [ -f "cctv_app/$APK_PATH" ]; then
-            cp -v "cctv_app/$APK_PATH" ./app-release.apk
-          elif [ -n "$APK_PATH" ] && [ -f "$APK_PATH" ]; then
-            cp -v "$APK_PATH" ./app-release.apk
-          else
-            echo "Mencari dengan find..."
-            find . -type f -name "*.apk" -exec cp -v {} ./app-release.apk \; || true
-            find /home/runner/work -type f -name "*.apk" -exec cp -v {} ./app-release.apk \; || true
-          fi
-
-          ls -lh ./app-release.apk
+          flutter build apk --release --no-tree-shake-icons
+          cp -v build/app/outputs/flutter-apk/app-release.apk ../app-release.apk || cp -v ../build/app/outputs/flutter-apk/app-release.apk ../app-release.apk || find /home/runner/work -name "*.apk" -exec cp -v {} ../app-release.apk \;
+          ls -lh ../app-release.apk
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
