@@ -1460,7 +1460,7 @@ function renderCctvResult(data) {
       }
     } else if (count === 0) {
       banner.classList.add('banner-green');
-      if (statusEl) statusEl.textContent = 'Bersih (Bebas Pelanggaran)';
+      if (statusEl) statusEl.textContent = 'Bersih';
       if (hudText) hudText.textContent = 'Status: Bersih (0 Sampah)';
       if (hudBadge) {
         hudBadge.style.color = '#22c55e';
@@ -1485,25 +1485,22 @@ function renderCctvResult(data) {
     }
   }
 
-  // Indikator Kartu Pelanggaran AI Gemini
+  // Indikator Kartu Pelanggaran AI Gemini (Hanya tampil jika terdeteksi pelanggaran aktif)
   const violatorCard = document.getElementById('cctvViolatorCard');
   const violatorTitle = document.getElementById('cctvViolatorTitle');
   const violatorDesc = document.getElementById('cctvViolatorDesc');
 
   if (violatorCard) {
-    violatorCard.style.display = 'flex';
     if (isViolator) {
+      violatorCard.style.display = 'flex';
       violatorCard.classList.remove('violator-clean');
       if (violatorTitle) violatorTitle.textContent = '🚨 PELANGGARAN TERDETEKSI: BUANG SAMPAH SEMBARANGAN';
       if (violatorDesc) {
         violatorDesc.textContent = data.violatorDescription || 'Terdeteksi seseorang membuang sampah di luar tempat sampah. Tindakan pelanggaran dicatat ke sistem!';
       }
     } else {
-      violatorCard.classList.add('violator-clean');
-      if (violatorTitle) violatorTitle.textContent = '✅ TERTIB: BEBAS PELANGGARAN';
-      if (violatorDesc) {
-        violatorDesc.textContent = 'Tidak terdeteksi adanya orang yang membuang sampah sembarangan di sekitar tempat sampah.';
-      }
+      // Sembunyikan kartu jika tidak ada pelanggaran agar tampilan bersih dan ringkas
+      violatorCard.style.display = 'none';
     }
   }
 
