@@ -406,7 +406,13 @@
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 13c-3.04 0-5.5-2.46-5.5-5.5S8.96 6.5 12 6.5s5.5 2.46 5.5 5.5-2.46 5.5-5.5 5.5zm0-9c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5z"/>
                     </svg>
-                    <span>Analisis AI Gemini</span>
+                    <span id="btnAnalyzeCctvText">Identifikasi AI Gemini</span>
+                  </button>
+                  <button type="button" class="btn-ctrl btn-ctrl-danger" id="btnClearCctv" onclick="clearCctvFrame()" style="background:#dc2626; color:#fff;" title="Hapus snapshot/frame CCTV dari layar dan server">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                    <span>Hapus Frame</span>
                   </button>
                 </div>
               </div>
@@ -429,7 +435,18 @@
                 </div>
               </div>
 
-              <!-- Peringatan Petugas Kebersihan (Muncul saat > 5 Sampah) -->
+              <!-- Banner Deteksi Pelanggar AI (Orang Membuang Sampah Tidak Pada Tempatnya) -->
+              <div class="cctv-violator-card" id="cctvViolatorCard" style="display: none;">
+                <div class="cctv-violator-head">
+                  <div class="cctv-violator-tag" id="cctvViolatorTag">
+                    <span class="violator-dot"></span>
+                    <strong id="cctvViolatorTitle">PELANGGARAN TERDETEKSI</strong>
+                  </div>
+                </div>
+                <p class="cctv-violator-desc" id="cctvViolatorDesc">Terdeteksi seseorang membuang sampah sembarangan di luar tempat sampah.</p>
+              </div>
+
+              <!-- Peringatan Petugas Kebersihan (Muncul saat > 5 Sampah atau Pelanggaran) -->
               <div class="cctv-alert-cleaner" id="cctvAlertCleanerBox" style="display: none;">
                 <div class="alert-cleaner-body">
                   <strong>Peringatan Terkirim ke Petugas Kebersihan!</strong>

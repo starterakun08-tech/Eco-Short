@@ -17,6 +17,7 @@ class CctvHudOverlay extends StatelessWidget {
 
   Color _getStatusColor() {
     if (latestResult == null) return const Color(0xFF16A34A);
+    if (latestResult!.violatorDetected) return const Color(0xFFDC2626);
     switch (latestResult!.statusColor) {
       case 'red':
         return const Color(0xFFDC2626);
@@ -32,7 +33,8 @@ class CctvHudOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor();
     final count = latestResult?.detectedTrashCount ?? 0;
-    final isAlert = latestResult?.alertSent == true || count > 5;
+    final isViolator = latestResult?.violatorDetected == true;
+    final isAlert = latestResult?.alertSent == true || count > 5 || isViolator;
 
     return Stack(
       children: [
@@ -185,9 +187,11 @@ class CctvHudOverlay extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              count == 0
-                                  ? Icons.check_circle
-                                  : (count <= 5 ? Icons.warning_amber_rounded : Icons.report_problem),
+                              isViolator
+                                  ? Icons.person_off_rounded
+                                  : (count == 0
+                                      ? Icons.check_circle
+                                      : (count <= 5 ? Icons.warning_amber_rounded : Icons.report_problem)),
                               color: statusColor,
                               size: 20,
                             ),
@@ -199,11 +203,13 @@ class CctvHudOverlay extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  count == 0
-                                      ? 'LINGKUNGAN BERSIH'
-                                      : (count <= 5
-                                          ? 'WASPADA: TERDETEKSI SAMPAH'
-                                          : 'KOTOR: SAMPAH BERSERAKAN!'),
+                                  isViolator
+                                      ? '🚨 PELANGGARAN: BUANG SEMBARANGAN'
+                                      : (count == 0
+                                          ? 'LINGKUNGAN BERSIH'
+                                          : (count <= 5
+                                              ? 'WASPADA: TERDETEKSI SAMPAH'
+                                              : 'KOTOR: SAMPAH BERSERAKAN!')),
                                   style: TextStyle(
                                     color: statusColor,
                                     fontWeight: FontWeight.bold,
@@ -214,9 +220,11 @@ class CctvHudOverlay extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '$count Objek Sampah Terdeteksi (Radius ≤ 2m)',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
+                                  isViolator
+                                      ? (latestResult!.violatorDescription ?? 'Seseorang membuang sampah di luar tempat sampah!')
+                                      : '$count Objek Sampah Terdeteksi (Radius ≤ 2m)',
+                                  style: TextStyle(
+                                    color: isViolator ? Colors.red.shade200 : Colors.white70,
                                     fontSize: 11,
                                   ),
                                   maxLines: 1,

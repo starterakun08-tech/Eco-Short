@@ -20,6 +20,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   CameraController? _controller;
   int _selectedCameraIdx = 0;
   bool _isAnalyzing = false;
+  bool _isCameraPowerOn = true;
+  bool _isLiveStreaming = false;
+  Timer? _liveStreamTimer;
   bool _autoCaptureEnabled = false;
   int _autoIntervalSeconds = 10;
   Timer? _autoTimer;
@@ -273,9 +276,92 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _liveStreamTimer?.cancel();
     _autoTimer?.cancel();
     _controller?.dispose();
     super.dispose();
+  }
+
+  void _toggleCameraPower(bool value) async {
+    setState(() {
+      _isCameraPowerOn = value;
+    });
+
+    if (!_isCameraPowerOn) {
+      // Matikan streaming video & auto capture
+      _liveStreamTimer?.cancel();
+      _liveStreamTimer = null;
+      _autoTimer?.cancel();
+      _isLiveStreaming = false;
+      _autoCaptureEnabled = false;
+
+      // Matikan controller hardware kamera
+      if (_controller != null) {
+        await _controller!.dispose();
+        _controller = null;
+      }
+      if (mounted) setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚪ Kamera CCTV Dinonaktifkan (OFF) - Mode Hemat Daya'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Nyalakan kembali kamera
+      await _initCamera(_selectedCameraIdx);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🟢 Kamera CCTV Diaktifkan (ON) - Siap Memantau'),
+            backgroundColor: Color(0xFF16A34A),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleLiveStream(bool value) {
+    if (!_isCameraPowerOn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nyalakan kamera (ON) terlebih dahulu untuk mengaktifkan Video CCTV.'),
+          backgroundColor: Color(0xFFD97706),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLiveStreaming = value;
+    });
+
+    _liveStreamTimer?.cancel();
+    if (_isLiveStreaming) {
+      // Ambil frame pertama
+      _captureAndAnalyze();
+      // Streaming loop real-time setiap 1.5 detik
+      _liveStreamTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+        if (!_isAnalyzing && _isCameraPowerOn && _controller != null && _controller!.value.isInitialized) {
+          _captureAndAnalyze();
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('🔴 Video CCTV Real-Time Aktif: Mengirim live stream ke Web Dashboard!'),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Live Video CCTV dinonaktifkan'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   void _toggleTorch() async {
@@ -387,6 +473,132 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    // Mode Standby jika kamera dimatikan (OFF)
+    if (!_isCameraPowerOn) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B132B),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Top Bar Minimalis saat OFF
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.power_settings_new, color: Colors.redAccent, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'KAMERA: OFF',
+                            style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _showQuickConnectionDialog,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _isServerConnected == true
+                              ? const Color(0xFF16A34A).withOpacity(0.9)
+                              : const Color(0xFFD97706).withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isServerConnected == true ? Icons.cloud_done : Icons.cloud_off,
+                              color: Colors.white,
+                              size: 13,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isServerConnected == true ? 'Terhubung' : 'Atur Server',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // Tampilan Siaga / Standby
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                  border: Border.all(color: Colors.white12, width: 2),
+                ),
+                child: const Icon(
+                  Icons.videocam_off_rounded,
+                  color: Colors.white38,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'Kamera CCTV Dinonaktifkan (OFF)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 36),
+                child: Text(
+                  'Kamera HP dan pengiriman video dinonaktifkan untuk menghemat daya. Tekan tombol di bawah untuk mengaktifkan video CCTV secara langsung.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Tombol Nyalakan Kamera (ON)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF16A34A),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  elevation: 6,
+                ),
+                onPressed: () => _toggleCameraPower(true),
+                icon: const Icon(Icons.power_settings_new, color: Colors.white, size: 20),
+                label: const Text(
+                  'Nyalakan Kamera (ON)',
+                  style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              const Spacer(),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_controller == null || !_controller!.value.isInitialized) {
       return Scaffold(
         backgroundColor: Colors.black,
@@ -452,7 +664,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
-                    // Badge Kiri: Live CCTV + Auto status
+                    // Badge Kiri: Live CCTV + Video/Auto status
                     Flexible(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -467,16 +679,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.redAccent,
+                              decoration: BoxDecoration(
+                                color: _isLiveStreaming ? Colors.redAccent : Colors.greenAccent,
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Flexible(
+                            Flexible(
                               child: Text(
-                                'ECO-SORT CCTV',
-                                style: TextStyle(
+                                _isLiveStreaming ? 'LIVE VIDEO CCTV' : 'ECO-SORT CCTV',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -486,7 +698,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (_autoCaptureEnabled) ...[
+                            if (_autoCaptureEnabled && !_isLiveStreaming) ...[
                               const SizedBox(width: 5),
                               Text(
                                 '• AUTO ${_autoIntervalSeconds}s',
@@ -502,6 +714,35 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                       ),
                     ),
                     const SizedBox(width: 8),
+
+                    // Badge Sakelar Kamera ON / OFF Cepat di Atas
+                    InkWell(
+                      onTap: () => _toggleCameraPower(!_isCameraPowerOn),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: _isCameraPowerOn ? const Color(0xFF16A34A).withOpacity(0.9) : Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _isCameraPowerOn ? Colors.greenAccent : Colors.white24,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.power_settings_new, color: Colors.white, size: 13),
+                            SizedBox(width: 4),
+                            Text(
+                              'ON',
+                              style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
 
                     // Badge Kanan: Status Server (Tap to Quick Setup)
                     GestureDetector(
@@ -596,16 +837,82 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Baris 1: Kontrol Sekunder (Senter, Auto Mode Chip, Ganti Kamera)
+                      // Baris 1: Kontrol Sekunder (Power ON/OFF, Live Video CCTV, Senter, Putar Kamera)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          // Tombol Sakelar Power ON / OFF Kamera
+                          InkWell(
+                            onTap: () => _toggleCameraPower(false),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.redAccent.withOpacity(0.6)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.power_settings_new, color: Colors.redAccent, size: 15),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Matikan (OFF)',
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Tombol Video CCTV Real-Time (Live Streaming)
+                          InkWell(
+                            onTap: () => _toggleLiveStream(!_isLiveStreaming),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: _isLiveStreaming
+                                    ? Colors.red.withOpacity(0.3)
+                                    : Colors.white10,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: _isLiveStreaming ? Colors.redAccent : Colors.transparent,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _isLiveStreaming ? Icons.videocam : Icons.videocam_outlined,
+                                    color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _isLiveStreaming ? 'Video Live' : 'Video Off',
+                                    style: TextStyle(
+                                      color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
                           // Senter (Torch)
                           InkWell(
                             onTap: _toggleTorch,
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                               decoration: BoxDecoration(
                                 color: _isTorchOn ? Colors.yellow.withOpacity(0.2) : Colors.white10,
                                 borderRadius: BorderRadius.circular(20),
@@ -617,14 +924,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                   Icon(
                                     _isTorchOn ? Icons.flash_on : Icons.flash_off,
                                     color: _isTorchOn ? Colors.yellow : Colors.white70,
-                                    size: 16,
+                                    size: 15,
                                   ),
-                                  const SizedBox(width: 4),
+                                  const SizedBox(width: 3),
                                   Text(
                                     'Senter',
                                     style: TextStyle(
                                       color: _isTorchOn ? Colors.yellow : Colors.white70,
-                                      fontSize: 11,
+                                      fontSize: 10.5,
                                     ),
                                   ),
                                 ],
@@ -632,49 +939,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             ),
                           ),
 
-                          // Toggle Auto Capture
-                          InkWell(
-                            onTap: () => _toggleAutoCapture(!_autoCaptureEnabled),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: _autoCaptureEnabled
-                                    ? const Color(0xFF16A34A).withOpacity(0.25)
-                                    : Colors.white10,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: _autoCaptureEnabled ? Colors.greenAccent : Colors.transparent,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.timer,
-                                    color: _autoCaptureEnabled ? Colors.greenAccent : Colors.white70,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _autoCaptureEnabled ? 'Auto On (${_autoIntervalSeconds}s)' : 'Auto Off',
-                                    style: TextStyle(
-                                      color: _autoCaptureEnabled ? Colors.greenAccent : Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Ganti Kamera Depan/Belakang
+                          // Putar Kamera (Flip)
                           InkWell(
                             onTap: _flipCamera,
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.white10,
                                 borderRadius: BorderRadius.circular(20),
@@ -682,9 +952,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.flip_camera_ios, color: Colors.white70, size: 16),
-                                  SizedBox(width: 4),
-                                  Text('Putar', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                                  Icon(Icons.flip_camera_ios, color: Colors.white70, size: 15),
+                                  SizedBox(width: 3),
+                                  Text('Putar', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
                                 ],
                               ),
                             ),
@@ -694,9 +964,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
                       const SizedBox(height: 12),
 
-                      // Baris 2: Tombol Shutter Utama (Thumb-Friendly, Ergonomis, Ukuran Pas)
+                      // Baris 2: Tombol Shutter / Identifikasi Pelanggar AI
                       GestureDetector(
-                        onTap: _isAnalyzing ? null : _captureAndAnalyze,
+                        onTap: _isAnalyzing
+                            ? null
+                            : (_isLiveStreaming ? () => _toggleLiveStream(false) : _captureAndAnalyze),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -709,7 +981,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                 border: Border.all(color: Colors.white, width: 3),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF16A34A).withOpacity(0.4),
+                                    color: (_isLiveStreaming ? Colors.redAccent : const Color(0xFF16A34A)).withOpacity(0.4),
                                     blurRadius: 10,
                                     spreadRadius: 2,
                                   ),
@@ -718,7 +990,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: _isAnalyzing ? const Color(0xFF15803D) : const Color(0xFF16A34A),
+                                  color: _isLiveStreaming
+                                      ? const Color(0xFFDC2626)
+                                      : (_isAnalyzing ? const Color(0xFF15803D) : const Color(0xFF16A34A)),
                                 ),
                                 child: Center(
                                   child: _isAnalyzing
@@ -730,15 +1004,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                             strokeWidth: 2.5,
                                           ),
                                         )
-                                      : const Icon(Icons.camera_alt, color: Colors.white, size: 28),
+                                      : Icon(
+                                          _isLiveStreaming ? Icons.stop_rounded : Icons.camera_alt,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              _isAnalyzing ? 'Menganalisis Snapshot...' : 'Ambil Foto & Analisis CCTV',
-                              style: const TextStyle(
-                                color: Colors.white70,
+                              _isLiveStreaming
+                                  ? '🔴 Video CCTV Streaming Real-Time (Ketuk Berhenti)'
+                                  : (_isAnalyzing ? 'Menganalisis dengan AI Gemini...' : 'Ambil Snapshot & Identifikasi Pelanggar AI'),
+                              style: TextStyle(
+                                color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),

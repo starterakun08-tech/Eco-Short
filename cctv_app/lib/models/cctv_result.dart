@@ -8,6 +8,8 @@ class CctvAnalysisResult {
   final bool alertSent;
   final String? alertMessage;
   final DateTime analyzedAt;
+  final bool violatorDetected;
+  final String? violatorDescription;
 
   CctvAnalysisResult({
     required this.detectedTrashCount,
@@ -19,6 +21,8 @@ class CctvAnalysisResult {
     required this.alertSent,
     this.alertMessage,
     required this.analyzedAt,
+    this.violatorDetected = false,
+    this.violatorDescription,
   });
 
   factory CctvAnalysisResult.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,8 @@ class CctvAnalysisResult {
       analyzedAt: json['analyzedAt'] != null
           ? DateTime.tryParse(json['analyzedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
+      violatorDetected: json['violatorDetected'] == true,
+      violatorDescription: json['violatorDescription']?.toString(),
     );
   }
 
@@ -54,6 +60,8 @@ class CctvAnalysisResult {
       'alertSent': alertSent,
       'alertMessage': alertMessage,
       'analyzedAt': analyzedAt.toIso8601String(),
+      'violatorDetected': violatorDetected,
+      'violatorDescription': violatorDescription,
     };
   }
 }

@@ -231,7 +231,7 @@ function switchNav(target, options = {}) {
 
   try {
     localStorage.setItem('ecosort_current_view', viewName);
-  } catch (_) {}
+  } catch (_) { }
 
   // Update URL Hash dan browser history tanpa memicu reload
   const { updateHistory = true, replace = false } = options;
@@ -813,7 +813,7 @@ function saveReadNotificationIds(ids) {
     const existing = getReadNotificationIds();
     const merged = Array.from(new Set([...existing, ...(Array.isArray(ids) ? ids : [])]));
     localStorage.setItem('ecosort_read_notif_ids', JSON.stringify(merged));
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function fetchNotifications() {
@@ -913,8 +913,8 @@ function renderFullNotificationsPage() {
     const emptyMsg = currentNotifFilter === 'unread'
       ? 'Semua notifikasi telah dibaca'
       : currentNotifFilter === 'warning'
-      ? 'Tidak ada peringatan sensor atau perangkat saat ini'
-      : 'Belum ada notifikasi sistem yang tercatat';
+        ? 'Tidak ada peringatan sensor atau perangkat saat ini'
+        : 'Belum ada notifikasi sistem yang tercatat';
     container.innerHTML = `
       <div class="notif-empty-state">
         <svg viewBox="0 0 24 24" width="44" height="44" fill="currentColor" style="opacity: 0.35;">
@@ -1049,7 +1049,7 @@ function markAllCurrentNotifsAsRead() {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ ids })
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   if (currentView === 'notifications') {
@@ -1089,7 +1089,7 @@ async function checkAIStatus() {
         if (badge) badge.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function updateAIContextPills() {
@@ -1427,7 +1427,9 @@ async function analyzeCctvImage(base64Data = null, countOverride = null) {
 }
 
 function renderCctvResult(data) {
+  if (!data) return;
   const count = Number(data.detectedTrashCount || 0);
+  const isViolator = Boolean(data.violatorDetected);
   const banner = document.getElementById('cctvResultBanner');
   const statusEl = document.getElementById('cctvResultStatus');
   const countBadge = document.getElementById('cctvCountBadge');
@@ -1445,12 +1447,20 @@ function renderCctvResult(data) {
     reportTime.textContent = `${now.getHours().toString().padStart(2, '0')}.${now.getMinutes().toString().padStart(2, '0')}`;
   }
 
-  // Update banner warna: Hijau (0), Kuning (1-5), Merah (>5)
+  // Update banner warna: Merah jika Violator atau Kotor (>5), Kuning (1-5), Hijau (0 Bersih)
   if (banner) {
     banner.classList.remove('banner-green', 'banner-yellow', 'banner-red');
-    if (count === 0) {
+    if (isViolator) {
+      banner.classList.add('banner-red');
+      if (statusEl) statusEl.textContent = 'Pelanggaran: Buang Sembarangan!';
+      if (hudText) hudText.textContent = '🚨 PELANGGARAN TERDETEKSI!';
+      if (hudBadge) {
+        hudBadge.style.color = '#ef4444';
+        hudBadge.style.borderColor = 'rgba(239, 68, 68, 0.7)';
+      }
+    } else if (count === 0) {
       banner.classList.add('banner-green');
-      if (statusEl) statusEl.textContent = 'Bersih';
+      if (statusEl) statusEl.textContent = 'Bersih (Bebas Pelanggaran)';
       if (hudText) hudText.textContent = 'Status: Bersih (0 Sampah)';
       if (hudBadge) {
         hudBadge.style.color = '#22c55e';
@@ -1475,6 +1485,28 @@ function renderCctvResult(data) {
     }
   }
 
+  // Indikator Kartu Pelanggaran AI Gemini
+  const violatorCard = document.getElementById('cctvViolatorCard');
+  const violatorTitle = document.getElementById('cctvViolatorTitle');
+  const violatorDesc = document.getElementById('cctvViolatorDesc');
+
+  if (violatorCard) {
+    violatorCard.style.display = 'flex';
+    if (isViolator) {
+      violatorCard.classList.remove('violator-clean');
+      if (violatorTitle) violatorTitle.textContent = '🚨 PELANGGARAN TERDETEKSI: BUANG SAMPAH SEMBARANGAN';
+      if (violatorDesc) {
+        violatorDesc.textContent = data.violatorDescription || 'Terdeteksi seseorang membuang sampah di luar tempat sampah. Tindakan pelanggaran dicatat ke sistem!';
+      }
+    } else {
+      violatorCard.classList.add('violator-clean');
+      if (violatorTitle) violatorTitle.textContent = '✅ TERTIB: BEBAS PELANGGARAN';
+      if (violatorDesc) {
+        violatorDesc.textContent = 'Tidak terdeteksi adanya orang yang membuang sampah sembarangan di sekitar tempat sampah.';
+      }
+    }
+  }
+
   if (countBadge) {
     countBadge.textContent = `${count} Sampah Sekitar`;
   }
@@ -1482,18 +1514,20 @@ function renderCctvResult(data) {
   // Update kotak "Jumlah Sampah yang Teridentifikasi" di bawah status lingkungan
   if (identifiedCountEl) {
     identifiedCountEl.textContent = count;
-    if (count === 0) {
-      identifiedCountEl.style.color = '#15803d';
-    } else if (count <= 5) {
+    if (isViolator || count > 5) {
+      identifiedCountEl.style.color = '#dc2626';
+    } else if (count <= 5 && count > 0) {
       identifiedCountEl.style.color = '#d97706';
     } else {
-      identifiedCountEl.style.color = '#dc2626';
+      identifiedCountEl.style.color = '#15803d';
     }
   }
 
   if (identifiedDescEl) {
     if (data.summary && data.summary.trim()) {
       identifiedDescEl.textContent = data.summary;
+    } else if (isViolator) {
+      identifiedDescEl.textContent = 'AI Gemini mendeteksi aksi pembuangan sampah sembarangan di luar tong sampah oleh seseorang.';
     } else if (count === 0) {
       identifiedDescEl.textContent = 'Lingkungan sekitar tong sampah bersih. Tidak ada sampah yang berserakan di radius 2 meter.';
     } else if (count <= 5) {
@@ -1503,12 +1537,18 @@ function renderCctvResult(data) {
     }
   }
 
-  // Tampilkan peringatan petugas kebersihan jika > 5 sampah
+  // Tampilkan peringatan petugas kebersihan jika > 5 sampah atau violator terdeteksi
   if (alertBox) {
-    if (count > 5 || data.alertSent) {
+    if (isViolator || count > 5 || data.alertSent) {
       alertBox.style.display = 'flex';
-      if (alertMsg && data.alertMessage) {
-        alertMsg.textContent = data.alertMessage;
+      if (alertMsg) {
+        if (data.alertMessage) {
+          alertMsg.textContent = data.alertMessage;
+        } else if (isViolator) {
+          alertMsg.textContent = 'Terdeteksi orang yang membuang sampah sembarangan! Petugas kebersihan/keamanan diminta meninjau lokasi.';
+        } else {
+          alertMsg.textContent = 'Sampah berserakan di sekitar tong melebihi 5 objek. Pembersihan darurat diminta.';
+        }
       }
     } else {
       alertBox.style.display = 'none';
@@ -1525,6 +1565,81 @@ function renderCctvResult(data) {
         span.textContent = it;
         tagList.appendChild(span);
       });
+    }
+  }
+}
+
+async function clearCctvFrame() {
+  const btn = document.getElementById('btnClearCctv');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+  }
+
+  try {
+    const res = await fetch('/api/ai/clear-cctv', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ deviceId: DEVICE_ID })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal menghapus frame CCTV');
+
+    // Hentikan webcam jika sedang aktif
+    if (activeWebcamStream) {
+      stopWebcam();
+    }
+
+    currentCctvBase64 = null;
+    lastRenderedCctvTimestamp = null;
+
+    // Bersihkan tampilan layar CCTV
+    const imgPreview = document.getElementById('cctvImagePreview');
+    const placeholder = document.getElementById('cctvPlaceholderScreen');
+    const video = document.getElementById('cctvWebcamVideo');
+
+    if (imgPreview) {
+      imgPreview.src = '';
+      imgPreview.style.display = 'none';
+    }
+    if (video) {
+      video.style.display = 'none';
+    }
+    if (placeholder) {
+      placeholder.style.display = 'flex';
+    }
+
+    const connBadge = document.getElementById('cctvLiveConnStatus');
+    if (connBadge) {
+      connBadge.textContent = '⚪ Standby • Frame CCTV Dihapus';
+      connBadge.style.color = '#94a3b8';
+    }
+
+    const reportTime = document.getElementById('cctvReportTime');
+    if (reportTime) reportTime.textContent = 'Dibersihkan';
+
+    // Reset status tampilan hasil analisis
+    renderCctvResult(data.latest?.result || {
+      detectedTrashCount: 0,
+      status: 'Bersih',
+      statusColor: 'green',
+      summary: 'Frame CCTV telah dihapus. Kamera siap menerima tangkapan baru.',
+      trashItems: [],
+      violatorDetected: false,
+      violatorDescription: null
+    });
+
+    showToast('Frame foto CCTV berhasil dihapus', 'success');
+    fetchDeviceStatus();
+    fetchNotifications();
+
+  } catch (err) {
+    console.error('clearCctvFrame error:', err);
+    showToast('Gagal menghapus frame: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
     }
   }
 }
@@ -1573,6 +1688,17 @@ async function loadLatestCctv() {
               imgPreview.style.display = 'block';
             }
             if (placeholder) placeholder.style.display = 'none';
+          }
+        } else {
+          // Tidak ada gambar / frame telah dihapus
+          const imgPreview = document.getElementById('cctvImagePreview');
+          const placeholder = document.getElementById('cctvPlaceholderScreen');
+          if (!activeWebcamStream) {
+            if (imgPreview) {
+              imgPreview.style.display = 'none';
+              imgPreview.src = '';
+            }
+            if (placeholder) placeholder.style.display = 'flex';
           }
         }
       }
@@ -1919,7 +2045,7 @@ function openReportDetailModal(txId) {
   if (elId) elId.textContent = cleanId;
   if (elDate) elDate.textContent = tx.date || (tx.timestamp ? new Date(tx.timestamp).toLocaleString('id-ID') : '-');
   if (elDevice) elDevice.textContent = tx.deviceId || 'esp32-ecosort-1';
-  
+
   const txType = tx.type || (tx.commandId ? 'Perintah Sistem' : 'Penimbangan Sampah');
   if (elType) elType.textContent = txType;
 
@@ -2292,7 +2418,7 @@ async function fetchDeviceStatus() {
     lastDeviceData = dev;
     try {
       localStorage.setItem('ecosort_last_device_cache', JSON.stringify(dev));
-    } catch (_) {}
+    } catch (_) { }
     emptyDist = dev.emptyDistanceCm || 35;
     fullThresh = dev.fullThresholdCm || 10;
 
@@ -2909,7 +3035,7 @@ function restoreCachedDeviceStatus() {
 
     const liveC = document.getElementById('sideLiveCapLabel');
     if (liveC) liveC.textContent = `${fillPercent}%`;
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // ============================================================

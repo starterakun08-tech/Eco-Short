@@ -437,39 +437,58 @@ router.get('/status', (req, res) => {
 });
 
 // =================================================================
+// =================================================================
 //  FUNGSI ANALISIS GAMBAR CCTV (GEMINI VISION + FALLBACK VISION)
 //  Catatan aturan:
+//  - Mendeteksi orang yang membuang sampah sembarangan (tidak di tempatnya)
 //  - Hanya analisa radius <= 2 meter di sekitar tong sampah
 //  - Sampah di tengah jalan raya / aspal jauh (>2m) diabaikan
-//  - 0 sampah: Bersih (Hijau)
+//  - 0 sampah & tidak ada pelanggar: Bersih (Hijau)
 //  - 1-5 sampah: Waspada (Kuning)
 //  - >5 sampah: Kotor (Merah) -> Kirim Peringatan Petugas Kebersihan
+//  - Pelanggar terdeteksi: Pelanggaran Membuang Sembarangan (Merah)
 // =================================================================
 
 async function callGeminiVision(apiKey, base64Data, mimeType = 'image/jpeg') {
-  const promptText = `Anda adalah asisten AI computer vision untuk inspeksi kebersihan tong sampah cerdas EcoSort IoT.
-Tugas Anda adalah memeriksa area sekitar tong sampah pada gambar kamera CCTV ini.
+  const promptText = `Anda adalah sistem AI Computer Vision cerdas untuk pengawasan CCTV kebersihan dan penertiban tong sampah EcoSort IoT.
+Tugas utama Anda adalah:
+1. MENGIDENTIFIKASI ORANG/PELAKU YANG MEMBUANG SAMPAH TIDAK PADA TEMPATNYA (buang sampah sembarangan di luar tong sampah, melempar sampah ke lantai/tanah/aspal, atau meninggalkan sampah berserakan).
+2. Memeriksa kebersihan area sekitar tong sampah (radius maksimal 2 meter).
 
-ATURAN DETEKSI KHUSUS & SANGAT PENTING:
-1. RADIUS PENILAIAN HANYA MAKSIMAL 2 METER di sekeliling tong sampah.
-2. SAMPAH DI LUAR RADIUS 2 METER (contohnya: jika tampak sampah jauh di seberang atau di tengah jalan raya/aspal) JANGAN DIHITUNG SAMA SEKALI (harus diabaikan).
-3. Periksa apakah ada sampah yang terjatuh, tumpah, atau berserakan di sekitar tong sampah (radius <= 2 meter).
-4. Hitung perkiraan jumlah objek sampah yang berserakan (hanya dalam radius 2 meter).
-5. Klasifikasikan status kebersihan lingkungan:
+ATURAN DETEKSI & PENILAIAN SANGAT KETAT:
+1. DETEKSI PELANGGAR (LITTERING VIOLATOR):
+   - Periksa apakah tampak manusia/orang di dalam frame.
+   - Apakah orang tersebut terlihat membuang sampah di luar tempat sampah, melempar sampah ke jalan/tanah/lantai, atau meninggalkan sampah di luar lubang tong?
+   - Jika terdeteksi orang yang membuang sampah sembarangan/tidak pada tempatnya:
+     * "violatorDetected": true
+     * "violatorDescription": "<deskripsi singkat ciri pakaian/orang dan aksi membuang sampah yang dilakukan, misal: Seseorang mengenakan baju putih terdeteksi melempar bungkus sampah ke lantai di samping tong sampah, bukan ke dalam lubang>"
+     * "status": "Pelanggaran Membuang Sembarangan"
+     * "statusColor": "red"
+   - Jika orang membuang sampah dengan tertib ke dalam tong, atau tidak ada orang membuang sembarangan:
+     * "violatorDetected": false
+     * "violatorDescription": null
+
+2. RADIUS PENILAIAN LINGKUNGAN HANYA MAKSIMAL 2 METER di sekeliling tong sampah.
+3. Sampah jauh di luar radius 2 meter (misal seberang jalan raya) JANGAN dihitung/harus diabaikan.
+4. Hitung perkiraan jumlah objek sampah berserakan (radius <= 2 meter).
+5. Klasifikasikan status kebersihan lingkungan jika tidak ada pelanggar aktif:
    - 0 sampah: status "Bersih", statusColor "green"
-   - 1 sampai 5 sampah: status "Waspada", statusColor "yellow", sebutkan perkiraan jumlah sampah
-   - Lebih dari 5 sampah (>5): status "Kotor", statusColor "red", sebutkan perkiraan jumlah sampah, dan aktifkan peringatan ke Petugas Kebersihan.
+   - 1 sampai 5 sampah: status "Waspada", statusColor "yellow"
+   - Lebih dari 5 sampah (>5): status "Kotor", statusColor "red", dan aktifkan alertSent true.
+   - Jika violatorDetected bernilai true, status otomatis "Pelanggaran Membuang Sembarangan", statusColor "red", dan alertSent true.
 
-Kembalikan HANYA format JSON valid berikut (tanpa markdown tambahan seperti \`\`\`json):
+Kembalikan HANYA format JSON valid berikut (tanpa blok markdown seperti \`\`\`json):
 {
-  "detectedTrashCount": <angka perkiraan jumlah sampah dalam radius 2m>,
-  "status": "Bersih" | "Waspada" | "Kotor",
+  "violatorDetected": <true jika ada orang membuang sampah tidak pada tempatnya, false jika tidak>,
+  "violatorDescription": "<penjelasan ciri pelaku dan aksinya jika terdeteksi, atau null>",
+  "detectedTrashCount": <angka perkiraan jumlah sampah berserakan dalam radius 2m>,
+  "status": "Bersih" | "Waspada" | "Kotor" | "Pelanggaran Membuang Sembarangan",
   "statusColor": "green" | "yellow" | "red",
-  "summary": "<penjelasan ringkas kondisi sampah di sekitar tong>",
-  "trashItems": ["<nama/jenis sampah yang terdeteksi, misal: botol plastik, gelas plastik, kantong kresek>"],
+  "summary": "<penjelasan ringkas kondisi sampah dan ada/tidaknya pelanggaran>",
+  "trashItems": ["<nama/jenis sampah yang terlihat, misal: botol plastik, kantong kresek, bungkus makanan>"],
   "radiusNote": "Radius 2 meter dari tong sampah diperiksa (sampah jalan raya diabaikan)",
-  "alertSent": <true jika detectedTrashCount > 5, false jika tidak>,
-  "alertMessage": "<pesan peringatan untuk petugas kebersihan jika status Kotor, atau null>"
+  "alertSent": <true jika violatorDetected == true ATAU detectedTrashCount > 5, false jika tidak>,
+  "alertMessage": "<pesan peringatan tegas jika ada pelanggaran atau status Kotor, atau null>"
 }`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -509,27 +528,39 @@ Kembalikan HANYA format JSON valid berikut (tanpa markdown tambahan seperti \`\`
   const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawText) throw new Error('Respon Gemini Vision kosong');
   const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+  if (parsed.violatorDetected === undefined) parsed.violatorDetected = false;
+  if (!parsed.violatorDescription) parsed.violatorDescription = null;
+  return parsed;
 }
 
 // Fallback analyzer jika Gemini API belum diaktifkan/terkendala
-function fallbackAnalyzeCctv(countOverride, imageName = '') {
+function fallbackAnalyzeCctv(countOverride, imageName = '', mockViolator = false) {
   let count = 0;
   if (countOverride !== undefined && countOverride !== null) {
     count = Math.max(0, parseInt(countOverride, 10) || 0);
   } else {
-    // Estimasi acak cerdas untuk demo jika tanpa override
     count = 0;
   }
 
+  let violatorDetected = Boolean(mockViolator);
+  let violatorDescription = null;
   let status = 'Bersih';
   let statusColor = 'green';
-  let summary = 'Lingkungan sekitar tong sampah dalam radius 2 meter bersih dan rapi. Tidak terdeteksi sampah berserakan.';
+  let summary = 'Lingkungan sekitar tong sampah dalam radius 2 meter bersih dan rapi. Tidak terdeteksi pelanggaran.';
   let trashItems = [];
   let alertSent = false;
   let alertMessage = null;
 
-  if (count > 5) {
+  if (violatorDetected) {
+    status = 'Pelanggaran Membuang Sembarangan';
+    statusColor = 'red';
+    violatorDescription = 'Terdeteksi seseorang membuang atau meninggalkan sampah di luar tempat sampah.';
+    summary = 'PERINGATAN: Terdeteksi pelanggaran pembuangan sampah sembarangan oleh seseorang di sekitar area CCTV!';
+    trashItems = ['Sampah berserakan di lantai/tanah'];
+    alertSent = true;
+    alertMessage = '🚨 PERINGATAN PELANGGARAN: Terdeteksi seseorang membuang sampah sembarangan di luar tong!';
+  } else if (count > 5) {
     status = 'Kotor';
     statusColor = 'red';
     summary = `Peringatan: Terdeteksi sekitar ${count} sampah berserakan di sekitar tong sampah (radius <= 2 meter). Peringatan darurat telah diteruskan ke Petugas Kebersihan.`;
@@ -546,6 +577,8 @@ function fallbackAnalyzeCctv(countOverride, imageName = '') {
   }
 
   return {
+    violatorDetected,
+    violatorDescription,
     detectedTrashCount: count,
     status,
     statusColor,
@@ -588,8 +621,9 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
     }
 
     // 2. Jika ada override count manual (misal testing langsung)
+    const mockViolator = Boolean(req.body.mockViolator);
     if (count !== undefined && count !== null) {
-      analysisResult = fallbackAnalyzeCctv(count);
+      analysisResult = fallbackAnalyzeCctv(count, '', mockViolator);
     } else {
       // 3. Coba panggil Gemini Vision jika ada API Key dan ada gambar
       const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
@@ -598,17 +632,23 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
           analysisResult = await callGeminiVision(apiKey, base64Pure, mimeType);
         } catch (errGemini) {
           console.warn('[AI/CCTV] Gemini Vision gagal, beralih ke Fallback Analyzer:', errGemini.message);
-          analysisResult = fallbackAnalyzeCctv(count !== undefined ? count : 0);
+          analysisResult = fallbackAnalyzeCctv(count !== undefined ? count : 0, '', mockViolator);
           analysisResult.aiEngine = 'Fallback Engine (Google Cloud Project memerlukan aktivasi Generative Language API)';
         }
       } else {
-        analysisResult = fallbackAnalyzeCctv(count !== undefined ? count : 0);
+        analysisResult = fallbackAnalyzeCctv(count !== undefined ? count : 0, '', mockViolator);
       }
     }
 
-    // Pastikan nilai count terdefinisi
+    // Pastikan nilai count dan atribut violator terdefinisi
     const detectedCount = Math.max(0, parseInt(analysisResult.detectedTrashCount, 10) || 0);
     analysisResult.detectedTrashCount = detectedCount;
+    if (analysisResult.violatorDetected === undefined) {
+      analysisResult.violatorDetected = false;
+    }
+    if (!analysisResult.violatorDescription) {
+      analysisResult.violatorDescription = null;
+    }
 
     // 4. Update data status perangkat di server secara instan
     const devices = readJSON(DEVICES_FILE, {});
@@ -626,12 +666,14 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
     dev.surroundingTrashCount = detectedCount;
     dev.surroundingTrashStatus = analysisResult.status;
     dev.surroundingTrashSummary = analysisResult.summary;
+    dev.violatorDetected = analysisResult.violatorDetected;
+    dev.violatorDescription = analysisResult.violatorDescription;
     dev.lastCctvAnalysisAt = new Date().toISOString();
     devices[deviceId] = dev;
     writeJSON(DEVICES_FILE, devices);
 
-    // 5. Jika terdeteksi >5 sampah (Kotor), kirim peringatan ke Petugas Kebersihan
-    if (detectedCount > 5 || analysisResult.alertSent) {
+    // 5. Jika terdeteksi Pelanggaran Pembuangan Sampah ATAU >5 sampah (Kotor), kirim peringatan
+    if (analysisResult.violatorDetected || detectedCount > 5 || analysisResult.alertSent) {
       const txs = readJSON(TRANSACTIONS_FILE, []);
       const nowObj = new Date();
       const nowStr = nowObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' +
@@ -649,17 +691,19 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
 
       const nextId = String(maxId + 1);
       const reportCode = `LP-${nextId.padStart(4, '0')}`;
+      const isViolator = Boolean(analysisResult.violatorDetected);
+
       txs.unshift({
         id: nextId,
         commandId: reportCode,
         reportCode: reportCode,
         date: nowStr,
         timestamp: new Date().toISOString(),
-        type: 'Peringatan CCTV',
-        amount: `${detectedCount} Sampah (Kotor)`,
-        rawAmount: `Kamera AI: ${detectedCount} Sampah`,
+        type: isViolator ? 'Pelanggaran CCTV' : 'Peringatan CCTV',
+        amount: isViolator ? 'Pembuangan Sembarangan' : `${detectedCount} Sampah (Kotor)`,
+        rawAmount: isViolator ? (analysisResult.violatorDescription || 'Pelaku membuang sampah di luar tempat sampah') : `Kamera AI: ${detectedCount} Sampah`,
         distance: '--',
-        status: 'Petugas Diberitahu'
+        status: isViolator ? 'Pelanggar Terdeteksi' : 'Petugas Diberitahu'
       });
       if (txs.length > 100) txs.pop();
       writeJSON(TRANSACTIONS_FILE, txs);
@@ -690,6 +734,67 @@ router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
 // Alias endpoint
 router.post('/analyze-image', requireAuthOrDeviceToken, (req, res) => {
   return router.handle({ ...req, url: '/analyze-cctv', originalUrl: '/api/ai/analyze-cctv' }, res);
+});
+
+// =================================================================
+//  POST /api/ai/clear-cctv — Hapus Frame CCTV dari Server & Dashboard
+// =================================================================
+router.post('/clear-cctv', requireAuthOrDeviceToken, (req, res) => {
+  try {
+    const { deviceId = 'esp32-ecosort-1' } = req.body || {};
+
+    // Hapus file gambar snapshot jika ada
+    if (fs.existsSync(LATEST_CCTV_IMG)) {
+      try {
+        fs.unlinkSync(LATEST_CCTV_IMG);
+      } catch (errUnlink) {
+        console.warn('[AI/clear-cctv] Gagal menghapus file gambar:', errUnlink.message);
+      }
+    }
+
+    // Reset status data JSON CCTV
+    const emptyResult = {
+      detectedTrashCount: 0,
+      status: 'Bersih',
+      statusColor: 'green',
+      summary: 'Belum ada foto/frame CCTV yang dimuat. Kamera siap menerima tangkapan baru.',
+      trashItems: [],
+      violatorDetected: false,
+      violatorDescription: null,
+      radiusNote: 'Radius 2 meter dari tong sampah diperiksa',
+      alertSent: false,
+      alertMessage: null
+    };
+
+    const emptyLatest = {
+      timestamp: new Date().toISOString(),
+      deviceId,
+      result: emptyResult,
+      hasImage: false,
+      cleared: true
+    };
+    writeJSON(LATEST_CCTV_FILE, emptyLatest);
+
+    // Reset perangkat di devices.json
+    const devices = readJSON(DEVICES_FILE, {});
+    if (devices[deviceId]) {
+      devices[deviceId].surroundingTrashCount = 0;
+      devices[deviceId].surroundingTrashStatus = 'Bersih';
+      devices[deviceId].surroundingTrashSummary = 'Frame CCTV telah dihapus.';
+      devices[deviceId].violatorDetected = false;
+      devices[deviceId].violatorDescription = null;
+      writeJSON(DEVICES_FILE, devices);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Frame foto CCTV dan hasil analisis berhasil dihapus dari server.',
+      latest: emptyLatest
+    });
+  } catch (err) {
+    console.error('[AI/clear-cctv] Error:', err.message);
+    res.status(500).json({ error: 'Gagal menghapus frame CCTV: ' + err.message });
+  }
 });
 
 // =================================================================
