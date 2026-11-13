@@ -135,11 +135,15 @@ class MiniHX711:
         r = self.read()
         if r is None:
             return None
-        gram = (r - self.offset) / faktor
-        # Toleransi deadband noise nol
-        return 0.0 if abs(gram) < 1.0 else max(0.0, gram)
+        # MENGGUNAKAN abs(r - self.offset):
+        # Mencegah nilai terpotong ke 0.0g jika load cell dipasang terbalik
+        # atau kabel sinyal strain gauge terbalik!
+        diff = abs(r - self.offset)
+        gram = diff / abs(faktor)
+        # Ambang sensitivitas tinggi: mampu membaca beban ringan mulai dari 0.3 gram
+        return 0.0 if gram < 0.3 else round(gram, 1)
 
-    def get_stable_gram(self, faktor, samples=8):
+    def get_stable_gram(self, faktor, samples=6):
         """
         Membaca multi-sampel dan menyaring noise mekanis/elektrik
         agar nilai timbangan bersih tidak goyang/naik-turun.
@@ -149,22 +153,20 @@ class MiniHX711:
             g = self.get_gram(faktor)
             if g is not None:
                 readings.append(g)
-            time.sleep_ms(10)
+            time.sleep_ms(8)
         
         if not readings:
             return 0.0
 
         readings.sort()
-        # Ambil median / trimmed mean
-        if len(readings) >= 6:
-            trimmed = readings[2:-2]
-        elif len(readings) >= 4:
+        # Ambil trimmed mean untuk kestabilan maksimal
+        if len(readings) >= 5:
             trimmed = readings[1:-1]
         else:
             trimmed = readings
 
         avg = sum(trimmed) / len(trimmed)
-        return 0.0 if avg < 1.0 else round(avg, 1)
+        return 0.0 if avg < 0.3 else round(avg, 1)
 
 hx = MiniHX711(HX_DT_PIN, HX_SCK_PIN)
 wifi = network.WLAN(network.STA_IF)
@@ -397,6 +399,18 @@ release_servo()
 
 connect_wifi()
 
+# Uji Koneksi Hardware Load Cell HX711 (Diagnostic Check)
+print("\n[INIT] Menguji Komunikasi Hardware Modul HX711 (DT: Pin 4, SCK: Pin 5)...")
+test_val = hx.read()
+if test_val is None:
+    print("⚠️ [PERINGATAN KRITIS HX711] Sensor Load Cell TIDAK MERESPONS (Timeout)!")
+    print("   PANDUAN PERBAIKAN:")
+    print("   1. Pin DT harus ke Pin 4 ESP32, SCK ke Pin 5 ESP32.")
+    print("   2. VCC HX711 wajib ke pin VIN / 5V ESP32 (bukan 3.3V) agar sensitif!")
+    print("   3. Kabel 4 warna Load Cell ke HX711: E+(Merah), E-(Hitam), A+(Putih), A-(Hijau/Biru).")
+else:
+    print(f"   [HX711 OK] Sensor Berhasil Terdeteksi! Nilai Sinyal Raw: {test_val}")
+
 # Kalibrasi Beban Mati (Tare): Mengenolkan berat tong, tutup servo, braket, dan kabel
 print("\n[INIT] Menstabilkan getaran mekanis tong...")
 time.sleep_ms(1200)
@@ -452,13 +466,13 @@ while True:
                 is_buka = False
 
                 # Tunggu getaran mekanis penutupan tutup mereda
-                time.sleep_ms(900)
+                time.sleep_ms(800)
                 
-                # Baca timbangan dengan filter perataan multi-sampel
-                berat_bacaan = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=8)
+                # Baca timbangan dengan filter perataan multi-sampel sensitif
+                berat_bacaan = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=6)
                 
-                # Cek jika ada sampah baru yang masuk (ambang stabil >= 1.5 gram)
-                if berat_bacaan > (berat_sampah_tetap + 1.5):
+                # Cek jika ada sampah baru yang masuk (ambang sensitif >= 0.6 gram)
+                if berat_bacaan > (berat_sampah_tetap + 0.6):
                     sampah_masuk = berat_bacaan - berat_sampah_tetap
                     # Kunci berat sampah secara tetap (tidak akan turun atau goyang)
                     berat_sampah_tetap = round(berat_bacaan, 1)
@@ -473,21 +487,20 @@ while True:
                     # Kirim trigger pencatatan laporan transaksi ke Web Dashboard
                     kirim_data_ke_web(berat_sampah_tetap, tinggi, d_vol, total_berat_akumulasi, jarak_dasar_tong, persen_kapasitas=persen_kolab, reset_weight=True)
 
-        # 2. Cek Sampah Masuk Manual (Saat Tutup Tong Sedang Tertutup)
-        if not is_buka and (now_sec - last_manual_check) >= 3.0:
+        # 2. Cek Sampah Masuk Manual / Penambahan Beban (Sensitivitas Tinggi)
+        if not is_buka and (now_sec - last_manual_check) >= 2.0:
             last_manual_check = now_sec
-            bacaan_awal = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=4)
-            # Jika terdeteksi kenaikan berat >= 2.0 g
-            if bacaan_awal > (berat_sampah_tetap + 2.0):
-                # Konfirmasi ulang setelah 350ms untuk memastikan bukan sekadar senggolan meja
-                time.sleep_ms(350)
-                bacaan_konfirmasi = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=6)
-                if bacaan_konfirmasi > (berat_sampah_tetap + 1.8):
+            bacaan_live = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=4)
+            # Jika ada penambahan beban >= 0.8 g
+            if bacaan_live > (berat_sampah_tetap + 0.8):
+                # Konfirmasi cepat 250ms untuk memastikan kestabilan
+                time.sleep_ms(250)
+                bacaan_konfirmasi = hx.get_stable_gram(FAKTOR_KALIBRASI, samples=5)
+                if bacaan_konfirmasi > (berat_sampah_tetap + 0.6):
                     sampah_masuk = bacaan_konfirmasi - berat_sampah_tetap
-                    # Kunci berat secara tetap
                     berat_sampah_tetap = round(bacaan_konfirmasi, 1)
                     total_berat_akumulasi = berat_sampah_tetap
-                    print(f"*** [SAMPAH MANUAL] +{sampah_masuk:.1f} g | Berat Tetap Tong: {berat_sampah_tetap:.1f} g ***")
+                    print(f"*** [DETEKSI BEBAN] +{sampah_masuk:.1f} g | Berat Tetap: {berat_sampah_tetap:.1f} g ***")
                     
                     d_vol = read_sonar_median(trig_vol, echo_vol, samples=3)
                     tinggi = max(0.0, round(jarak_dasar_tong - d_vol, 1)) if d_vol else 0.0
