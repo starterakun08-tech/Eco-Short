@@ -15,11 +15,48 @@ Tersinkronisasi Penuh dengan Web Dashboard EcoSort IoT:
 ================================================================================
 """
 
-from machine import Pin, PWM, time_pulse_us, reset
-import network
-import time
-import urequests
-import gc
+try:
+    from machine import Pin, PWM, time_pulse_us, reset
+    import network
+    import time
+    import urequests
+    import gc
+except ImportError:
+    # Fallback Mock untuk menghilangkan garis merah di editor VS Code laptop
+    import time
+    import gc
+    class Pin:
+        IN = 0
+        OUT = 1
+        def __init__(self, *args, **kwargs): pass
+        def value(self, *args): return 0
+    class PWM:
+        def __init__(self, *args, **kwargs): pass
+        def duty_u16(self, *args): pass
+    def time_pulse_us(*args): return 0
+    def reset(): pass
+    class MockWLAN:
+        def __init__(self, *args): pass
+        def active(self, *args): pass
+        def isconnected(self): return True
+        def connect(self, *args): pass
+        def ifconfig(self): return ("192.168.110.254",)
+    class MockNetwork:
+        STA_IF = 0
+        def WLAN(self, *args): return MockWLAN()
+    network = MockNetwork()
+    class MockUrequests:
+        def post(self, *args, **kwargs): pass
+        def get(self, *args, **kwargs): pass
+    urequests = MockUrequests()
+    if not hasattr(time, 'ticks_ms'):
+        time.ticks_ms = lambda: int(time.time() * 1000)
+    if not hasattr(time, 'ticks_diff'):
+        time.ticks_diff = lambda a, b: a - b
+    if not hasattr(time, 'sleep_ms'):
+        time.sleep_ms = lambda ms: time.sleep(ms / 1000.0)
+    if not hasattr(time, 'sleep_us'):
+        time.sleep_us = lambda us: time.sleep(us / 1000000.0)
 
 # ==============================================================================
 # 1. KONFIGURASI SISTEM & SERVER WEBSITE
