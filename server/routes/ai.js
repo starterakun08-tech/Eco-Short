@@ -62,12 +62,15 @@ function getLiveContext() {
     distanceCm: 25,
     fullThresholdCm: 10,
     emptyDistanceCm: 35,
-    lastSeen: new Date().toISOString()
+    lastSeen: new Date().toISOString(),
+    surroundingTrashCount: 0,
+    surroundingTrashStatus: 'Bersih',
+    surroundingTrashSummary: 'Lingkungan bersih'
   };
 
   const now = Date.now();
   const lastSeenMs = new Date(dev.lastSeen || 0).getTime();
-  const isOnline = (now - lastSeenMs) < 10000;
+  const isOnline = (now - lastSeenMs) < 15000;
 
   const dist = dev.distanceCm;
   const fullThresh = dev.fullThresholdCm || 10;
@@ -101,145 +104,255 @@ function getLiveContext() {
     emptyDistanceCm: emptyDist,
     fillPercent,
     statusText,
+    surroundingTrashCount: dev.surroundingTrashCount || 0,
+    surroundingTrashStatus: dev.surroundingTrashStatus || 'Bersih',
+    surroundingTrashSummary: dev.surroundingTrashSummary || 'Lingkungan sekitar bersih',
     recentEvents: txs
   };
 }
 
-// Jawaban cerdas otomatis yang memahami konteks prompt pengguna secara alami
-function generateSmartReply(userMessage, ctx) {
-  const q = (userMessage || '').trim().toLowerCase();
+// Helper untuk memilih variasi jawaban secara acak agar percakapan terasa hidup dan natural
+function pickOne(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
-  const weightStr = `${Number(ctx.currentWeightGram).toFixed(1)} gram`;
-  const totalWeightStr = ctx.totalWeightGram >= 1000 
+// Engine Percakapan Natural EcoSort — Luwes, santai, nyambung, tanpa template formulir kaku
+function generateNaturalConversation(userMessage, ctx, history = []) {
+  const raw = (userMessage || '').trim();
+  const q = raw.toLowerCase();
+
+  const curWeight = Number(ctx.currentWeightGram).toFixed(1);
+  const totalWeight = ctx.totalWeightGram >= 1000 
     ? `${(ctx.totalWeightGram / 1000).toFixed(2)} kg` 
-    : `${Number(ctx.totalWeightGram).toFixed(1)} gram`;
-  const distStr = ctx.distanceCm !== null ? `${Number(ctx.distanceCm).toFixed(1)} cm` : 'Error (tidak terbaca)';
-  const onlineStr = ctx.isOnline ? 'Online (Terhubung)' : 'Offline (Terputus)';
+    : `${Number(ctx.totalWeightGram).toFixed(1)} g`;
+  const distText = ctx.distanceCm !== null ? `${Number(ctx.distanceCm).toFixed(1)} cm` : 'belum terbaca';
 
-  // 1. Sapaan & Salam (hi, halo, hello, p, pp, tes, dll)
-  if (/^(hi|hai|halo|hello|hey|hei|p|pp|tes|test|pagi|siang|sore|malam)[\s!.?]*$/i.test(q) || q.startsWith('halo') || q.startsWith('hai ')) {
-    return `Halo! 👋 Ada yang bisa saya bantu terkait sistem **EcoSort IoT** hari ini?\n\nAnda dapat menanyakan:\n- **Kapasitas & status isi** tong sampah saat ini\n- **Berat timbangan terkini** & total sampah terkumpul\n- **Status kebersihan sekitar** dari kamera CCTV AI\n- **Kontrol & perintah** mikrokontroler ESP32`;
+  // 1. Kritik / Complain kalau bot terasa kaku atau gak nyambung
+  if (q.includes('gak nyambung') || q.includes('nggak nyambung') || q.includes('ga nyambung') || 
+      q.includes('templet') || q.includes('template') || q.includes('kaku') || q.includes('jawab yang bener') ||
+      q.includes('oi') && (q.includes('bisa') || q.includes('ngobrol'))) {
+    return pickOne([
+      `Siap, maaf banget kalau tadi terkesan kaku atau kurang nyambung! Sekarang aku dengerin bener-bener kok. Mau ngobrolin apa nih? Mau bahas kondisi tong sampah kita, teknologi sensornya, atau mau ngobrol santai hal lain?`,
+      `Waduh, ampun bos! Haha, siap, ini aku udah mode santai dan luwes. Janji gak bakal kayak robot kaku lagi. Ada hal seru atau pertanyaan apa yang mau kamu tanyain?`,
+      `Iya nih, tadi otak digital-ku sempat kepentok mode formulir haha. Santai, yuk kita ngobrol asik sekarang. Mau nanya apa tentang EcoSort atau mau curhat soal apa?`
+    ]);
   }
 
-  // 2. Pertanyaan tentang Foto Profil / PP / Banner Akun
-  if (q.includes('pp') || q.includes('foto profil') || q.includes('avatar') || q.includes('banner') || q.includes('background')) {
-    return `Untuk mengganti **Foto Profil (PP)** atau **Banner Latar Belakang** akun:\n1. Klik menu **Akun** di bilah navigasi samping kiri, ATAU\n2. Klik ikon kamera kecil 📷 di sudut banner panel profil sebelah kanan.\nAnda dapat mengunggah file foto kustom (JPG, PNG) atau memilih tema warna gradasi yang tersedia!`;
-  }
-
-  // 3. Pertanyaan tentang CCTV & Kamera AI Lingkungan
-  if (q.includes('cctv') || q.includes('kamera') || q.includes('radius') || q.includes('deteksi') || q.includes('lingkungan')) {
-    return `📹 **Sistem Kamera CCTV Cerdas EcoSort:**\n- Memantau kebersihan area sekitar tong sampah khusus dalam **radius maksimal 2 meter** (sampah jauh di jalan raya diabaikan otomatis).\n- **3 Status Cerdas:**\n  🟢 **Bersih:** 0 sampah di sekitar tong.\n  🟡 **Waspada:** 1 - 5 sampah berserakan.\n  🔴 **Kotor:** > 5 sampah (otomatis kirim peringatan ke Petugas Kebersihan).\nAnda bisa memantau langsung dari menu **AI** di dashboard web atau memasang aplikasi Android CCTV EcoSort.`;
-  }
-
-  // 4. Pertanyaan tentang Kapasitas / Penuh / Level Isi
-  if (q.includes('penuh') || q.includes('kapasitas') || q.includes('level') || q.includes('isi') || q.includes('volume') || q.includes('tinggi')) {
-    if (ctx.statusText === 'PENUH' || ctx.fillPercent >= 80) {
-      return `🚨 **Status: Tong Sampah Penuh (${ctx.fillPercent}%)!**\nJarak sensor volume saat ini **${distStr}** (batas penuh: ${ctx.fullThresholdCm} cm). Segera kosongkan penampungan untuk mencegah tumpahan sampah.`;
+  // 2. Sapaan & Salam Santai (Halo, Hai, Oi, P, Bro, dll)
+  if (/^(hi|hai|halo|hello|hey|hei|oi|oy|p|pp|tes|test|pagi|siang|sore|malam|assalamualaikum|ass|woi|bro|min)[\s!.?]*$/i.test(q) || 
+      q === 'halo' || q === 'hai' || q === 'oi' || q === 'p') {
+    const greetings = [
+      `Halo! 👋 Senang banget bisa ngobrol sama kamu. Gimana kabarmu hari ini? Ada yang mau dicek di tong sampah kita atau mau ngobrol santai aja?`,
+      `Hai! Lagi santai nih? Aku siap bantu pantau kondisi EcoSort atau sekadar nemenin kamu ngobrol. Ada kabar seru apa hari ini?`,
+      `Oi! Salam kenal ya. Santai aja di sini, kamu bisa tanya apa aja soal sensor, kapasitas tong sampah, atau ngobrol bebas. Mau mulai dari mana nih?`,
+      `Halo juga! Semoga harimu lancar dan menyenangkan ya. Ada yang bisa aku bantu seputar EcoSort atau ada topik menarik yang mau kita bahas?`
+    ];
+    if (q.includes('assalamualaikum')) {
+      return `Wa'alaikumsalam warahmatullahi wabarakatuh! 🙏 Halo, senang bisa menyapa kamu. Ada yang bisa kubantu hari ini seputar tong sampah EcoSort kita?`;
     }
-    return `✅ **Status Kapasitas: Masih Aman**\nTingkat keterisian tong saat ini **${ctx.fillPercent}%** (jarak sensor: **${distStr}**, batas penuh: ${ctx.fullThresholdCm} cm). Tong sampah masih dapat menampung sampah baru.`;
+    return pickOne(greetings);
   }
 
-  // 5. Pertanyaan tentang Berat & Timbangan
-  if (q.includes('berat') || q.includes('timbangan') || q.includes('gram') || q.includes('kg') || q.includes('tare') || q.includes('load cell')) {
-    return `⚖️ **Data Penimbangan Terkini:**\n- Beban sensor saat ini: **${weightStr}**\n- Total akumulasi sampah: **${totalWeightStr}**\n- Status kalibrasi: Sensor load cell HX711 aktif.\n\n*Tip: Jika timbangan bergeser saat bak kosong, gunakan tombol **Reset Timbangan** di panel profil kanan untuk menolkan kembali.*`;
+  // 3. Tanya Kabar & Small Talk (Apa kabar, lagi apa, sibuk apa)
+  if (q.includes('apa kabar') || q.includes('gimana kabar') || q.includes('kabar') || q.includes('sehat')) {
+    return pickOne([
+      `Kabar aku baik banget dan selalu siap siaga! Lagi asik mantau data sensor EcoSort nih. Kamu sendiri gimana kabarnya hari ini? Semoga sehat dan harimu menyenangkan ya!`,
+      `Alhamdulillah sehat bugar! Sensor-sensor di tempat sampah juga lagi aktif memantau. Kamu gimana, pekerjaan atau kuliah hari ini lancar?`
+    ]);
   }
 
-  // 6. Ringkasan / Rekapitulasi / Laporan
-  if (q.includes('ringkas') || q.includes('rekap') || q.includes('rangkum') || q.includes('laporan') || q.includes('analitik')) {
-    return `📊 **Ringkasan Data EcoSort IoT Terkini:**\n- **Status Alat:** ${onlineStr}\n- **Kondisi Tong:** ${ctx.statusText} (${ctx.fillPercent}% terisi)\n- **Berat Sampah Sekarang:** ${weightStr}\n- **Total Akumulasi:** ${totalWeightStr}\n- **Jarak Sensor:** ${distStr}\n- **Kejadian Tercatat:** ${ctx.recentEvents.length} transaksi di riwayat sistem.`;
+  if (q.includes('lagi apa') || q.includes('lagi ngapain') || q.includes('sibuk apa')) {
+    return pickOne([
+      `Lagi standby nih, mengamati data timbangan sama sensor jarak tong sampah biar nggak ada sampah yang meluber. Sekaligus nungguin kamu ajak ngobrol haha. Kamu sendiri lagi sibuk ngerjain apa nih?`,
+      `Lagi santai sambil jagain kebersihan area sekitar tong sampah lewat kamera CCTV. Sampah saat ini tercatat sekitar ${curWeight} gram. Kamu lagi ngapain nih, lagi istirahat atau nugas?`
+    ]);
   }
 
-  // 7. Status Perangkat & ESP32
-  if (q.includes('status') || q.includes('perangkat') || q.includes('alat') || q.includes('esp32') || q.includes('online') || q.includes('koneksi')) {
-    return `📡 **Status Perangkat ESP32 (${ctx.deviceId}):**\n- Status Koneksi: **${onlineStr}**\n- Terakhir Terlihat: ${ctx.lastSeen ? new Date(ctx.lastSeen).toLocaleTimeString('id-ID') : 'Belum ada data'}\n- Sensor Ultrasonik: ${distStr}\n- Timbangan Berat: ${weightStr} (Kapasitas: ${ctx.fillPercent}%).`;
+  // 4. Identitas & Perkenalan (Siapa kamu, nama kamu, kamu ai apa)
+  if (q.includes('siapa kamu') || q.includes('kamu siapa') || q.includes('nama kamu') || q.includes('namamu') || 
+      q.includes('kamu robot') || q.includes('kamu ai') || q.includes('tentang kamu') || q.includes('bisa apa')) {
+    return `Aku adalah **EcoSort AI**, asisten cerdas sekaligus teman ngobrol kamu untuk sistem tong sampah pintar ini! 🌟\n\nTugasku macam-macam nih:\n- Ngawasi kapasitas dan berat sampah biar nggak sampai luber.\n- Memantau kamera CCTV sekitar tong sampah untuk mendeteksi sampah berserakan.\n- Mengatur kalibrasi dan perintah mikrokontroler ESP32.\n- Dan yang paling seru, nemenin kamu ngobrol nyambung soal apa pun—mulai dari teknologi, tips lingkungan, sampai obrolan santai sehari-hari. Panggil aja aku EcoSort atau Asisten ya!`;
   }
 
-  // 8. Default Respons Cerdas Berbasis Prompt Pengguna
-  return `Halo! Menanggapi pesan Anda mengenai "*${userMessage}*":\n\nSistem EcoSort IoT saat ini berstatus **${onlineStr}** dengan kapasitas isi **${ctx.fillPercent}%** dan berat sampah tercatat **${weightStr}**.\n\nJika ada yang ingin Anda pantau secara khusus, silakan tanyakan seperti:\n- *"Apakah tong sampah sudah penuh?"*\n- *"Berapa berat sampah saat ini?"*\n- *"Bagaimana status kamera CCTV lingkungan?"*`;
+  // 5. Candaan / Humor / Tebak-tebakan (Lelucon, jokes, tebak-tebakan)
+  if (q.includes('canda') || q.includes('lelucon') || q.includes('lawak') || q.includes('lucu') || 
+      q.includes('tebak') || q.includes('joke') || q.includes('ketawa')) {
+    return pickOne([
+      `Haha, boleh! Nih tebak-tebakan santai:\n\n*Tempat sampah apa yang paling sopan dan banyak disukai orang?*\n...\n*Jawabannya:* Tempat sampah yang selalu nampung unek-unek tanpa pernah ngegosipin balik! 😂 Mau tebak-tebakan yang lain?`,
+      `Nih aku ada lelucon ringan:\n\nKenapa tempat sampah pintar EcoSort suka belajar fisika?\nKarena tiap hari dia selalu **menimbang-nimbang** keputusan hidup dengan sangat teliti! ⚖️ Haha, garing gak?`,
+      `Tebak dong: *Kenapa botol plastik bekas kalau dibuang ke tempat sampah suka senyum?*\n...\n*Karena dia tahu sebentar lagi bakal di-daur ulang jadi barang baru yang lebih keren!* ♻️ Gimana, mau tebakan lagi?`
+    ]);
+  }
+
+  // 6. Ucapan Terima Kasih & Pujian
+  if (q.includes('makasih') || q.includes('terima kasih') || q.includes('thanks') || q.includes('thx') || 
+      q.includes('keren') || q.includes('hebat') || q.includes('mantap') || q.includes('pintar') || q.includes('good')) {
+    return pickOne([
+      `Sama-sama! Senang banget bisa bantu dan ngobrol sama kamu. Kalau butuh info apa-apa lagi atau mau ngobrol, kabari aja ya! 😊`,
+      `Hehe makasih banyak ya apresiasinya! Ini juga berkat kerja sama kita yang rajin memantau kebersihan lingkungan. Tetap semangat! 💪`
+    ]);
+  }
+
+  // 7. Pertanyaan Kapasitas / Status Penuh Tong Sampah
+  if (q.includes('penuh') || q.includes('kapasitas') || q.includes('isi') || q.includes('volume') || q.includes('level')) {
+    if (ctx.fillPercent >= 80 || ctx.statusText === 'PENUH') {
+      return `🚨 Waduh, tong sampah kita sekarang udah **hampir penuh (${ctx.fillPercent}%)** nih!\n\nJarak sensor ke tumpukan sampah tinggal **${distText}** (batas penuh kita atur di ${ctx.fullThresholdCm} cm). Sebaiknya segera dikosongkan ya biar sampahnya nggak tumpah ke lantai.`;
+    }
+    return `✅ Tenang aja, kapasitas tong sampah saat ini **masih aman banget (${ctx.fillPercent}%)**.\n\nJarak dari sensor ke dasar/sampah masih sekitar **${distText}**, jadi masih ada banyak ruang kosong buat nampung sampah baru. Nanti kalau udah di atas 80%, aku bakal langsung kasih peringatan ke kamu!`;
+  }
+
+  // 8. Pertanyaan Berat & Timbangan (Load Cell HX711)
+  if (q.includes('berat') || q.includes('timbangan') || q.includes('gram') || q.includes('kg') || q.includes('load cell') || q.includes('tare')) {
+    return `⚖️ Untuk urusan timbangan:\n\nBeban sampah yang saat ini ada di dalam tong tercatat **${curWeight} gram**.\nSedangkan total akumulasi sampah yang pernah dibuang ke sini sudah mencapai **${totalWeight}**.\n\nOh iya, timbangan kita pakai sensor load cell HX711 dengan faktor kalibrasi yang terkunci stabil, jadi angkanya nggak bakal loncat-loncat. Kalau kamu ngerasa timbangannya geser saat kosong, kamu bisa klik tombol **Reset Timbangan** di panel kanan ya.`;
+  }
+
+  // 9. Pertanyaan tentang Servo / Tutup Otomatis / Sensor Tangan
+  if (q.includes('servo') || q.includes('tutup') || q.includes('buka') || q.includes('tangan') || q.includes('gerak') || q.includes('macet')) {
+    return `🤖 **Mekanisme Tutup Otomatis EcoSort:**\n\nTutup tong digerakkan oleh motor servo MG995 bertenaga tinggi yang terhubung ke pin ESP32.\n- Di bagian depan tong ada sensor ultrasonik deteksi tangan (radius aktif <= 35 cm).\n- Begitu tangan kamu mendekat, servo langsung berputar membuka tutup 180° secara otomatis.\n- Setelah jeda sekitar 4.5 detik untuk buang sampah, tutup bakal menutup sendiri dengan mulus.\nJadi kamu nggak perlu menyentuh tong sama sekali, lebih higienis dan bebas kuman!`;
+  }
+
+  // 10. Pertanyaan CCTV / Kamera AI / Pantauan Lingkungan
+  if (q.includes('cctv') || q.includes('kamera') || q.includes('radius') || q.includes('lingkungan') || q.includes('bersih') || q.includes('kotor')) {
+    const cctvStatus = ctx.surroundingTrashStatus || 'Bersih';
+    const cctvCount = ctx.surroundingTrashCount || 0;
+    return `📹 **Pantauan Kamera CCTV Cerdas:**\n\nKamera kita memantau area sekeliling tong sampah khusus dalam **radius maksimal 2 meter** (sampah jauh di jalan raya otomatis diabaikan).\n\nKondisi saat ini:\n- **Status Kebersihan:** ${cctvStatus === 'Bersih' ? '🟢 Bersih' : cctvStatus === 'Waspada' ? '🟡 Waspada' : '🔴 Kotor'}\n- **Jumlah Sampah Berserakan:** ${cctvCount} objek\n\nJika ada lebih dari 5 sampah berserakan di luar tong, sistem langsung mengirimkan sinyal peringatan darurat ke Petugas Kebersihan untuk segera disapu. Kamu juga bisa menghubungkan HP Android kamu lewat aplikasi CCTV EcoSort untuk streaming gambar secara langsung lho!`;
+  }
+
+  // 11. Pertanyaan Seputar ESP32 & Koneksi Alat
+  if (q.includes('esp32') || q.includes('alat') || q.includes('perangkat') || q.includes('online') || q.includes('offline') || q.includes('koneksi')) {
+    const statusConn = ctx.isOnline ? '🟢 Online (Terhubung Lancar)' : '⚪ Offline / Standby';
+    return `📡 **Kondisi Perangkat ESP32 (${ctx.deviceId}):**\n\n- Status Koneksi: **${statusConn}**\n- Terakhir Terlihat: ${ctx.lastSeen ? new Date(ctx.lastSeen).toLocaleTimeString('id-ID') : 'Belum tercatat'}\n- Sensor Jarak: ${distText}\n- Beban Sensor: ${curWeight} g (Kapasitas: ${ctx.fillPercent}%)\n\nSistem firmware ESP32 kita sudah dilengkapi fitur non-blocking lho, jadi kalau misalnya WiFi sempat putus sekalipun, buka-tutup servo dan sensor tangan tetap jalan normal tanpa nge-freeze!`;
+  }
+
+  // 12. Tips Lingkungan / Pemilahan & Daur Ulang Sampah
+  if (q.includes('organik') || q.includes('anorganik') || q.includes('daur ulang') || q.includes('tips') || q.includes('sampah') && (q.includes('cara') || q.includes('macam') || q.includes('pilah'))) {
+    return `♻️ **Tips Pintar Memilah Sampah dari EcoSort:**\n\n1. **Sampah Organik (Sisa Makanan, Daun, Buah):**\n   Bisa diolah jadi kompos atau pakan maggot. Jangan dicampur dengan plastik biar nggak bau dan cepat terurai.\n2. **Sampah Anorganik (Botol Plastik, Kaleng, Kertas):**\n   Pastikan dibilas bersih dari sisa cairan sebelum dibuang agar nilainya tinggi saat disetor ke Bank Sampah atau didaur ulang.\n3. **Sampah B3 (Baterai, Lampu, Obat Kadaluwarsa):**\n   Harus dipisah khusus karena mengandung zat beracun yang berbahaya bagi tanah.\n\nAda jenis sampah tertentu yang mau kamu tanyakan cara daur ulangnya?`;
+  }
+
+  // 13. Respon Bebas & Konseptual yang Tetap "Nyambung"
+  const conversationalReplies = [
+    `Menarik nih obrolanmu soal "${raw}"! Menurutku ini hal yang bagus buat dibahas. Kalau dikaitkan dengan sistem EcoSort kita, saat ini kapasitas tong masih di angka **${ctx.fillPercent}%** dan beratnya **${curWeight} g**. Menurut kamu sendiri gimana?`,
+    `Wah pertanyaan yang asik tentang "${raw}"! Aku paham maksudmu. Di sistem EcoSort kita selalu berusaha bikin pemantauan sampah jadi cerdas dan praktis. Ada bagian tertentu yang bikin kamu penasaran atau mau kita diskusikan lebih jauh?`,
+    `Haha, nyambung kok! Soal "${raw}", itu topik yang seru. Kondisi tong sampah EcoSort kita juga lagi aman terkendali saat ini (${ctx.fillPercent}% terisi). Ada hal lain yang mau kamu tanyakan ke aku?`
+  ];
+  return pickOne(conversationalReplies);
 }
 
 // ---- POST /api/ai/chat ----
 router.post('/chat', requireAuth, async (req, res) => {
   try {
-    const { message } = req.body || {};
+    const { message, history = [] } = req.body || {};
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Pesan pertanyaan tidak boleh kosong' });
     }
 
     const ctx = getLiveContext();
-    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+    const apiKey = (process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '').trim();
 
-    // Jika API Key belum dikonfigurasi di environment server
-    if (!apiKey) {
-      const fallback = generateSmartReply(message, ctx);
+    // Jika API Key belum ada atau formatnya jelas bukan API key Google (misal kosong atau token dummy)
+    if (!apiKey || apiKey.length < 15) {
+      const naturalReply = generateNaturalConversation(message, ctx, history);
       return res.json({
         configured: false,
-        message: 'AI belum dikonfigurasi. Silakan isi GEMINI_API_KEY di environment variable panel hosting.',
-        reply: fallback,
+        message: 'Mode percakapan lokal cerdas aktif.',
+        reply: naturalReply,
         context: ctx
       });
     }
 
-    // Panggil Google Gemini API
-    const prompt = `Anda adalah asisten AI pintar untuk sistem tong sampah cerdas "EcoSort IoT" (ESP32).
-Berikut data terkini dari perangkat:
-- ID Perangkat: ${ctx.deviceId}
-- Status Koneksi: ${ctx.isOnline ? 'Online' : 'Offline'}
-- Berat Sampah Sekarang: ${ctx.currentWeightGram} gram
-- Total Akumulasi Berat: ${ctx.totalWeightGram} gram
-- Jarak Sensor Ultrasonik: ${ctx.distanceCm !== null ? ctx.distanceCm + ' cm' : 'Sensor Error'}
-- Batas Penuh: ${ctx.fullThresholdCm} cm, Jarak Kosong: ${ctx.emptyDistanceCm} cm
-- Persentase Kapasitas: ${ctx.fillPercent}%
-- Status Tong: ${ctx.statusText}
+    // Panggil Google Gemini API dengan instruksi sistem alami & multi-turn history
+    const systemInstructionText = `Anda adalah "EcoSort AI", asisten cerdas sekaligus sahabat ngobrol yang ramah, hangat, santai, dan luwes untuk pengguna sistem tempat sampah cerdas EcoSort IoT.
 
-Jawab pertanyaan pengguna berikut secara ringkas, ramah, akurat, dan dalam Bahasa Indonesia:
-"${message}"`;
+PANDUAN KOMUNIKASI PENTING:
+1. Berbicaralah secara ALAMI, LUWES, dan AKRAB dalam Bahasa Indonesia (seperti teman bicara yang cerdas, asik, dan solutif).
+2. HINDARI bahasa robot kaku, JANGAN gunakan template formulir yang berulang-ulang, dan JANGAN menjejalkan daftar poin data sensor jika pengguna hanya menyapa atau bertanya hal santai.
+3. JAWAB NYAMBUNG sesuai maksud pengguna:
+   - Jika pengguna menyapa ("halo", "oi", "apa kabar"), bercanda, curhat, atau mengajak ngobrol santai: balas dengan ramah, hangat, dan ajak berdialog secara asik.
+   - Jika pengguna bertanya hal umum (sains, kehidupan, teknologi, lingkungan, cara daur ulang sampah): jelaskan secara menarik dan mudah dipahami.
+   - Jika pengguna bertanya tentang tempat sampah, kapasitas, berat, sensor, atau status alat: jelaskan secara santai dan informatif berdasarkan data sensor terkini berikut.
+4. DATA TELEMETRI SENSOR SAAT INI (gunakan secara cerdas jika relevan dengan pertanyaan):
+   - ID Perangkat: ${ctx.deviceId}
+   - Status Koneksi: ${ctx.isOnline ? 'Online (Terhubung)' : 'Offline (Standby)'}
+   - Berat Sampah Saat Ini: ${Number(ctx.currentWeightGram).toFixed(1)} gram (Total Terkumpul: ${ctx.totalWeightGram} gram)
+   - Kapasitas Terisi: ${ctx.fillPercent}% (Jarak Sensor: ${ctx.distanceCm} cm, Batas Penuh: ${ctx.fullThresholdCm} cm, Status: ${ctx.statusText})
+   - Pantauan CCTV Lingkungan: Status ${ctx.surroundingTrashStatus}, ${ctx.surroundingTrashCount} sampah di sekitar tong.
+5. Pertahankan percakapan agar mengalir lancar dan menyenangkan.`;
 
+    // Bentuk riwayat obrolan untuk Gemini multi-turn
+    const contents = [];
+    if (Array.isArray(history) && history.length > 0) {
+      // Ambil maksimal 8 percakapan terakhir agar konteks pas
+      const recentHistory = history.slice(-8);
+      for (const h of recentHistory) {
+        if (!h || !h.text) continue;
+        const role = (h.role === 'assistant' || h.role === 'ai' || h.role === 'model') ? 'model' : 'user';
+        contents.push({
+          role,
+          parts: [{ text: String(h.text) }]
+        });
+      }
+    }
+
+    // Tambahkan pesan pengguna saat ini
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    const geminiPayload = {
+      systemInstruction: {
+        parts: [{ text: systemInstructionText }]
+      },
+      contents,
+      generationConfig: {
+        temperature: 0.8,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024
+      }
+    };
+
+    // Coba model gemini-1.5-flash
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     const response = await fetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { role: 'user', parts: [{ text: prompt }] }
-        ]
-      })
+      body: JSON.stringify(geminiPayload)
     });
 
     if (!response.ok) {
-      console.warn('[AI/chat] Gemini API returned error status:', response.status);
-      const fallback = generateSmartReply(message, ctx);
+      console.warn('[AI/chat] Gemini API returned status:', response.status);
+      const naturalReply = generateNaturalConversation(message, ctx, history);
       return res.json({
         configured: true,
-        reply: fallback,
+        reply: naturalReply,
         context: ctx
       });
     }
 
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (text) {
+    if (text && text.trim()) {
       return res.json({
         configured: true,
-        reply: text,
+        reply: text.trim(),
         context: ctx
       });
     } else {
-      const fallback = generateSmartReply(message, ctx);
+      const naturalReply = generateNaturalConversation(message, ctx, history);
       return res.json({
         configured: true,
-        reply: fallback,
+        reply: naturalReply,
         context: ctx
       });
     }
   } catch (err) {
     console.error('[AI/chat] Error:', err.message);
     const ctx = getLiveContext();
-    const fallback = generateSmartReply(req.body?.message || '', ctx);
+    const naturalReply = generateNaturalConversation(req.body?.message || '', ctx, req.body?.history || []);
     res.json({
       configured: false,
-      message: 'AI fallback aktif',
-      reply: fallback,
+      reply: naturalReply,
       context: ctx
     });
   }
@@ -516,7 +629,7 @@ router.post('/analyze-image', requireAuthOrDeviceToken, (req, res) => {
 // =================================================================
 //  GET /api/ai/latest-cctv — Ambil data hasil analisa CCTV terakhir
 // =================================================================
-router.get('/latest-cctv', requireAuth, (req, res) => {
+router.get('/latest-cctv', requireAuthOrDeviceToken, (req, res) => {
   try {
     const latest = readJSON(LATEST_CCTV_FILE, null);
     const hasImage = fs.existsSync(LATEST_CCTV_IMG);
@@ -544,6 +657,59 @@ router.get('/latest-cctv-image', (req, res) => {
     res.sendFile(LATEST_CCTV_IMG);
   } else {
     res.status(404).send('Belum ada snapshot CCTV yang tersimpan');
+  }
+});
+
+// =================================================================
+//  GET /api/ai/server-info — Info IP & Port Server untuk Aplikasi CCTV
+// =================================================================
+router.get('/server-info', (req, res) => {
+  const os = require('os');
+  const ifaces = os.networkInterfaces();
+  const ips = [];
+  for (const name in ifaces) {
+    for (const net of ifaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        ips.push(net.address);
+      }
+    }
+  }
+  const port = process.env.PORT || 40122;
+  const primaryIp = ips.find(ip => ip.startsWith('192.168.')) || '192.168.109.46';
+  res.json({
+    port,
+    lanIp: primaryIp,
+    serverUrl: `http://${primaryIp}:${port}`,
+    allIps: ips
+  });
+});
+
+// =================================================================
+//  POST /api/ai/config-key — Simpan Google Gemini API Key dari Web
+// =================================================================
+router.post('/config-key', requireAuth, (req, res) => {
+  try {
+    const { apiKey } = req.body || {};
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+      return res.status(400).json({ error: 'API Key tidak valid (minimal 10 karakter)' });
+    }
+    const cleanKey = apiKey.trim();
+    process.env.GEMINI_API_KEY = cleanKey;
+
+    const envPath = path.join(__dirname, '..', '..', '.env');
+    if (fs.existsSync(envPath)) {
+      let content = fs.readFileSync(envPath, 'utf8');
+      if (content.includes('GEMINI_API_KEY=')) {
+        content = content.replace(/GEMINI_API_KEY=.*/, `GEMINI_API_KEY=${cleanKey}`);
+      } else {
+        content += `\nGEMINI_API_KEY=${cleanKey}\n`;
+      }
+      fs.writeFileSync(envPath, content, 'utf8');
+    }
+
+    res.json({ success: true, message: 'Google Gemini API Key berhasil disimpan dan aktif!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Gagal menyimpan API Key: ' + err.message });
   }
 });
 

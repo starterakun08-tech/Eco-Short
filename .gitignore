@@ -6,6 +6,8 @@ package-lock.json
 server/data/*.json
 server/data/*.tmp
 server/data/*.txt
+server/data/*.jpg
+server/data/*.jpeg
 !server/data/.gitkeep
 
 # Helper scripts & testing artifacts

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/cctv_result.dart';
 
 class ApiService {
-  static const String _defaultServerUrl = 'http://192.168.100.16:40122'; // IP Server Dashboard EcoSort
+  static const String _defaultServerUrl = 'http://192.168.109.46:40122'; // IP Server Dashboard EcoSort (Jaringan LAB RPL)
   static const String _defaultDeviceId = 'esp32-ecosort-1';
   static const String _defaultDeviceToken = 'eco_token_12345';
 

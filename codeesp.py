@@ -24,8 +24,8 @@ WIFI_SSID       = "S26 ULTRA"
 WIFI_PASSWORD   = "Bangkoks"
 
 # ALAMAT SERVER LAPTOP:
-# Saat ini laptop terhubung ke jaringan "LAB RPL" dengan IP: 192.168.109.206
-SERVER_HOST     = "http://192.168.109.206:40122"
+# Saat ini laptop terhubung ke jaringan "LAB RPL" dengan IP: 192.168.109.46
+SERVER_HOST     = "http://192.168.109.46:40122"
 
 SERVER_URL      = f"{SERVER_HOST}/api/iot/data"
 COMMAND_URL     = f"{SERVER_HOST}/api/iot/commands"

@@ -293,6 +293,8 @@ function switchNav(target, options = {}) {
     updateAIContextPills();
     scrollAIMessagesToBottom();
     loadLatestCctv();
+    if (typeof startCctvPolling === 'function') startCctvPolling();
+    if (typeof updateCctvServerUrlDisplay === 'function') updateCctvServerUrlDisplay();
   } else if (viewName === 'analytics') {
     loadAnalyticsData(currentAnalyticsRange);
     setTimeout(() => {
@@ -309,8 +311,9 @@ function switchNav(target, options = {}) {
   }
 
   closeNotifDropdown();
-  if (viewName !== 'ai' && typeof stopWebcam === 'function') {
-    stopWebcam();
+  if (viewName !== 'ai') {
+    if (typeof stopWebcam === 'function') stopWebcam();
+    if (typeof stopCctvPolling === 'function') stopCctvPolling();
   }
 }
 
@@ -1123,6 +1126,8 @@ function askQuickPrompt(text) {
   }
 }
 
+let aiChatHistory = [];
+
 function scrollAIMessagesToBottom() {
   const wrap = document.getElementById('aiMessagesWrap');
   if (wrap) wrap.scrollTop = wrap.scrollHeight;
@@ -1137,6 +1142,8 @@ async function handleSendAIMessage(e) {
   const msg = input.value.trim();
   if (!msg) return;
 
+  // Catat ke riwayat obrolan sesi
+  aiChatHistory.push({ role: 'user', text: msg });
   appendChatMessage('user', msg);
   input.value = '';
 
@@ -1150,12 +1157,16 @@ async function handleSendAIMessage(e) {
     const res = await fetch('/api/ai/chat', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ message: msg })
+      body: JSON.stringify({
+        message: msg,
+        history: aiChatHistory.slice(-8)
+      })
     });
     const data = await res.json();
     removeChatLoading(loadingId);
 
     if (data.reply) {
+      aiChatHistory.push({ role: 'assistant', text: data.reply });
       appendChatMessage('ai', data.reply);
     } else {
       appendChatMessage('ai', 'Maaf, terjadi kesalahan saat memproses jawaban.');
@@ -1186,7 +1197,7 @@ function appendChatMessage(sender, text) {
         <svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
       </div>
       <div class="msg-bubble">
-        <div class="msg-sender">EcoSort AI</div>
+        <div class="msg-sender">Asisten EcoSort</div>
         <div class="msg-text">${formattedText}</div>
       </div>
     `;
@@ -1229,6 +1240,27 @@ function removeChatLoading(id) {
 // ============================================================
 let activeWebcamStream = null;
 let currentCctvBase64 = null;
+let cctvPollingTimer = null;
+
+function startCctvPolling() {
+  if (cctvPollingTimer) clearInterval(cctvPollingTimer);
+  loadLatestCctv();
+  cctvPollingTimer = setInterval(() => {
+    if (typeof currentView !== 'undefined' && currentView === 'ai') {
+      const secCctv = document.getElementById('aiCctvSection');
+      if (secCctv && secCctv.style.display !== 'none') {
+        loadLatestCctv();
+      }
+    }
+  }, 2500);
+}
+
+function stopCctvPolling() {
+  if (cctvPollingTimer) {
+    clearInterval(cctvPollingTimer);
+    cctvPollingTimer = null;
+  }
+}
 
 function switchAiTab(tab) {
   const btnCctv = document.getElementById('tabAiCctvBtn');
@@ -1241,11 +1273,15 @@ function switchAiTab(tab) {
     if (btnChat) btnChat.classList.remove('active');
     if (secCctv) secCctv.style.display = 'block';
     if (secChat) secChat.style.display = 'none';
+    startCctvPolling();
+    updateCctvServerUrlDisplay();
   } else {
     if (btnCctv) btnCctv.classList.remove('active');
     if (btnChat) btnChat.classList.add('active');
     if (secCctv) secCctv.style.display = 'none';
     if (secChat) secChat.style.display = 'flex';
+    stopCctvPolling();
+    scrollAIMessagesToBottom();
   }
 }
 
@@ -1535,9 +1571,12 @@ async function loadLatestCctv() {
     const connBadge = document.getElementById('cctvLiveConnStatus');
     if (connBadge && latest?.timestamp) {
       const diffMs = Date.now() - new Date(latest.timestamp).getTime();
-      if (diffMs < 45000) {
-        connBadge.textContent = '🟢 Aplikasi CCTV Terhubung';
+      if (diffMs < 60000) {
+        connBadge.textContent = '🟢 Aplikasi CCTV Terhubung • LIVE';
         connBadge.style.color = '#4ade80';
+      } else if (diffMs < 300000) {
+        connBadge.textContent = '🟡 SIAGA • Frame Terakhir';
+        connBadge.style.color = '#facc15';
       } else {
         connBadge.textContent = '⚪ Menunggu Frame CCTV';
         connBadge.style.color = '#94a3b8';
@@ -1545,6 +1584,95 @@ async function loadLatestCctv() {
     }
   } catch (err) {
     console.error('loadLatestCctv error:', err);
+  }
+}
+
+// Update tampilan alamat server yang harus dimasukkan pengguna di aplikasi CCTV HP
+async function updateCctvServerUrlDisplay() {
+  const displayEl = document.getElementById('cctvServerUrlDisplay');
+  if (!displayEl) return;
+
+  try {
+    // Jika dashboard dibuka lewat IP jaringan LAN langsung, pakai origin saat ini
+    const curHost = window.location.hostname;
+    if (curHost && curHost !== 'localhost' && curHost !== '127.0.0.1') {
+      displayEl.textContent = window.location.origin;
+      return;
+    }
+
+    // Jika dibuka lewat localhost, ambil IP LAN server dari backend
+    const res = await fetch('/api/ai/server-info');
+    if (res.ok) {
+      const info = await res.json();
+      if (info.serverUrl) {
+        displayEl.textContent = info.serverUrl;
+      }
+    }
+  } catch (_) {
+    displayEl.textContent = 'http://192.168.109.46:40122';
+  }
+}
+
+// Salin URL Server ke clipboard agar mudah dimasukkan ke HP
+function copyCctvServerUrl() {
+  const displayEl = document.getElementById('cctvServerUrlDisplay');
+  const url = displayEl ? displayEl.textContent.trim() : 'http://192.168.109.46:40122';
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(`URL Server CCTV disalin: ${url}`, 'success');
+  }).catch(() => {
+    showToast(`Salin manual URL: ${url}`, 'info');
+  });
+}
+
+// Modal Konfigurasi Google Gemini API Key
+function openGeminiKeyModal() {
+  const modal = document.getElementById('geminiKeyModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeGeminiKeyModal() {
+  const modal = document.getElementById('geminiKeyModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleGeminiModalBackdropClick(event) {
+  if (event.target && event.target.id === 'geminiKeyModal') {
+    closeGeminiKeyModal();
+  }
+}
+
+async function saveGeminiKey() {
+  const input = document.getElementById('inputGeminiApiKey');
+  const btn = document.getElementById('btnSaveGeminiKey');
+  if (!input) return;
+
+  const key = input.value.trim();
+  if (!key || key.length < 10) {
+    showToast('Masukkan Google Gemini API Key yang valid (minimal 10 karakter)!', 'warning');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/ai/config-key', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ apiKey: key })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast('Google Gemini API Key berhasil disimpan dan aktif!', 'success');
+      input.value = '';
+      closeGeminiKeyModal();
+      checkAIStatus();
+    } else {
+      showToast(data.error || 'Gagal menyimpan API Key', 'error');
+    }
+  } catch (err) {
+    showToast('Gagal menghubungi server untuk menyimpan API Key', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

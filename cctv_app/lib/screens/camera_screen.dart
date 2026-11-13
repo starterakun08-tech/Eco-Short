@@ -124,8 +124,17 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   runSpacing: 6,
                   children: [
                     ActionChip(
+                      backgroundColor: const Color(0xFF16A34A),
+                      label: const Text('IP LAB RPL (192.168.109.46:40122)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        setDialogState(() {
+                          ctrl.text = 'http://192.168.109.46:40122';
+                        });
+                      },
+                    ),
+                    ActionChip(
                       backgroundColor: Colors.white12,
-                      label: const Text('IP Laptop (192.168.100.16:40122)', style: TextStyle(color: Colors.white, fontSize: 11)),
+                      label: const Text('IP Lain (192.168.100.16:40122)', style: TextStyle(color: Colors.white70, fontSize: 11)),
                       onPressed: () {
                         setDialogState(() {
                           ctrl.text = 'http://192.168.100.16:40122';

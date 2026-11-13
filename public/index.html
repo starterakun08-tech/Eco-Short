@@ -349,6 +349,10 @@
             <div class="ai-tab-switcher">
               <button class="ai-tab-btn active" id="tabAiCctvBtn" onclick="switchAiTab('cctv')">CCTV Sampah Sekitar</button>
               <button class="ai-tab-btn" id="tabAiChatBtn" onclick="switchAiTab('chat')">Tanya Asisten</button>
+              <button type="button" class="ai-tab-btn" id="tabAiConfigBtn" onclick="openGeminiKeyModal()" style="font-size: 0.75rem; padding: 6px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #4ade80; display: inline-flex; align-items: center; gap: 4px;" title="Atur Google Gemini API Key">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                <span>API Key Gemini</span>
+              </button>
             </div>
           </div>
         </header>
@@ -369,9 +373,10 @@
                     </svg>
                     <p style="margin-top:8px; font-weight:600; font-size:0.92rem;">Kamera CCTV Pemantau Tong Sampah</p>
                     <span style="font-size:0.75rem; opacity:0.7;">Siap menerima frame dari aplikasi CCTV EcoSort atau unggahan kamera</span>
-                    <div style="margin-top: 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <div style="margin-top: 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 8px;">
                       <span style="color: #94a3b8;">Server HP CCTV:</span>
-                      <strong style="color: #4ade80; font-family: monospace;">http://192.168.100.16:40122</strong>
+                      <strong id="cctvServerUrlDisplay" style="color: #4ade80; font-family: monospace;">http://192.168.109.46:40122</strong>
+                      <button type="button" onclick="copyCctvServerUrl()" style="background: rgba(255,255,255,0.15); border: none; color: #fff; padding: 2px 7px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;" title="Salin URL Server">Salin</button>
                     </div>
                   </div>
 
@@ -1181,6 +1186,36 @@
           </svg>
           <span>Cetak Laporan</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Pengaturan Google Gemini API Key -->
+  <div class="modal-backdrop" id="geminiKeyModal" style="display: none;" onclick="handleGeminiModalBackdropClick(event)">
+    <div class="modal-card" style="max-width: 480px;" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="report-modal-title-wrap">
+          <h3 style="margin: 0; font-size: 1.15rem; color: #fff;">Konfigurasi Google Gemini AI</h3>
+          <span style="font-size: 0.75rem; color: #94a3b8;">Kunci API untuk Asisten Cerdas & Analisis CCTV</span>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeGeminiKeyModal()" title="Tutup">&times;</button>
+      </div>
+      <div style="padding: 18px 22px;">
+        <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 14px;">
+          Asisten EcoSort dapat menggunakan Google Gemini (gemini-1.5-flash) secara langsung dengan API Key resmi (berawalan <code>AIzaSy...</code>). Jika belum diisi, asisten akan tetap berjalan lancar, ramah, dan tidak kaku menggunakan mesin percakapan natural lokal.
+        </p>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">Google Gemini API Key:</label>
+          <input type="password" id="inputGeminiApiKey" placeholder="AIzaSy..." style="width: 100%; box-sizing: border-box; background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 0.85rem;" />
+        </div>
+        <div style="display: flex; gap: 8px; font-size: 0.75rem; color: #94a3b8; align-items: center; margin-bottom: 16px;">
+          <span>Belum punya API key?</span>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color: #4ade80; text-decoration: none; font-weight: 600;">Dapatkan gratis di Google AI Studio &rarr;</a>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn-ctrl" onclick="closeGeminiKeyModal()">Batal</button>
+          <button type="button" class="btn-ctrl btn-ctrl-primary" id="btnSaveGeminiKey" onclick="saveGeminiKey()" style="background: #16a34a; color: #fff;">Simpan & Aktifkan</button>
+        </div>
       </div>
     </div>
   </div>
