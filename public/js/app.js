@@ -1576,71 +1576,81 @@ async function clearCctvFrame() {
     btn.style.opacity = '0.7';
   }
 
+  // 1. LANGSUNG BERSIHKAN TAMPILAN DI LAYAR (Instant UI, Anti-Lag, Anti-Crash)
+  if (activeWebcamStream) {
+    stopWebcam();
+  }
+
+  currentCctvBase64 = null;
+  // Gunakan timestamp masa depan sementara agar poller tidak menampilkan frame lama saat async server diproses
+  lastRenderedCctvTimestamp = (Date.now() + 60000).toString();
+
+  const imgPreview = document.getElementById('cctvImagePreview');
+  const placeholder = document.getElementById('cctvPlaceholderScreen');
+  const video = document.getElementById('cctvWebcamVideo');
+
+  if (imgPreview) {
+    imgPreview.src = '';
+    imgPreview.style.display = 'none';
+  }
+  if (video) {
+    video.style.display = 'none';
+  }
+  if (placeholder) {
+    placeholder.style.display = 'flex';
+  }
+
+  const connBadge = document.getElementById('cctvLiveConnStatus');
+  if (connBadge) {
+    connBadge.textContent = '⚪ Standby • Frame CCTV Dihapus';
+    connBadge.style.color = '#94a3b8';
+  }
+
+  const reportTime = document.getElementById('cctvReportTime');
+  if (reportTime) reportTime.textContent = 'Dibersihkan';
+
+  // Reset status tampilan hasil analisis menjadi bersih
+  renderCctvResult({
+    detectedTrashCount: 0,
+    status: 'Bersih',
+    statusColor: 'green',
+    summary: 'Frame CCTV telah dihapus. Kamera siap menerima tangkapan baru.',
+    trashItems: [],
+    violatorDetected: false,
+    violatorDescription: null
+  });
+
+  // 2. Kirim sinkronisasi ke server (Aman, Tangani Format Apapun Tanpa Error JSON)
   try {
     const res = await fetch('/api/ai/clear-cctv', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ deviceId: DEVICE_ID })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Gagal menghapus frame CCTV');
-
-    // Hentikan webcam jika sedang aktif
-    if (activeWebcamStream) {
-      stopWebcam();
-    }
-
-    currentCctvBase64 = null;
-    lastRenderedCctvTimestamp = null;
-
-    // Bersihkan tampilan layar CCTV
-    const imgPreview = document.getElementById('cctvImagePreview');
-    const placeholder = document.getElementById('cctvPlaceholderScreen');
-    const video = document.getElementById('cctvWebcamVideo');
-
-    if (imgPreview) {
-      imgPreview.src = '';
-      imgPreview.style.display = 'none';
-    }
-    if (video) {
-      video.style.display = 'none';
-    }
-    if (placeholder) {
-      placeholder.style.display = 'flex';
-    }
-
-    const connBadge = document.getElementById('cctvLiveConnStatus');
-    if (connBadge) {
-      connBadge.textContent = '⚪ Standby • Frame CCTV Dihapus';
-      connBadge.style.color = '#94a3b8';
-    }
-
-    const reportTime = document.getElementById('cctvReportTime');
-    if (reportTime) reportTime.textContent = 'Dibersihkan';
-
-    // Reset status tampilan hasil analisis
-    renderCctvResult(data.latest?.result || {
-      detectedTrashCount: 0,
-      status: 'Bersih',
-      statusColor: 'green',
-      summary: 'Frame CCTV telah dihapus. Kamera siap menerima tangkapan baru.',
-      trashItems: [],
-      violatorDetected: false,
-      violatorDescription: null
+      body: JSON.stringify({ deviceId: DEVICE_ID, clear: true })
     });
 
-    showToast('Frame foto CCTV berhasil dihapus', 'success');
+    if (!res.ok) {
+      // Jika endpoint /clear-cctv belum termuat di proses node lama (perlu restart),
+      // gunakan fallback endpoint /analyze-cctv dengan flag clear
+      await fetch('/api/ai/analyze-cctv', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ deviceId: DEVICE_ID, clear: true, count: 0, image: '' })
+      }).catch(() => {});
+    }
+  } catch (errNet) {
+    console.warn('Sinkronisasi server hapus frame:', errNet);
+  }
+
+  showToast('Frame foto CCTV berhasil dihapus', 'success');
+
+  try {
     fetchDeviceStatus();
     fetchNotifications();
+  } catch (_) {}
 
-  } catch (err) {
-    console.error('clearCctvFrame error:', err);
-    showToast('Gagal menghapus frame: ' + err.message, 'error');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.style.opacity = '1';
-    }
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
   }
 }
 

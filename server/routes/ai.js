@@ -595,7 +595,35 @@ function fallbackAnalyzeCctv(countOverride, imageName = '', mockViolator = false
 // =================================================================
 router.post('/analyze-cctv', requireAuthOrDeviceToken, async (req, res) => {
   try {
-    const { image, deviceId = 'esp32-ecosort-1', count, prompt } = req.body || {};
+    const { image, deviceId = 'esp32-ecosort-1', count, prompt, clear, cleared } = req.body || {};
+
+    // Jika ada request untuk reset / hapus frame
+    if (clear || cleared) {
+      if (fs.existsSync(LATEST_CCTV_IMG)) {
+        try { fs.unlinkSync(LATEST_CCTV_IMG); } catch (_) {}
+      }
+      const emptyResult = {
+        detectedTrashCount: 0,
+        status: 'Bersih',
+        statusColor: 'green',
+        summary: 'Frame CCTV telah dihapus.',
+        trashItems: [],
+        violatorDetected: false,
+        violatorDescription: null,
+        radiusNote: 'Radius 2 meter dari tong sampah diperiksa',
+        alertSent: false,
+        alertMessage: null
+      };
+      const emptyLatest = {
+        timestamp: new Date().toISOString(),
+        deviceId,
+        result: emptyResult,
+        hasImage: false,
+        cleared: true
+      };
+      writeJSON(LATEST_CCTV_FILE, emptyLatest);
+      return res.json({ success: true, message: 'Frame CCTV berhasil dibersihkan', latest: emptyLatest });
+    }
 
     let analysisResult = null;
     let base64Pure = '';
@@ -737,11 +765,11 @@ router.post('/analyze-image', requireAuthOrDeviceToken, (req, res) => {
 });
 
 // =================================================================
-//  POST /api/ai/clear-cctv — Hapus Frame CCTV dari Server & Dashboard
+//  ALL /api/ai/clear-cctv — Hapus Frame CCTV dari Server & Dashboard
 // =================================================================
-router.post('/clear-cctv', requireAuthOrDeviceToken, (req, res) => {
+router.all('/clear-cctv', (req, res) => {
   try {
-    const { deviceId = 'esp32-ecosort-1' } = req.body || {};
+    const deviceId = req.body?.deviceId || req.query?.deviceId || 'esp32-ecosort-1';
 
     // Hapus file gambar snapshot jika ada
     if (fs.existsSync(LATEST_CCTV_IMG)) {

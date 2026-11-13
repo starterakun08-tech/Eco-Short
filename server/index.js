@@ -55,6 +55,11 @@ app.use('/api/iot', iotRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
 
+// ---- API 404 Handler: pastikan setiap request /api/* yang tidak ditemukan SELALU mengembalikan JSON, bukan HTML ----
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `Endpoint API ${req.method} ${req.originalUrl} tidak ditemukan` });
+});
+
 // ---- Fallback: serve dashboard SPA for all known frontend routes ----
 app.get([
   '/',
