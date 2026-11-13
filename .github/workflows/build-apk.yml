@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: EcoSort-CCTV-Release-APK
-          path: cctv_app/build/app/outputs/flutter-apk/app-release.apk
+          path: '**/app-release.apk'
           if-no-files-found: error
 
       - name: Publish Release APK
@@ -63,4 +63,4 @@ jobs:
             **Cara Pasang di HP Android:**
             1. Unduh file **`app-release.apk`** di bawah ini.
             2. Buka file APK di HP Android dan izinkan instalasi dari sumber ini.
-          files: cctv_app/build/app/outputs/flutter-apk/app-release.apk
+          files: '**/app-release.apk'
