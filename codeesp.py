@@ -3,13 +3,11 @@
      ECOSORT SMART TRASH CAN - FIRMWARE ESP32 TERKALIBRASI DENGAN WEBSITE
 ================================================================================
 Tersinkronisasi Penuh dengan Web Dashboard EcoSort IoT:
-  1. Telemetri Real-time: Berat (g), Total Terkumpul (g), Volume/Jarak (cm), Kapasitas (%)
-  2. Pencatatan Otomatis: Saat sampah dibuang dan tutup menutup, otomatis mencatat
-     transaksi laporan baru (LP-xxxx) di web.
-  3. Kontrol Jarak Jauh: Menerima perintah Tare, Ganti Faktor Kalibrasi, Ganti Interval,
-     Buka/Tutup Servo, dan Restart langsung dari tombol kontrol Website.
-  4. Ringan & Bebas 'Device Busy': Manajemen memori otomatis (gc.collect), non-blocking,
-     dan bebas dari beban berlebih yang mengunci Thonny IDE.
+  1. Telemetri Real-time: Berat Tetap (g), Kapasitas Kolaborasi (%), Volume/Jarak (cm)
+  2. Non-Blocking Network: Jika WiFi/Server terputus, Servo & Sensor Tangan TETAP BERJALAN
+     lancar tanpa jeda/freeze (anti-lag).
+  3. Kolaborasi Sensor Cerdas (Sensor Fusion): Menggabungkan Ultrasonik & Load Cell.
+  4. Penguncian Bobot: Nilai berat sampah terkunci stabil saat masuk (tidak naik-turun).
 ================================================================================
 """
 
@@ -25,13 +23,9 @@ import gc
 WIFI_SSID       = "S26 ULTRA"
 WIFI_PASSWORD   = "Bangkoks"
 
-# PILIHAN ALAMAT SERVER:
-# A. Jika dashboard berjalan di laptop Anda (dalam WiFi/Hotspot yang sama):
-# Catatan: IP laptop saat ini terhubung ke WiFi adalah 192.168.110.254
-SERVER_HOST     = "http://192.168.110.254:40122"
-
-# B. Jika dashboard berjalan di server VPS publik (uncomment jika pakai VPS):
-# SERVER_HOST   = "http://144.79.202.196:40122"
+# ALAMAT SERVER LAPTOP:
+# Saat ini laptop terhubung ke jaringan "LAB RPL" dengan IP: 192.168.109.206
+SERVER_HOST     = "http://192.168.109.206:40122"
 
 SERVER_URL      = f"{SERVER_HOST}/api/iot/data"
 COMMAND_URL     = f"{SERVER_HOST}/api/iot/commands"
@@ -42,24 +36,27 @@ DEVICE_ID       = "esp32-ecosort-1"
 SERVO_PIN            = 18
 SUDUT_TUTUP          = 0
 SUDUT_BUKA           = 180
-DURASI_BUKA_DETIK    = 5.0
-JARAK_DETEKSI_TANGAN = 20.0  # Tangan <= 20 cm -> Buka tutup otomatis
+DURASI_BUKA_DETIK    = 4.5
+JARAK_DETEKSI_TANGAN = 35.0  # Tangan <= 35 cm -> Buka tutup otomatis (lebih peka dan responsif)
 
-# Sensor Ultrasonik 1 (Deteksi Tangan Pengguna di Depan)
-TRIG_TANGAN_PIN = 19
-ECHO_TANGAN_PIN = 21
+# PIN SENSOR ULTRASONIK:
+# Opsi tukar pin: Ubah ke True jika kabel sensor tangan & sensor dalam tong tertukar di breadboard
+TUKAR_PIN_SENSOR = False
 
-# Sensor Ultrasonik 2 (Volume Sampah Dalam Tong)
-TRIG_VOL_PIN        = 23
-ECHO_VOL_PIN        = 14
+TRIG_TANGAN_PIN = 19 if not TUKAR_PIN_SENSOR else 23
+ECHO_TANGAN_PIN = 21 if not TUKAR_PIN_SENSOR else 14
+
+TRIG_VOL_PIN    = 23 if not TUKAR_PIN_SENSOR else 19
+ECHO_VOL_PIN    = 14 if not TUKAR_PIN_SENSOR else 21
+
 AMBANG_PENUH_CM     = 10.0  # Jarak sensor ke sampah <= 10 cm = Tong PENUH
-JARAK_DASAR_DEFAULT = 35.0  # Jarak dari sensor ke dasar tong kosong
+JARAK_DASAR_DEFAULT = 35.0  # Jarak dari sensor ke dasar tong kosong (cm)
 
 # Load Cell HX711 (Timbangan Sampah)
 HX_DT_PIN        = 4
 HX_SCK_PIN       = 5
 FAKTOR_KALIBRASI = 423.5   # Sesuaikan dengan nilai kalibrasi Anda
-KAPASITAS_MAKSIMAL_BERAT_GRAM = 1000.0  # 1000 g (1 kg) batas kapasitas beban referensi tong sampah pintar
+KAPASITAS_MAKSIMAL_BERAT_GRAM = 1000.0  # 1000 g (1 kg) batas kapasitas beban referensi tong pintar
 
 # Interval Waktu Operasional (Detik)
 INTERVAL_KIRIM_DATA = 2.0   # Kirim status ke web tiap 2 detik
@@ -88,7 +85,7 @@ class MiniHX711:
     def read(self):
         t0 = time.ticks_ms()
         while not self.is_ready():
-            if time.ticks_diff(time.ticks_ms(), t0) > 120:
+            if time.ticks_diff(time.ticks_ms(), t0) > 100:
                 return None
             time.sleep_ms(1)
         raw = 0
@@ -114,7 +111,7 @@ class MiniHX711:
         if r is None:
             return None
         gram = (r - self.offset) / faktor
-        # Toleransi noise: jika nilai di bawah 1.0g dianggap 0.0g
+        # Toleransi noise nol
         return 0.0 if abs(gram) < 1.0 else max(0.0, gram)
 
     def get_stable_gram(self, faktor, samples=6):
@@ -124,11 +121,10 @@ class MiniHX711:
             g = self.get_gram(faktor)
             if g is not None:
                 readings.append(g)
-            time.sleep_ms(10)
+            time.sleep_ms(8)
         if not readings:
             return 0.0
         readings.sort()
-        # Buang nilai ekstrem (terendah dan tertinggi)
         if len(readings) >= 4:
             readings = readings[1:-1]
         avg = sum(readings) / len(readings)
@@ -151,10 +147,10 @@ def release_servo():
     servo_pwm.duty_u16(0)
 
 def move_servo_smooth(target_deg, current_deg):
-    step = 6 if target_deg > current_deg else -6
+    step = 7 if target_deg > current_deg else -7
     for deg in range(current_deg, target_deg, step):
         set_servo(deg)
-        time.sleep_ms(7)
+        time.sleep_ms(6)
     set_servo(target_deg)
 
 def read_sonar(trig, echo):
@@ -164,10 +160,10 @@ def read_sonar(trig, echo):
     time.sleep_us(10)
     trig.value(0)
     try:
-        dur = time_pulse_us(echo, 1, 28000)
+        dur = time_pulse_us(echo, 1, 25000)
         if dur > 0:
             cm = (dur / 2.0) / 29.1
-            if 2.0 <= cm <= 350.0:
+            if 3.0 <= cm <= 350.0:
                 return round(cm, 1)
     except Exception:
         pass
@@ -187,39 +183,49 @@ def connect_wifi():
         return False
 
     t_start = time.time()
-    while (time.time() - t_start) < 7:
+    while (time.time() - t_start) < 5:
         if wifi.isconnected():
             print(f"[WIFI OK] Terhubung! IP ESP32: {wifi.ifconfig()[0]}")
             print(f"[SERVER] Mengarah ke: {SERVER_URL}\n")
             return True
-        time.sleep_ms(300)
-    print("[WIFI] Belum terhubung, mencoba ulang di background...")
+        time.sleep_ms(250)
+    print("[WIFI] Belum terhubung, mencoba di background...")
     return False
 
-def hitung_kapasitas_kolaborasi(tinggi_sampah, dasar_tong, berat_tetap):
+def hitung_kapasitas_kolaborasi(tinggi_sampah, dasar_tong, berat_tetap, jarak_vol):
     """
     KOLABORASI SENSOR (Sensor Fusion):
     Menggabungkan pembacaan tinggi dari Ultrasonik dan beban dari Load Cell.
-    Kapasitas mencerminkan kondisi riil: baik sampah yang menggunung ringan
-    ataupun sampah padat yang berbobot.
+    Jika sensor ultrasonik tong terlepas/blind-spot (<3.5 cm), gunakan kapasitas berat
+    agar tidak salah membaca 100% PENUH palsu!
     """
-    # 1. Persentase dari Ultrasonik (Tinggi / Volume)
+    persen_berat = min(100, max(0, int((berat_tetap / KAPASITAS_MAKSIMAL_BERAT_GRAM) * 100)))
+
+    # Validasi ultrasonik: jika jarak_vol None atau < 3.5cm (blind zone), pakai persen berat
+    if jarak_vol is None or jarak_vol < 3.5:
+        return persen_berat
+
     persen_vol = 0
     rentang_tinggi = max(5.0, dasar_tong - AMBANG_PENUH_CM)
     if tinggi_sampah > 0 and rentang_tinggi > 0:
         persen_vol = min(100, max(0, int((tinggi_sampah / rentang_tinggi) * 100)))
 
-    # 2. Persentase dari Load Cell (Berat)
-    persen_berat = min(100, max(0, int((berat_tetap / KAPASITAS_MAKSIMAL_BERAT_GRAM) * 100)))
-
-    # 3. Kolaborasi: Saling melengkapi
+    # Gabungkan kedua sensor secara cerdas
     if berat_tetap > 0 or persen_vol > 0:
         return min(100, max(persen_vol, persen_berat))
     return 0
 
+last_http_fail_time = 0
+
 def kirim_data_ke_web(berat, tinggi_sampah, jarak_vol, total_berat, dasar_tong, persen_kapasitas=0, reset_weight=False):
+    global last_http_fail_time
     if not wifi.isconnected():
         return
+    now_s = time.time()
+    # Jika koneksi HTTP gagal (timeout), tunda percobaan 6 detik agar servo tidak macet!
+    if (now_s - last_http_fail_time) < 6 and not reset_weight:
+        return
+
     payload = {
         "deviceId": DEVICE_ID,
         "weightGram": round(berat, 1),
@@ -236,23 +242,29 @@ def kirim_data_ke_web(berat, tinggi_sampah, jarak_vol, total_berat, dasar_tong, 
         "X-Device-Token": DEVICE_TOKEN
     }
     try:
-        res = urequests.post(SERVER_URL, json=payload, headers=headers, timeout=2.8)
+        # Timeout cepat 1.0 detik agar tidak menghambat respon servo & deteksi tangan
+        res = urequests.post(SERVER_URL, json=payload, headers=headers, timeout=1.0)
         if res.status_code == 200:
             flag_tx = " [TRANSAKSI LAPORAN DICATAT]" if reset_weight else ""
-            print(f"   >>> [HTTP 200 OK] Terkirim ke Web! Berat Tetap: {berat:.1f}g | Kapasitas Kolaborasi: {persen_kapasitas}%{flag_tx}")
+            print(f"   >>> [HTTP 200 OK] Terkirim ke Web! Berat: {berat:.1f}g | Kapasitas: {persen_kapasitas}%{flag_tx}")
+            last_http_fail_time = 0
         else:
             print(f"   >>> [HTTP {res.status_code}] Respon Server: {res.text}")
         res.close()
     except Exception as e:
-        print(f"   >>> [HTTP Kirim Gagal] {e}")
+        last_http_fail_time = now_s
+        print(f"   >>> [HTTP Kirim Gagal] {e} (Tunda HTTP 6s agar servo tetap lancar)")
 
 def cek_perintah_dashboard():
-    global FAKTOR_KALIBRASI, total_berat_akumulasi, INTERVAL_KIRIM_DATA, berat_sampah_tetap
+    global FAKTOR_KALIBRASI, total_berat_akumulasi, INTERVAL_KIRIM_DATA, berat_sampah_tetap, last_http_fail_time
     if not wifi.isconnected():
+        return
+    now_s = time.time()
+    if (now_s - last_http_fail_time) < 6:
         return
     try:
         url = f"{COMMAND_URL}?deviceId={DEVICE_ID}"
-        res = urequests.get(url, headers={"X-Device-Token": DEVICE_TOKEN}, timeout=2.5)
+        res = urequests.get(url, headers={"X-Device-Token": DEVICE_TOKEN}, timeout=1.0)
         if res.status_code == 200:
             data = res.json()
             commands = data.get("commands", [])
@@ -295,8 +307,8 @@ def cek_perintah_dashboard():
                     time.sleep_ms(500)
                     reset()
         res.close()
-    except Exception as e:
-        pass
+    except Exception:
+        last_http_fail_time = now_s
 
 # ==============================================================================
 # 4. SETUP AWAL
@@ -339,13 +351,13 @@ while True:
         now_ms = time.ticks_ms()
         now_sec = time.time()
 
-        # 1. Deteksi Tangan Pengguna
+        # 1. Deteksi Tangan Pengguna di Depan Sensor
         jarak_tangan = read_sonar(trig_tangan, echo_tangan)
 
         if jarak_tangan is not None and jarak_tangan <= JARAK_DETEKSI_TANGAN:
             t_terakhir_tangan = now_ms
             if not is_buka:
-                print(f"\n>>> [TANGAN {jarak_tangan:.1f} cm] Buka Tutup 180°...")
+                print(f"\n>>> [TANGAN TERDETEKSI {jarak_tangan:.1f} cm] Membuka Tutup Servo 180°...")
                 move_servo_smooth(SUDUT_BUKA, sudut_sekarang)
                 sudut_sekarang = SUDUT_BUKA
                 is_buka = True
@@ -359,9 +371,9 @@ while True:
                 release_servo()
                 is_buka = False
 
-                # Tunggu getaran mekanis servo benar-benar reda sebelum mengukur
-                time.sleep_ms(800)
-                berat_stabil = hx.get_stable_gram(FAKTOR_KALIBRASI, 8)
+                # Tunggu getaran mekanis servo reda sebelum mengukur berat
+                time.sleep_ms(600)
+                berat_stabil = hx.get_stable_gram(FAKTOR_KALIBRASI, 6)
                 
                 # Jika ada sampah baru yang masuk
                 if berat_stabil > (berat_sampah_tetap + 1.0):
@@ -373,7 +385,7 @@ while True:
                     # Baca ultrasonik dan kolaborasikan kapasitas
                     d_vol = read_sonar(trig_vol, echo_vol)
                     tinggi = max(0.0, round(jarak_dasar_tong - d_vol, 1)) if d_vol else 0.0
-                    persen_kolab = hitung_kapasitas_kolaborasi(tinggi, jarak_dasar_tong, berat_sampah_tetap)
+                    persen_kolab = hitung_kapasitas_kolaborasi(tinggi, jarak_dasar_tong, berat_sampah_tetap, d_vol)
                     
                     # Langsung kirim trigger pencatatan ke tabel Laporan Web
                     kirim_data_ke_web(berat_sampah_tetap, tinggi, d_vol, total_berat_akumulasi, jarak_dasar_tong, persen_kapasitas=persen_kolab, reset_weight=True)
@@ -381,32 +393,34 @@ while True:
         # 2. Cek Sampah Masuk Tanpa Sensor Tangan (Manual Drop) Saat Tong Tertutup
         if not is_buka and (now_sec - last_manual_check) >= 4:
             last_manual_check = now_sec
-            bacaan_cek = hx.get_stable_gram(FAKTOR_KALIBRASI, 4)
-            if bacaan_cek > (berat_sampah_tetap + 3.0):
+            bacaan_cek = hx.get_stable_gram(FAKTOR_KALIBRASI, 3)
+            if bacaan_cek > (berat_sampah_tetap + 2.5):
                 sampah_masuk = bacaan_cek - berat_sampah_tetap
                 berat_sampah_tetap = bacaan_cek
                 total_berat_akumulasi = berat_sampah_tetap
                 print(f"*** [SAMPAH MANUAL] +{sampah_masuk:.1f} g | Berat Tetap Tong: {berat_sampah_tetap:.1f} g ***")
                 d_vol = read_sonar(trig_vol, echo_vol)
                 tinggi = max(0.0, round(jarak_dasar_tong - d_vol, 1)) if d_vol else 0.0
-                persen_kolab = hitung_kapasitas_kolaborasi(tinggi, jarak_dasar_tong, berat_sampah_tetap)
+                persen_kolab = hitung_kapasitas_kolaborasi(tinggi, jarak_dasar_tong, berat_sampah_tetap, d_vol)
                 kirim_data_ke_web(berat_sampah_tetap, tinggi, d_vol, total_berat_akumulasi, jarak_dasar_tong, persen_kapasitas=persen_kolab, reset_weight=True)
 
-        # 3. Pembacaan Ultrasonik & Kolaborasi Kapasitas
+        # 3. Pembacaan Sensor Ultrasonik Volume Tong & Kolaborasi Kapasitas
         jarak_vol_live = read_sonar(trig_vol, echo_vol) if not is_buka else None
         tinggi_sampah = 0.0
-        if jarak_vol_live is not None:
+        if jarak_vol_live is not None and jarak_vol_live >= 3.5:
             tinggi_sampah = max(0.0, round(jarak_dasar_tong - jarak_vol_live, 1))
 
-        persen_kolaborasi = hitung_kapasitas_kolaborasi(tinggi_sampah, jarak_dasar_tong, berat_sampah_tetap)
+        persen_kolaborasi = hitung_kapasitas_kolaborasi(tinggi_sampah, jarak_dasar_tong, berat_sampah_tetap, jarak_vol_live)
         status_tong = "🔴 PENUH" if persen_kolaborasi >= 80 else ("🟡 TERISI" if persen_kolaborasi > 0 else "🟢 KOSONG")
 
         # 4. Kirim Status Telemetri ke Web Dashboard secara Berkala
-        # Nilai berat yang dikirim adalah `berat_sampah_tetap` sehingga TIDAK PERNAH NAIK-TURUN!
         if (now_sec - last_send_time) >= INTERVAL_KIRIM_DATA:
             tutup_str = "BUKA 180°" if is_buka else "TUTUP 0° "
-            tangan_str = f"{jarak_tangan:4.1f} cm" if jarak_tangan else " STANDBY"
-            print(f"Tangan: {tangan_str} | Kapasitas Kolaborasi: {persen_kolaborasi}% [{status_tong}] | Berat Tetap: {berat_sampah_tetap:5.1f}g | Tutup: {tutup_str}")
+            tangan_str = f"{jarak_tangan:4.1f} cm" if jarak_tangan is not None else " -- cm"
+            vol_str = f"{jarak_vol_live:4.1f} cm" if jarak_vol_live is not None else " -- cm"
+            
+            # Print informatif lengkap: menampilkan kedua sensor cm secara transparan
+            print(f"Sensor Tangan: {tangan_str} | Volume Tong: {vol_str} | Kapasitas: {persen_kolaborasi:2d}% [{status_tong}] | Berat Tetap: {berat_sampah_tetap:5.1f}g | Tutup: {tutup_str}")
 
             kirim_data_ke_web(berat_sampah_tetap, tinggi_sampah, jarak_vol_live, total_berat_akumulasi, jarak_dasar_tong, persen_kapasitas=persen_kolaborasi)
             last_send_time = now_sec
@@ -425,7 +439,7 @@ while True:
             except Exception:
                 pass
 
-        time.sleep_ms(80)
+        time.sleep_ms(60)
 
     except KeyboardInterrupt:
         print("\n[STOP] Program dihentikan pengguna.")
@@ -433,4 +447,4 @@ while True:
         break
     except Exception as e:
         print("Error Siklus:", e)
-        time.sleep_ms(500)
+        time.sleep_ms(300)
