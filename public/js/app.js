@@ -1321,7 +1321,10 @@ async function toggleWebcam() {
     stopWebcam();
     if (btnText) btnText.textContent = 'Kamera Langsung';
     if (video) video.style.display = 'none';
-    if (placeholder && (!imgPreview || imgPreview.style.display === 'none')) {
+    if (imgPreview && imgPreview.getAttribute('src')) {
+      imgPreview.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+    } else if (placeholder) {
       placeholder.style.display = 'flex';
     }
     return;
@@ -1558,11 +1561,19 @@ async function loadLatestCctv() {
         if (data.hasImage) {
           const imgPreview = document.getElementById('cctvImagePreview');
           const placeholder = document.getElementById('cctvPlaceholderScreen');
-          if (imgPreview) {
-            imgPreview.src = `/api/ai/latest-cctv-image?t=${encodeURIComponent(latest.timestamp)}`;
-            imgPreview.style.display = 'block';
+          const video = document.getElementById('cctvWebcamVideo');
+
+          // Cegah tampilan dobel/split: jika webcam sedang aktif, jangan tampilkan imgPreview
+          if (activeWebcamStream) {
+            if (imgPreview) imgPreview.style.display = 'none';
+          } else {
+            if (video) video.style.display = 'none';
+            if (imgPreview) {
+              imgPreview.src = `/api/ai/latest-cctv-image?t=${encodeURIComponent(latest.timestamp)}`;
+              imgPreview.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
           }
-          if (placeholder) placeholder.style.display = 'none';
         }
       }
     }
