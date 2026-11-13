@@ -39,7 +39,7 @@ jobs:
         working-directory: cctv_app
         run: |
           set -o pipefail
-          flutter build apk --release --no-tree-shake-icons 2>&1 | tee ../build.log || {
+          flutter build apk --release --no-tree-shake-icons --android-skip-build-dependency-validation 2>&1 | tee ../build.log || {
             ERR=$(tail -n 25 ../build.log | tr '\n' ' ' | sed 's/"//g')
             echo "::error title=GRADLE_ERROR::$ERR"
             exit 1
