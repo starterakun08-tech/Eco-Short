@@ -31,32 +31,17 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Prepare Android Scaffold & Dependencies
+      - name: Install dependencies
         working-directory: cctv_app
-        run: |
-          # 1. Simpan AndroidManifest.xml (yang berisi permission Kamera & Jaringan)
-          cp android/app/src/main/AndroidManifest.xml /tmp/AndroidManifest.xml || true
-
-          # 2. Re-create android platform agar Gradle & Kotlin 100% kompatibel dengan Flutter
-          rm -rf android
-          flutter create . --platforms=android --org com.ecosort
-
-          # 3. Pulihkan AndroidManifest.xml dengan izin kamera & cleartext traffic
-          cp /tmp/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-
-          # 4. Set minSdk ke 21 (diwajibkan oleh plugin camera Flutter)
-          find android/app -name "build.gradle*" -exec sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' {} +
-          find android/app -name "build.gradle*" -exec sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' {} +
-
-          # 5. Atur JVM args aman untuk GitHub Actions runner (3GB RAM)
-          echo "org.gradle.jvmargs=-Xmx3G -XX:MaxMetaspaceSize=1G" >> android/gradle.properties
-
-          # 6. Unduh dependensi
-          flutter pub get
+        run: flutter pub get
 
       - name: Build Release APK
         working-directory: cctv_app
-        run: flutter build apk --release --no-tree-shake-icons
+        run: |
+          flutter build apk --release --no-tree-shake-icons 2>&1 | tee build_log.txt || {
+            echo "::error::$(tail -n 30 build_log.txt | tr '\n' ' ')"
+            exit 1
+          }
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
