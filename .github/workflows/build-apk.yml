@@ -7,13 +7,16 @@ on:
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -22,23 +25,19 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android platform scaffold
+      - name: Install dependencies
         working-directory: cctv_app
-        run: |
-          # Teman hanya commit AndroidManifest.xml, kita lengkapi gradle scaffold-nya
-          flutter create . --platforms=android --org com.ecosort
-          flutter pub get
+        run: flutter pub get
 
       - name: Build Release APK
         working-directory: cctv_app
-        run: |
-          flutter build apk --release --no-tree-shake-icons
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK to Artifacts
         uses: actions/upload-artifact@v4
@@ -46,3 +45,18 @@ jobs:
           name: EcoSort-CCTV-Release-APK
           path: cctv_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+      - name: Publish Release APK
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest-apk
+          name: EcoSort CCTV App (Latest Release APK)
+          body: |
+            ## 📱 EcoSort CCTV - Smart Camera App
+            Aplikasi CCTV Cerdas Pemantau Sampah Sekitar Tong Sampah EcoSort IoT.
+            
+            **Cara Pasang di HP Android:**
+            1. Unduh file **`app-release.apk`** di bawah ini.
+            2. Buka file APK di HP Android dan pilih Pasang/Install.
+          files: cctv_app/build/app/outputs/flutter-apk/app-release.apk
