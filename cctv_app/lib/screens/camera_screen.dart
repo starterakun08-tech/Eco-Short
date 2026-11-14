@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../models/cctv_result.dart';
@@ -21,10 +22,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   int _selectedCameraIdx = 0;
   bool _isAnalyzing = false;
   bool _isCameraPowerOn = true;
-  bool _isLiveStreaming = false;
-  Timer? _liveStreamTimer;
-  bool _autoCaptureEnabled = false;
+  bool _autoCaptureEnabled = true; // Auto Snapshot AKTIF secara default untuk CCTV
   int _autoIntervalSeconds = 10;
+  int _countdownSeconds = 10;
   Timer? _autoTimer;
   CctvAnalysisResult? _latestResult;
   bool _isTorchOn = false;
@@ -46,6 +46,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     if (!mounted) return;
     setState(() {
       _autoIntervalSeconds = interval;
+      _countdownSeconds = interval;
       _serverUrl = url;
       _isServerConnected = ok;
     });
@@ -67,6 +68,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           ),
         );
       });
+    }
+
+    // Jika auto capture aktif, sinkronkan timer dengan interval terbaru
+    if (_autoCaptureEnabled && _isCameraPowerOn && _controller != null && _controller!.value.isInitialized) {
+      _startAutoCapture();
     }
   }
 
@@ -268,6 +274,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         _selectedCameraIdx = cameraIdx;
         _isTorchOn = false;
       });
+      // Mulai auto-capture secara otomatis begitu kamera siap
+      if (_autoCaptureEnabled && _isCameraPowerOn) {
+        _startAutoCapture();
+      }
     } catch (e) {
       debugPrint('Error init camera: $e');
     }
@@ -276,7 +286,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_controller == null || !_controller!.value.isInitialized) return;
-    if (state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      _stopAutoCapture();
       _controller?.dispose();
     } else if (state == AppLifecycleState.resumed) {
       _initCamera(_selectedCameraIdx);
@@ -286,8 +297,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _liveStreamTimer?.cancel();
-    _autoTimer?.cancel();
+    _stopAutoCapture();
     _controller?.dispose();
     super.dispose();
   }
@@ -298,14 +308,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     });
 
     if (!_isCameraPowerOn) {
-      // Matikan streaming video & auto capture
-      _liveStreamTimer?.cancel();
-      _liveStreamTimer = null;
-      _autoTimer?.cancel();
-      _isLiveStreaming = false;
-      _autoCaptureEnabled = false;
+      // Matikan auto capture & controller hardware kamera
+      _stopAutoCapture();
 
-      // Matikan controller hardware kamera
       if (_controller != null) {
         await _controller!.dispose();
         _controller = null;
@@ -332,48 +337,6 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
-  void _toggleLiveStream(bool value) {
-    if (!_isCameraPowerOn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nyalakan kamera (ON) terlebih dahulu untuk mengaktifkan Video CCTV.'),
-          backgroundColor: Color(0xFFD97706),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLiveStreaming = value;
-    });
-
-    _liveStreamTimer?.cancel();
-    if (_isLiveStreaming) {
-      // Ambil frame pertama
-      _captureAndAnalyze();
-      // Streaming loop real-time setiap 1.5 detik
-      _liveStreamTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
-        if (!_isAnalyzing && _isCameraPowerOn && _controller != null && _controller!.value.isInitialized) {
-          _captureAndAnalyze();
-        }
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('🔴 Video CCTV Real-Time Aktif: Mengirim live stream ke Web Dashboard!'),
-          backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Live Video CCTV dinonaktifkan'),
-          duration: Duration(seconds: 1),
-        ),
-      );
-    }
-  }
-
   void _toggleTorch() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
     try {
@@ -393,37 +356,77 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _initCamera(nextIdx);
   }
 
-  void _toggleAutoCapture(bool value) {
-    setState(() {
-      _autoCaptureEnabled = value;
+  void _startAutoCapture() {
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    _autoCaptureEnabled = true;
+    _countdownSeconds = _autoIntervalSeconds;
+    if (mounted) setState(() {});
+
+    // Ambil foto perdana setelah kamera stabil
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted && _autoCaptureEnabled && !_isAnalyzing && _isCameraPowerOn) {
+        _captureAndAnalyze();
+      }
     });
 
+    // Timer per detik untuk countdown dan penembakan snapshot otomatis
+    _autoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || !_autoCaptureEnabled || !_isCameraPowerOn) {
+        timer.cancel();
+        return;
+      }
+
+      if (_controller == null || !_controller!.value.isInitialized) return;
+
+      if (_countdownSeconds > 1) {
+        setState(() {
+          _countdownSeconds--;
+        });
+      } else {
+        setState(() {
+          _countdownSeconds = _autoIntervalSeconds;
+        });
+        if (!_isAnalyzing) {
+          _captureAndAnalyze();
+        }
+      }
+    });
+  }
+
+  void _stopAutoCapture() {
     _autoTimer?.cancel();
-    if (_autoCaptureEnabled) {
-      _captureAndAnalyze();
-      _autoTimer = Timer.periodic(
-        Duration(seconds: _autoIntervalSeconds),
-        (_) => _captureAndAnalyze(),
-      );
+    _autoTimer = null;
+    if (mounted) {
+      setState(() {
+        _autoCaptureEnabled = false;
+      });
+    }
+  }
+
+  void _toggleAutoCapture(bool value) {
+    if (value) {
+      _startAutoCapture();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Auto-Capture aktif: Mengambil foto setiap $_autoIntervalSeconds detik'),
-          backgroundColor: Colors.green.shade700,
+          content: Text('🟢 Snapshot Otomatis Aktif: Mengambil foto setiap $_autoIntervalSeconds detik'),
+          backgroundColor: const Color(0xFF16A34A),
           duration: const Duration(seconds: 2),
         ),
       );
     } else {
+      _stopAutoCapture();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Auto-Capture dinonaktifkan'),
-          duration: Duration(seconds: 1),
+          content: Text('⚪ Snapshot Otomatis Dijeda (Mode Manual)'),
+          duration: Duration(seconds: 2),
         ),
       );
     }
   }
 
   Future<void> _captureAndAnalyze() async {
-    if (_controller == null || !_controller!.value.isInitialized || _isAnalyzing) {
+    if (_controller == null || !_controller!.value.isInitialized || _isAnalyzing || !_isCameraPowerOn) {
       return;
     }
 
@@ -434,6 +437,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     try {
       final xfile = await _controller!.takePicture();
       final bytes = await xfile.readAsBytes();
+      try {
+        final f = File(xfile.path);
+        if (f.existsSync()) f.deleteSync();
+      } catch (_) {}
+
       final base64Image = base64Encode(bytes);
 
       final result = await ApiService.sendCctvFrame(base64Image);
@@ -674,14 +682,18 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
-                    // Badge Kiri: Live CCTV + Video/Auto status
+                    // Badge Kiri: Live CCTV + Auto Snapshot Countdown
                     Flexible(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.72),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white12),
+                          border: Border.all(
+                            color: _isServerConnected == true
+                                ? const Color(0xFF16A34A)
+                                : (_isServerConnected == false ? Colors.redAccent : Colors.white12),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -690,15 +702,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                               width: 8,
                               height: 8,
                               decoration: BoxDecoration(
-                                color: _isLiveStreaming ? Colors.redAccent : Colors.greenAccent,
+                                color: _autoCaptureEnabled ? Colors.greenAccent : Colors.orangeAccent,
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Flexible(
+                            const Flexible(
                               child: Text(
-                                _isLiveStreaming ? 'LIVE VIDEO CCTV' : 'ECO-SORT CCTV',
-                                style: const TextStyle(
+                                'ECO-SORT CCTV',
+                                style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -708,14 +720,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (_autoCaptureEnabled && !_isLiveStreaming) ...[
+                            if (_autoCaptureEnabled) ...[
                               const SizedBox(width: 5),
-                              Text(
-                                '• AUTO ${_autoIntervalSeconds}s',
-                                style: const TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade900.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'AUTO ${_countdownSeconds}s',
+                                  style: const TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
@@ -847,7 +866,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Baris 1: Kontrol Sekunder (Power ON/OFF, Live Video CCTV, Senter, Putar Kamera)
+                      // Baris 1: Kontrol Sekunder (Power ON/OFF, Auto Snapshot, Senter, Putar Kamera)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -880,34 +899,36 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                             ),
                           ),
 
-                          // Tombol Video CCTV Real-Time (Live Streaming)
+                          // Tombol Snapshot Otomatis (Auto Capture ON / OFF)
                           InkWell(
-                            onTap: () => _toggleLiveStream(!_isLiveStreaming),
+                            onTap: () => _toggleAutoCapture(!_autoCaptureEnabled),
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: _isLiveStreaming
-                                    ? Colors.red.withOpacity(0.3)
+                                color: _autoCaptureEnabled
+                                    ? const Color(0xFF16A34A).withOpacity(0.25)
                                     : Colors.white10,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: _isLiveStreaming ? Colors.redAccent : Colors.transparent,
+                                  color: _autoCaptureEnabled
+                                      ? const Color(0xFF22C55E)
+                                      : Colors.white24,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    _isLiveStreaming ? Icons.videocam : Icons.videocam_outlined,
-                                    color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
+                                    _autoCaptureEnabled ? Icons.timer : Icons.timer_off_outlined,
+                                    color: _autoCaptureEnabled ? Colors.greenAccent : Colors.white70,
                                     size: 16,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    _isLiveStreaming ? 'Video Live' : 'Video Off',
+                                    _autoCaptureEnabled ? 'Auto ${_countdownSeconds}s' : 'Auto Off',
                                     style: TextStyle(
-                                      color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
+                                      color: _autoCaptureEnabled ? Colors.greenAccent : Colors.white70,
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -972,26 +993,70 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         ],
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
-                      // Baris 2: Tombol Shutter / Identifikasi Pelanggar AI
+                      // Status Bar Countdown Snapshot Otomatis
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _autoCaptureEnabled
+                              ? const Color(0xFF16A34A).withOpacity(0.18)
+                              : Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _autoCaptureEnabled
+                                ? const Color(0xFF22C55E).withOpacity(0.4)
+                                : Colors.white12,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _autoCaptureEnabled
+                                    ? const Color(0xFF22C55E)
+                                    : Colors.white38,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _autoCaptureEnabled
+                                  ? (_isAnalyzing
+                                      ? '⚡ Mengirim & Menganalisis Frame CCTV...'
+                                      : 'Snapshot otomatis berikutnya dalam $_countdownSeconds detik')
+                                  : 'Mode Manual (Tekan tombol bulat di bawah untuk snapshot)',
+                              style: TextStyle(
+                                color: _autoCaptureEnabled ? Colors.greenAccent : Colors.white60,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Baris 2: Tombol Shutter Manual
                       GestureDetector(
-                        onTap: _isAnalyzing
-                            ? null
-                            : (_isLiveStreaming ? () => _toggleLiveStream(false) : _captureAndAnalyze),
+                        onTap: _isAnalyzing ? null : _captureAndAnalyze,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Container(
-                              width: 64,
-                              height: 64,
+                              width: 62,
+                              height: 62,
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 3),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (_isLiveStreaming ? Colors.redAccent : const Color(0xFF16A34A)).withOpacity(0.4),
+                                    color: const Color(0xFF16A34A).withOpacity(0.4),
                                     blurRadius: 10,
                                     spreadRadius: 2,
                                   ),
@@ -1000,35 +1065,33 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                               child: Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: _isLiveStreaming
-                                      ? const Color(0xFFDC2626)
-                                      : (_isAnalyzing ? const Color(0xFF15803D) : const Color(0xFF16A34A)),
+                                  color: _isAnalyzing
+                                      ? const Color(0xFF15803D)
+                                      : const Color(0xFF16A34A),
                                 ),
                                 child: Center(
                                   child: _isAnalyzing
                                       ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
+                                          width: 22,
+                                          height: 22,
                                           child: CircularProgressIndicator(
                                             color: Colors.white,
                                             strokeWidth: 2.5,
                                           ),
                                         )
-                                      : Icon(
-                                          _isLiveStreaming ? Icons.stop_rounded : Icons.camera_alt,
+                                      : const Icon(
+                                          Icons.camera_alt,
                                           color: Colors.white,
-                                          size: 28,
+                                          size: 26,
                                         ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 5),
                             Text(
-                              _isLiveStreaming
-                                  ? '🔴 Video CCTV Streaming Real-Time (Ketuk Berhenti)'
-                                  : (_isAnalyzing ? 'Menganalisis dengan AI Gemini...' : 'Ambil Snapshot & Identifikasi Pelanggar AI'),
-                              style: TextStyle(
-                                color: _isLiveStreaming ? Colors.redAccent : Colors.white70,
+                              _isAnalyzing ? 'Menganalisis dengan Gemini AI...' : 'Jepret Manual Sekarang',
+                              style: const TextStyle(
+                                color: Colors.white70,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
