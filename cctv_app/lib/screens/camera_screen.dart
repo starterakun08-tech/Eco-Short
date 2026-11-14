@@ -113,7 +113,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   decoration: InputDecoration(
                     labelText: 'URL Server Dashboard',
                     labelStyle: const TextStyle(color: Colors.greenAccent, fontSize: 12),
-                    hintText: 'http://144.79.202.196:40122',
+                    hintText: 'https://nexahome.app.hostingin.net',
                     hintStyle: const TextStyle(color: Colors.white30, fontSize: 12),
                     prefixIcon: const Icon(Icons.link, color: Colors.greenAccent, size: 18),
                     filled: true,
@@ -132,11 +132,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   children: [
                     ActionChip(
                       backgroundColor: const Color(0xFF16A34A),
-                      avatar: const Icon(Icons.cloud_queue, size: 14, color: Colors.white),
-                      label: const Text('Cloud VPS (144.79.202.196:40122)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      avatar: const Icon(Icons.cloud_done, size: 14, color: Colors.white),
+                      label: const Text('Domain VPS (nexahome)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                       onPressed: () {
                         setDialogState(() {
                           ctrl.text = ApiService.vpsServerUrl;
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      backgroundColor: Colors.white12,
+                      avatar: const Icon(Icons.cloud_queue, size: 14, color: Colors.white70),
+                      label: const Text('IP VPS (144.79.202.196)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                      onPressed: () {
+                        setDialogState(() {
+                          ctrl.text = ApiService.ipServerUrl;
                         });
                       },
                     ),

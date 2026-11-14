@@ -109,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Alamat URL Server EcoSort',
                         labelStyle: TextStyle(color: Colors.white70, fontSize: 12),
-                        hintText: 'http://144.79.202.196:40122',
+                        hintText: 'https://nexahome.app.hostingin.net',
                         hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
                         prefixIcon: Icon(Icons.dns, color: Colors.greenAccent, size: 20),
                         isDense: true,
@@ -129,11 +129,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         ActionChip(
                           backgroundColor: const Color(0xFF16A34A),
-                          avatar: const Icon(Icons.cloud_queue, size: 14, color: Colors.white),
-                          label: const Text('Cloud VPS (144.79.202.196)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          avatar: const Icon(Icons.cloud_done, size: 14, color: Colors.white),
+                          label: const Text('Domain VPS (nexahome)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             setState(() {
                               _serverUrlCtrl.text = ApiService.vpsServerUrl;
+                            });
+                          },
+                        ),
+                        ActionChip(
+                          backgroundColor: Colors.white12,
+                          avatar: const Icon(Icons.cloud_queue, size: 14, color: Colors.white70),
+                          label: const Text('IP VPS (144.79.202.196)', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                          onPressed: () {
+                            setState(() {
+                              _serverUrlCtrl.text = ApiService.ipServerUrl;
                             });
                           },
                         ),

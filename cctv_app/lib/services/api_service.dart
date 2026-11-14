@@ -5,8 +5,9 @@ import '../models/cctv_result.dart';
 
 class ApiService {
   // Preset URL Server
-  static const String vpsServerUrl = 'http://144.79.202.196:40122';     // Server Cloud VPS Publik (Untuk Teman & Pengujian Luar)
-  static const String localServerUrl = 'http://192.168.109.46:40122';   // Server Lokal Laptop (Jaringan LAB RPL / Hotspot)
+  static const String vpsServerUrl = 'https://nexahome.app.hostingin.net';  // Server Cloud VPS NexaHome (HTTPS Otomatis)
+  static const String ipServerUrl = 'http://144.79.202.196:40122';         // Alternatif IP Langsung Port 40122
+  static const String localServerUrl = 'http://192.168.109.46:40122';      // Server Lokal Laptop (Jaringan LAB RPL / Hotspot)
   static const String _defaultDeviceId = 'esp32-ecosort-1';
   static const String _defaultDeviceToken = 'eco_token_12345';
 
